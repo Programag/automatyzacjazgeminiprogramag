@@ -354,6 +354,7 @@
               </div>
             </div>
             <p id="inboxStatusLine" class="mt-3 text-xs text-slate-500"></p>
+            <div id="inboxPause" class="hidden mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900"></div>
             <div id="inboxConnections" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4"></div>
 
             <details id="inboxPrefs" class="mt-5 rounded-xl border border-slate-200 bg-slate-50/60">
@@ -396,6 +397,7 @@
             </details>
           </section>
 
+          <div id="inboxOnboarding"></div>
           <div id="inboxList" class="space-y-4"></div>
         </div>
       </main>
@@ -503,6 +505,47 @@
           <button type="button" data-setup-tab="outlook" class="setup-tab rounded-t-lg px-4 py-2 text-sm font-medium">Outlook / Microsoft 365</button>
         </div>
         <div id="mailSetupBody" class="max-h-[70vh] overflow-y-auto scroll-thin px-6 py-5"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ============ MODAL: ZAPROŚ PRACOWNIKÓW ============ -->
+  <div id="inviteModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="inviteTitle">
+    <div data-close-invite class="absolute inset-0 bg-navy-950/60 backdrop-blur-sm"></div>
+    <div class="relative flex min-h-full items-center justify-center p-4">
+      <div class="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl fade-in">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+          <div>
+            <h2 id="inviteTitle" class="font-semibold text-navy-900">Zaproś pracowników</h2>
+            <p class="text-xs text-slate-500">Pracownik otwiera link, klika „Połącz” i loguje się do swojej poczty – bez żadnej konfiguracji</p>
+          </div>
+          <button type="button" data-close-invite class="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Zamknij">
+            <svg data-icon="x" class="h-5 w-5"></svg>
+          </button>
+        </div>
+        <div id="inviteBody" class="max-h-[75vh] overflow-y-auto scroll-thin px-6 py-5"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: ZASTOSUJ KONFIGURACJĘ FIRMY ============ -->
+  <div id="orgSetupModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="orgSetupTitle">
+    <div class="absolute inset-0 bg-navy-950/60 backdrop-blur-sm"></div>
+    <div class="relative flex min-h-full items-center justify-center p-4">
+      <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl fade-in">
+        <div class="px-6 pt-6 text-center">
+          <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+            <svg data-icon="sparkles" class="h-7 w-7"></svg>
+          </div>
+          <h2 id="orgSetupTitle" class="mt-4 text-lg font-semibold text-navy-900"></h2>
+          <p class="mt-1 text-sm text-slate-500">Ten link przygotował administrator Twojej firmy. Po kliknięciu „Zastosuj” wystarczy połączyć skrzynkę pocztową.</p>
+        </div>
+        <div id="orgSetupBody" class="px-6 py-5"></div>
+        <div class="flex flex-col-reverse sm:flex-row gap-2 justify-end border-t border-slate-100 px-6 py-4">
+          <button type="button" id="orgSetupReject" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Anuluj</button>
+          <button type="button" id="orgSetupAccept" class="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Zastosuj</button>
+        </div>
       </div>
     </div>
   </div>
@@ -831,7 +874,8 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       memoryKey: null,           // gdy localStorage jest niedostępny
       memoryModel: null,
       memoryThinking: null,
-      overloadedUntil: {},       // model -> znacznik czasu, do kiedy używać modelu zapasowego
+      overloadedUntil: {},
+      dailyExhausted: {},        // model -> do kiedy wyczerpany dzienny limit       // model -> znacznik czasu, do kiedy używać modelu zapasowego
       storageAvailable: true,
       results: {
         email:    { status: 'empty', markdown: '', meta: '', notice: '', error: null, startedAt: 0 },
@@ -997,12 +1041,29 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
         }
         case 429: {
           const wait = parseRetryDelay(err);
-          return new GeminiError({
-            title: 'Przekroczono limit zapytań',
-            message: wait ? `Osiągnięto limit zapytań dla Twojego klucza. Spróbuj ponownie za ok. ${wait} s.` : 'Osiągnięto limit zapytań (na minutę lub dzienny) dla Twojego klucza API.',
-            hints: ['Odczekaj chwilę i ponów próbę.', 'W planie darmowym obowiązują limity zapytań na minutę i na dzień – szczegóły w Google AI Studio.', 'Rozważ włączenie płatnego planu w Google AI Studio, aby zwiększyć limity.'],
+          const violations = (err.details || []).flatMap(d => (d && d.violations) || []);
+          const daily = violations.some(v => /PerDay/i.test(v.quotaId || '')) || (wait && wait > 600);
+          const freeTier = violations.some(v => /FreeTier/i.test(v.quotaId || '')) || /free tier/i.test(apiMsg);
+          const limitV = violations.find(v => v.quotaValue);
+          const modelV = violations.find(v => v.quotaDimensions && v.quotaDimensions.model);
+          const quotaModel = (modelV && modelV.quotaDimensions.model) || getModel();
+          const billingHint = 'Włącz płatny plan (Billing) w Google AI Studio – limity rosną do tysięcy zapytań dziennie, a przygotowanie jednej odpowiedzi kosztuje zwykle 1–2 grosze.';
+          if (daily) {
+            const at = wait ? new Date(Date.now() + wait * 1000) : null;
+            const when = at ? at.toLocaleString('pl-PL', { weekday: 'long', hour: '2-digit', minute: '2-digit' }) : 'jutro';
+            return Object.assign(new GeminiError({
+              title: 'Wyczerpano dzienny limit Gemini',
+              message: `${freeTier ? 'Darmowy plan Google pozwala' : 'Twój plan pozwala'} na ${limitV ? `${limitV.quotaValue} zapytań` : 'ograniczoną liczbę zapytań'} dziennie dla modelu ${quotaModel}. Limit odnowi się ok. ${when}.`,
+              hints: [billingHint, 'Każdy model ma osobny dzienny limit – możesz przełączyć model w Ustawieniach API.'],
+              details
+            }), { dailyQuota: true, retryAfter: wait || 3600, quotaModel });
+          }
+          return Object.assign(new GeminiError({
+            title: 'Przekroczono limit zapytań na minutę',
+            message: wait ? `Za dużo zapytań w krótkim czasie. Spróbuj ponownie za ok. ${wait} s.` : 'Za dużo zapytań w krótkim czasie.',
+            hints: ['Odczekaj chwilę i ponów próbę.', billingHint],
             details
-          });
+          }), { retryAfter: wait || 60 });
         }
         case 500:
           return new GeminiError({ title: 'Błąd serwera Google', message: 'Wystąpił wewnętrzny błąd po stronie Gemini API.', hints: ['Spróbuj ponownie za kilka sekund.', 'Przy bardzo długich tekstach spróbuj je skrócić.'], details });
@@ -1227,8 +1288,12 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
     }
 
     // Który model zapytać w danej próbie: przy przeciążeniu głównego przechodzimy na model zapasowy
+    function modelUsable(m) { return !((state.dailyExhausted[m] || 0) > Date.now()); }
     function modelForAttempt(primary, attempt) {
-      if (primary === FALLBACK_MODEL) return primary;
+      const candidates = primary === FALLBACK_MODEL ? [primary] : [primary, FALLBACK_MODEL];
+      const usable = candidates.filter(modelUsable);
+      if (!usable.length) return primary;          // wszystkie limity wyczerpane – zapytanie zwróci czytelny błąd
+      if (usable.length === 1) return usable[0];
       if ((state.overloadedUntil[primary] || 0) > Date.now()) return FALLBACK_MODEL;
       return attempt === 1 ? primary : FALLBACK_MODEL;
     }
@@ -1261,7 +1326,20 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
           if (e.transient && current === model && model !== FALLBACK_MODEL) {
             state.overloadedUntil[model] = Date.now() + OVERLOAD_COOLDOWN_MS;
           }
+          // Dzienny limit jednego modelu – przejdź na drugi model (każdy ma osobny limit)
+          if (e.dailyQuota) {
+            state.dailyExhausted[current] = Date.now() + Math.min(e.retryAfter, 86400) * 1000;
+            const alt = modelForAttempt(model, attempt + 1);
+            if (alt !== current && modelUsable(alt) && attempt < MAX_ATTEMPTS && !(signal && signal.aborted)) {
+              if (onStatus) onStatus(`Dzienny limit ${current} wyczerpany – przełączam na ${alt}…`);
+              continue;
+            }
+          }
           if (!e.transient || attempt >= MAX_ATTEMPTS || (signal && signal.aborted)) {
+            if (e.dailyQuota) {
+              const exhausted = Object.keys(state.dailyExhausted).filter(m => state.dailyExhausted[m] > Date.now());
+              if (exhausted.length > 1) e.message = e.message.replace(/dla modelu \S+\./, `dla każdego modelu – wyczerpano je dla: ${exhausted.join(', ')}.`);
+            }
             if (attempt > 1) e.hints = [`Aplikacja automatycznie ponowiła zapytanie (łącznie prób: ${attempt}).`, ...(e.hints || [])];
             throw e;
           }
@@ -2119,7 +2197,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
           checkMail({ manual: false });
         },
         error_callback: (err) => {
-          const msg = err && err.type === 'popup_closed' ? 'Okno logowania Google zostało zamknięte.'
+          const msg = err && err.type === 'popup_closed' ? 'Okno logowania Google zostało zamknięte. Jeśli Google pokazał „Dostęp zablokowany”, poproś administratora o dodanie Twojego adresu e-mail do aplikacji.'
             : err && err.type === 'popup_failed_to_open' ? 'Przeglądarka zablokowała okno logowania Google – zezwól na wyskakujące okienka dla tej strony.'
             : `Gmail: ${(err && (err.message || err.type)) || 'błąd logowania'}`;
           toast(msg, 'error');
@@ -2511,12 +2589,20 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
             applyAnalysis(item, a);
             cacheAnalysis(key, a);
           } catch (e) {
+            if (e instanceof GeminiError && e.httpStatus === 429) {
+              // Limit Gemini: wiadomość wraca do kolejki, a kolejka czeka do odnowienia limitu
+              item.state = 'queued';
+              item.pendingInstruction = instruction;
+              inbox.queue.unshift(key);
+              inbox.pausedUntil = Date.now() + Math.min(e.retryAfter || 60, 86400) * 1000;
+              inbox.pauseError = e;
+              renderInboxCard(item);
+              renderInboxToolbar();
+              if (e.dailyQuota) toast('Wyczerpano dzienny limit Gemini – odpowiedzi będą przygotowywane po jego odnowieniu.', 'error');
+              continue;
+            }
             item.state = 'error';
             item.error = e;
-            if (e instanceof GeminiError && e.httpStatus === 429) {
-              inbox.pausedUntil = Date.now() + 60000;
-              toast('Osiągnięto limit Gemini – wstrzymuję przygotowywanie odpowiedzi na minutę.', 'error');
-            }
           }
           renderInboxCard(item);
           renderInboxToolbar();
@@ -2629,11 +2715,22 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       if (c.noreply) parts.push(`bez potrzeby odpowiedzi: ${c.noreply}`);
       if (getInboxPrefs().auto) parts.push(gmailConnected() || outlookConnected() ? 'automatyczne sprawdzanie włączone (gdy ta karta jest otwarta)' : 'automatyczne sprawdzanie czeka na połączenie skrzynki');
       $('#inboxStatusLine').textContent = parts.join(' · ');
+      const pause = $('#inboxPause');
+      const paused = inbox.pausedUntil > Date.now() && inbox.queue.length && inbox.pauseError;
+      pause.classList.toggle('hidden', !paused);
+      if (paused) {
+        const e = inbox.pauseError;
+        pause.innerHTML = `<strong class="font-semibold">${escapeHtml(e.title)}.</strong> ${escapeHtml(e.message)}
+          Wiadomości w kolejce (${inbox.queue.length}) zostaną obsłużone automatycznie, gdy limit się odnowi${e.dailyQuota ? ' – pod warunkiem, że ta karta będzie otwarta' : ''}.
+          ${e.dailyQuota ? '<br><a class="font-medium underline underline-offset-2" href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer">Włącz płatny plan w Google AI Studio</a>, aby zwiększyć limit (jedna odpowiedź to zwykle 1–2 grosze).' : ''}`;
+      }
     }
 
     function connectionCard(provider) {
       const isGmail = provider === 'gmail';
       const configured = isGmail ? !!gmailClientId() : !!msClientId();
+      const managed = isManaged();
+      if (managed && !configured) return '';
       const connected = isGmail ? gmailConnected() : outlookConnected();
       const account = isGmail ? inbox.gmail.email : (inbox.ms.account && inbox.ms.account.username);
       const err = inbox.providerErrors && inbox.providerErrors[provider];
@@ -2662,15 +2759,26 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
             <div class="truncate text-xs">${status}</div>
           </div>
           <div class="flex shrink-0 items-center gap-2">
-            ${configured ? `<button type="button" data-mail-action="setup" data-provider="${provider}" class="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title="Konfiguracja" aria-label="Konfiguracja">${iconSvg('key', 'h-4 w-4')}</button>` : ''}
+            ${configured && !managed ? `<button type="button" data-mail-action="setup" data-provider="${provider}" class="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title="Konfiguracja" aria-label="Konfiguracja">${iconSvg('key', 'h-4 w-4')}</button>` : ''}
             ${actions}
           </div>
         </div>`;
     }
 
     function renderConnections() {
-      $('#inboxConnections').innerHTML = connectionCard('gmail') + connectionCard('outlook');
+      let html = connectionCard('gmail') + connectionCard('outlook');
+      if (!html.trim()) {
+        html = '<div class="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Administrator nie skonfigurował jeszcze żadnej skrzynki. Poproś go o nowy link konfiguracyjny.</div>';
+      } else if (!isManaged() && (gmailClientId() || msClientId())) {
+        html += `
+          <div class="md:col-span-2 flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 px-4 py-3">
+            <span class="flex-1 min-w-[14rem] text-sm text-slate-600"><strong class="font-medium text-navy-900">Pracownicy też mają korzystać?</strong> Wyślij im link – kliknią „Połącz” i od razu działa, bez konfiguracji.</span>
+            <button type="button" data-mail-action="invite" class="rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">Zaproś pracowników</button>
+          </div>`;
+      }
+      $('#inboxConnections').innerHTML = html;
       renderInboxToolbar();
+      renderOnboarding();
     }
 
     const PRIORITY_STYLES = { 'Wysoki': 'bg-red-50 text-red-700 border-red-200', 'Średni': 'bg-amber-50 text-amber-700 border-amber-200', 'Niski': 'bg-slate-50 text-slate-600 border-slate-200' };
@@ -2912,6 +3020,233 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       toast('Zapisano konfigurację', 'success');
     }
 
+    /* ---------- konfiguracja firmowa: link dla pracowników ---------- */
+    const ORG_KEY = 'officeflow_org';
+    const TONES = ['Formalny i korporacyjny', 'Uprzejmy i partnerski', 'Stanowczy i konkretny'];
+    function getOrg() { return loadJson(ORG_KEY, null); }
+    function isManaged() { return !!getOrg(); }
+    function encodeSetup(obj) { return toB64url(utf8ToB64(JSON.stringify(obj))); }
+    function decodeSetup(str) { return JSON.parse(new TextDecoder().decode(b64urlToBytes(str))); }
+
+    async function copyText(text) {
+      try {
+        if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; }
+      } catch (e) { /* fallback niżej */ }
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+      document.body.appendChild(ta); ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      ta.remove();
+      return ok;
+    }
+
+    // Walidacja danych z linku – przyjmujemy tylko znane pola w oczekiwanym formacie
+    function sanitizeSetup(d) {
+      if (!d || d.v !== 1) return null;
+      const out = { v: 1, org: typeof d.org === 'string' ? d.org.trim().slice(0, 80) : '' };
+      if (typeof d.g === 'string' && /^[\w.-]+\.apps\.googleusercontent\.com$/.test(d.g)) out.g = d.g;
+      if (typeof d.m === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(d.m)) out.m = d.m;
+      if (typeof d.k === 'string' && /^[\w.\-]{20,200}$/.test(d.k)) out.k = d.k;
+      if (typeof d.model === 'string' && /^[\w.\-]{3,60}$/.test(d.model)) out.model = d.model;
+      if (THINKING_LEVELS.includes(d.think)) out.think = d.think;
+      if (TONES.includes(d.tone)) out.tone = d.tone;
+      if (typeof d.ctx === 'string') out.ctx = d.ctx.slice(0, 3000);
+      if ([1, 3, 7, 14].includes(d.days)) out.days = d.days;
+      if ([5, 10, 20].includes(d.max)) out.max = d.max;
+      return out.g || out.m || out.k ? out : null;
+    }
+    function readSetupFromUrl() {
+      const m = location.hash.match(/[#&]setup=([A-Za-z0-9_-]+)/);
+      if (!m) return null;
+      try { return sanitizeSetup(decodeSetup(m[1])); } catch (e) { return null; }
+    }
+    function clearSetupFromUrl() {
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { location.hash = ''; }
+    }
+
+    let pendingSetup = null;
+    function showOrgSetup(d) {
+      pendingSetup = d;
+      $('#orgSetupTitle').textContent = d.org ? `Witaj w OfficeFlow AI – ${d.org}` : 'Witaj w OfficeFlow AI';
+      const rows = [];
+      if (d.g) rows.push(['Gmail', 'gotowy do połączenia']);
+      if (d.m) rows.push(['Outlook / Microsoft 365', 'gotowy do połączenia']);
+      rows.push(['Klucz AI (Gemini)', d.k ? `firmowy (${maskKey(d.k)})` : (getApiKey() ? 'Twój obecny klucz' : 'brak – poproś administratora o klucz')]);
+      if (d.ctx) rows.push(['Informacje o firmie dla AI', 'dołączone']);
+      $('#orgSetupBody').innerHTML = `
+        <ul class="divide-y divide-slate-100 rounded-xl border border-slate-200 text-sm">
+          ${rows.map(([k, v]) => `<li class="flex items-center justify-between gap-3 px-4 py-2.5"><span class="text-slate-600">${escapeHtml(k)}</span><span class="font-medium text-slate-900 text-right">${escapeHtml(v)}</span></li>`).join('')}
+        </ul>
+        <p class="mt-3 text-xs leading-relaxed text-slate-500">Akceptuj tylko link otrzymany od swojego administratora. Ustawienia zostaną zapisane wyłącznie w tej przeglądarce.</p>`;
+      $('#orgSetupModal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeOrgSetup() {
+      pendingSetup = null;
+      clearSetupFromUrl();
+      $('#orgSetupModal').classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+    function applyOrgSetup() {
+      const d = pendingSetup;
+      if (!d) return;
+      if (d.g) storageSet(INBOX_KEYS.googleClientId, d.g);
+      if (d.m) storageSet(INBOX_KEYS.msClientId, d.m);
+      if (d.k) saveApiKey(d.k);
+      if (d.model) saveModel(d.model);
+      if (d.think) saveThinkingLevel(d.think);
+      const patch = {};
+      if (d.tone) patch.tone = d.tone;
+      if (typeof d.ctx === 'string') patch.context = d.ctx;
+      if (d.days) patch.days = d.days;
+      if (d.max) patch.maxCount = d.max;
+      saveInboxPrefs(patch);
+      saveJson(ORG_KEY, { name: d.org || '', at: Date.now() });
+      storageSet(STORAGE_TOOL, 'inbox');
+      clearSetupFromUrl();
+      location.reload();
+    }
+
+    const inviteOpts = { org: '', key: true, context: true, model: true };
+    function buildInvitePayload() {
+      const prefs = getInboxPrefs();
+      const p = { v: 1, org: inviteOpts.org.trim() };
+      if (gmailClientId()) p.g = gmailClientId();
+      if (msClientId()) p.m = msClientId();
+      if (inviteOpts.key && getApiKey()) p.k = getApiKey();
+      if (inviteOpts.model) { p.model = getModel(); p.think = getThinkingLevel(); }
+      if (inviteOpts.context) { p.tone = prefs.tone; p.ctx = prefs.context; p.days = prefs.days; p.max = prefs.maxCount; }
+      return p;
+    }
+    function inviteLink() { return `${location.origin}${location.pathname}#setup=${encodeSetup(buildInvitePayload())}`; }
+    function inviteMessage(link) {
+      const providers = [gmailClientId() && 'Gmailu', msClientId() && 'Outlooku'].filter(Boolean).join(' lub ');
+      return [
+        'Cześć!',
+        '',
+        `Mamy nowe narzędzie${inviteOpts.org.trim() ? ` w ${inviteOpts.org.trim()}` : ''}, które czyta nowe maile i przygotowuje propozycje odpowiedzi. Ty tylko je sprawdzasz i zatwierdzasz. Konfiguracja zajmie 2 minuty:`,
+        '',
+        `1. Otwórz ten link w przeglądarce Chrome lub Edge (na komputerze służbowym):`,
+        link,
+        '2. Kliknij „Zastosuj”.',
+        `3. Kliknij „Połącz” przy ${providers || 'swojej skrzynce'} i zaloguj się tym samym kontem, którego używasz do poczty.`,
+        '   Jeśli Google pokaże komunikat „Aplikacja nie została zweryfikowana”, kliknij „Kontynuuj” – to nasza firmowa aplikacja.',
+        '4. Wpisz swój podpis i kliknij „Sprawdź teraz”.',
+        '',
+        'Aplikacja niczego nie wysyła sama – każdą odpowiedź możesz poprawić, a wysyłasz ją dopiero przyciskiem „Zatwierdź i wyślij”.',
+        'Zachowaj ten link – przyda się, gdyby trzeba było skonfigurować aplikację ponownie (np. na innym komputerze).'
+      ].join('\n');
+    }
+
+    function renderInvite() {
+      const isPublic = /^https:$/.test(location.protocol) && !/^(localhost|127\.|\[::1\])/.test(location.hostname);
+      const hasProvider = !!(gmailClientId() || msClientId());
+      if (!inviteOpts.org) inviteOpts.org = (getOrg() && getOrg().name) || '';
+      const checklist = [];
+      if (gmailClientId()) checklist.push(`<li><strong>Gmail – konta @gmail.com:</strong> dodaj adres każdego pracownika jako <em>Test user</em> w <a class="font-medium text-indigo-600 underline underline-offset-2" href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener noreferrer">Google Auth Platform → Audience</a> (do 100 osób). Bez tego Google pokaże pracownikowi „Dostęp zablokowany”.<br><strong>Firma na Google Workspace:</strong> zamiast listy ustaw tam typ odbiorców <em>Internal</em> – wtedy wszyscy z domeny firmy mogą się logować.</li>`);
+      if (msClientId()) checklist.push(`<li><strong>Outlook – Microsoft 365:</strong> w <a class="font-medium text-indigo-600 underline underline-offset-2" href="https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener noreferrer">Entra → App registrations</a> → Twoja aplikacja → <em>API permissions</em> kliknij <em>Grant admin consent</em>. Pracownicy nie zobaczą wtedy prośby o zgodę administratora. Konta prywatne @outlook.com nie wymagają niczego.</li>`);
+      checklist.push(inviteOpts.key
+        ? `<li><strong>Klucz Gemini</strong> będzie wspólny dla wszystkich – limity i koszty też. Ogranicz go do adresu tej strony w <a class="font-medium text-indigo-600 underline underline-offset-2" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Google Cloud → Credentials</a> (<em>Websites</em>: <code class="font-mono text-xs">${escapeHtml(location.origin)}/*</code>). Przy kilku osobach rozważ płatny plan w AI Studio – darmowy limit szybko się wyczerpie.</li>`
+        : '<li><strong>Bez klucza Gemini w linku</strong> każdy pracownik będzie musiał wkleić własny klucz w „Ustawieniach API”.</li>');
+
+      $('#inviteBody').innerHTML = `
+        ${!isPublic ? '<div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Ta strona jest otwarta lokalnie – link nie zadziała u pracowników. Wygeneruj go na stronie otwartej z adresu Render (https://…).</div>' : ''}
+        ${!hasProvider ? '<div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">Najpierw skonfiguruj Gmail lub Outlook (przycisk „Skonfiguruj” w Skrzynce AI).</div>' : ''}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <label for="inviteOrg" class="field-label">Nazwa firmy (widoczna dla pracownika)</label>
+            <input id="inviteOrg" type="text" maxlength="80" class="field-input" placeholder="np. MebloBiuro Sp. z o.o." value="${escapeHtml(inviteOpts.org)}" />
+          </div>
+          <label class="flex items-start gap-2.5 text-sm text-slate-700"><input type="checkbox" data-invite-opt="key" class="mt-0.5 h-4 w-4 accent-indigo-600" ${inviteOpts.key ? 'checked' : ''} ${getApiKey() ? '' : 'disabled'} /><span><strong class="font-medium">Dołącz klucz Gemini</strong><br><span class="text-xs text-slate-500">pracownik nie musi zakładać własnego</span></span></label>
+          <label class="flex items-start gap-2.5 text-sm text-slate-700"><input type="checkbox" data-invite-opt="context" class="mt-0.5 h-4 w-4 accent-indigo-600" ${inviteOpts.context ? 'checked' : ''} /><span><strong class="font-medium">Dołącz informacje o firmie i ton</strong><br><span class="text-xs text-slate-500">bez podpisu – każdy wpisze własny</span></span></label>
+        </div>
+
+        <div class="mt-5">
+          <div class="flex items-center justify-between"><span class="field-label !mb-0">Link dla pracowników</span><button type="button" data-copy-invite="link" class="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">Kopiuj link</button></div>
+          <textarea id="inviteLinkOut" readonly rows="3" class="field-input mt-1.5 !min-h-0 font-mono text-[11px] text-slate-600 break-all"></textarea>
+        </div>
+        <div class="mt-4">
+          <div class="flex items-center justify-between"><span class="field-label !mb-0">Gotowa wiadomość do wysłania (mail, Teams, Slack)</span><button type="button" data-copy-invite="message" class="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-indigo-700">Kopiuj wiadomość</button></div>
+          <textarea id="inviteMsgOut" readonly rows="10" class="field-input mt-1.5 text-[13px]"></textarea>
+        </div>
+
+        <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <h3 class="text-sm font-semibold text-navy-900">Zanim wyślesz link – sprawdź:</h3>
+          <ul class="mt-2 list-disc space-y-2 pl-5 text-[13px] leading-relaxed text-slate-700">${checklist.join('')}</ul>
+        </div>
+        <p class="mt-3 text-xs text-slate-500">Link zawiera ustawienia (i ewentualnie klucz Gemini) – wysyłaj go tylko pracownikom. Dane z linku nie trafiają na serwer strony: są zapisywane tylko w przeglądarce pracownika.</p>`;
+      updateInviteOutputs();
+    }
+    function updateInviteOutputs() {
+      const link = inviteLink();
+      $('#inviteLinkOut').value = link;
+      $('#inviteMsgOut').value = inviteMessage(link);
+    }
+    function openInvite() {
+      renderInvite();
+      $('#inviteModal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeInvite() {
+      $('#inviteModal').classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+    function bindOrgUi() {
+      $('#inviteModal').addEventListener('click', async (e) => {
+        if (e.target.closest('[data-close-invite]')) { closeInvite(); return; }
+        const c = e.target.closest('[data-copy-invite]');
+        if (c) {
+          const ok = await copyText(c.dataset.copyInvite === 'link' ? $('#inviteLinkOut').value : $('#inviteMsgOut').value);
+          const label = c.textContent;
+          if (ok) { c.textContent = 'Skopiowano!'; setTimeout(() => { c.textContent = label; }, 1500); }
+          else toast('Zaznacz tekst i skopiuj go ręcznie (Ctrl+C).', 'info');
+        }
+      });
+      $('#inviteModal').addEventListener('input', (e) => {
+        if (e.target.id === 'inviteOrg') { inviteOpts.org = e.target.value; updateInviteOutputs(); }
+      });
+      $('#inviteModal').addEventListener('change', (e) => {
+        const opt = e.target.dataset && e.target.dataset.inviteOpt;
+        if (opt) { inviteOpts[opt] = e.target.checked; renderInvite(); }
+      });
+      $('#orgSetupAccept').addEventListener('click', applyOrgSetup);
+      $('#orgSetupReject').addEventListener('click', closeOrgSetup);
+    }
+
+    /* ---------- ekran powitalny (onboarding) ---------- */
+    function renderOnboarding() {
+      const el = $('#inboxOnboarding');
+      const configured = !!(gmailClientId() || msClientId());
+      const connected = gmailConnected() || outlookConnected();
+      const hasSignature = !!getInboxPrefs().signature.trim();
+      const hasKey = !!getApiKey();
+      if (!configured || (connected && hasSignature && hasKey)) { el.innerHTML = ''; return; }
+      const org = getOrg();
+      let stepNo = 0;
+      const step = (done, title, text, action) => { stepNo++; return `
+        <li class="flex gap-3">
+          <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${done ? 'bg-emerald-500 text-white' : 'bg-indigo-100 text-indigo-700'} text-sm font-semibold">${done ? iconSvg('check', 'h-4 w-4') : stepNo}</span>
+          <div class="min-w-0 flex-1">
+            <div class="font-medium ${done ? 'text-slate-400 line-through' : 'text-navy-900'}">${title}</div>
+            ${done ? '' : `<div class="mt-0.5 text-sm text-slate-600">${text}</div>${action || ''}`}
+          </div>
+        </li>`; };
+      const steps = [];
+      if (!hasKey) steps.push(step(false, 'Dodaj klucz AI', 'Brakuje klucza Gemini. Poproś administratora o link konfiguracyjny albo wklej klucz w ustawieniach.',
+        '<button type="button" data-action="open-settings" class="mt-2 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">Ustawienia API</button>'));
+      steps.push(step(connected, 'Połącz swoją skrzynkę', 'Kliknij niebieski przycisk „Połącz” powyżej i zaloguj się tym samym kontem, którego używasz do poczty. Jeśli Google pokaże „Aplikacja nie została zweryfikowana”, kliknij „Kontynuuj”.'));
+      steps.push(step(hasSignature, 'Wpisz swój podpis', 'Podpis pojawi się na końcu każdej odpowiedzi.',
+        '<button type="button" data-onboarding="signature" class="mt-2 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">Uzupełnij podpis</button>'));
+      steps.push(step(false, 'Gotowe – sprawdzaj pocztę', 'Kliknij „Sprawdź teraz”. Propozycje odpowiedzi pojawią się poniżej. Nic nie zostanie wysłane, dopóki nie klikniesz „Zatwierdź i wyślij”.'));
+      el.innerHTML = `
+        <section class="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-5 sm:p-6">
+          <h2 class="font-semibold text-navy-900">${org && org.name ? `Witaj w OfficeFlow AI – ${escapeHtml(org.name)}` : 'Pierwsze kroki'}</h2>
+          <p class="mt-1 text-sm text-slate-600">Asystent przeczyta Twoje nowe maile i przygotuje propozycje odpowiedzi. Ty je tylko sprawdzasz i zatwierdzasz.</p>
+          <ol class="mt-4 space-y-4">${steps.join('')}</ol>
+        </section>`;
+    }
+
     /* ---------- automatyczne sprawdzanie ---------- */
     function applyAutoPolling() {
       clearInterval(inbox.pollTimer);
@@ -2933,7 +3268,15 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       $('#inboxTone').addEventListener('change', e => saveInboxPrefs({ tone: e.target.value }));
       $('#inboxMax').addEventListener('change', e => saveInboxPrefs({ maxCount: parseInt(e.target.value, 10) }));
       $('#inboxDays').addEventListener('change', e => saveInboxPrefs({ days: parseInt(e.target.value, 10) }));
-      $('#inboxSignature').addEventListener('input', e => saveInboxPrefs({ signature: e.target.value }));
+      $('#inboxSignature').addEventListener('input', e => { saveInboxPrefs({ signature: e.target.value }); renderOnboarding(); });
+      $('#inboxOnboarding').addEventListener('click', (e) => {
+        if (e.target.closest('[data-onboarding="signature"]')) {
+          $('#inboxPrefs').open = true;
+          $('#inboxSignature').focus();
+          $('#inboxPrefs').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+      bindOrgUi();
       $('#inboxContext').addEventListener('input', e => saveInboxPrefs({ context: e.target.value }));
       $('#inboxAuto').addEventListener('change', e => { saveInboxPrefs({ auto: e.target.checked }); applyAutoPolling(); if (e.target.checked) checkMail({ manual: false }); });
       $('#inboxCheckBtn').addEventListener('click', () => checkMail({ manual: true }));
@@ -2942,7 +3285,8 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
         const btn = e.target.closest('[data-mail-action]');
         if (!btn) return;
         const p = btn.dataset.provider, action = btn.dataset.mailAction;
-        if (action === 'setup') openMailSetup(p);
+        if (action === 'invite') openInvite();
+        else if (action === 'setup') openMailSetup(p);
         else if (action === 'connect') { if (inbox.providerErrors) delete inbox.providerErrors[p]; p === 'gmail' ? connectGmail() : connectOutlook(); }
         else if (action === 'disconnect') p === 'gmail' ? disconnectGmail() : disconnectOutlook();
       });
@@ -3042,6 +3386,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
         if (e.key === 'Escape') {
           if (!$('#settingsModal').classList.contains('hidden')) closeSettings();
           else if (!$('#mailSetupModal').classList.contains('hidden')) closeMailSetup();
+          else if (!$('#inviteModal').classList.contains('hidden')) closeInvite();
           else closeSidebar();
         }
       });
@@ -3065,7 +3410,13 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       $('#modelSuggestions').innerHTML = MODEL_SUGGESTIONS.map(m => `<option value="${m}"></option>`).join('');
       renderModelLabel();
       renderApiStatus();
-      if (!getApiKey()) {
+      const setup = readSetupFromUrl();
+      if (setup) {
+        showOrgSetup(setup);
+      } else if (location.hash.includes('setup=')) {
+        clearSetupFromUrl();
+        toast('Link konfiguracyjny jest niekompletny lub uszkodzony – poproś administratora o nowy.', 'error');
+      } else if (!getApiKey()) {
         setTimeout(() => openSettings('Witaj w OfficeFlow AI! Aby rozpocząć, wklej swój klucz API Google Gemini. Klucz zostanie zapisany wyłącznie w tej przeglądarce.'), 400);
       }
     }

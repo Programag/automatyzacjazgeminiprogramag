@@ -32,6 +32,19 @@ Instrukcja krok po kroku jest też w aplikacji: **Skrzynka AI → Skonfiguruj**.
 3. *Redirect URI*: platforma **Single-page application (SPA)**, adres strony, np. `https://officeflow-ai.onrender.com/`.
 4. Skopiuj **Application (client) ID** i wklej w aplikacji. W koncie firmowym administrator może musieć zatwierdzić uprawnienia `Mail.ReadWrite`, `Mail.Send`, `User.Read`.
 
+## Pracownicy biura – bez konfiguracji
+
+Administrator konfiguruje Gmail/Outlook raz, a potem w **Skrzynce AI** klika **Zaproś pracowników**. Aplikacja generuje link konfiguracyjny i gotową wiadomość do wysłania (mail, Teams, Slack). Pracownik otwiera link, klika **Zastosuj** i **Połącz**, loguje się do swojej poczty i wpisuje podpis – bez żadnych identyfikatorów czy kluczy.
+
+Przed wysłaniem linku administrator powinien:
+- **Gmail (@gmail.com):** dodać adres każdego pracownika jako *Test user* (Google Auth Platform → Audience, do 100 osób). **Google Workspace:** ustawić typ odbiorców *Internal* – wtedy nie trzeba listy.
+- **Microsoft 365:** kliknąć *Grant admin consent* w *API permissions* aplikacji.
+- **Klucz Gemini:** jeśli jest dołączony do linku, jest wspólny dla wszystkich – warto ograniczyć go do adresu strony i włączyć płatny plan.
+
+## Limity Gemini
+
+Darmowy plan Gemini ma niski dzienny limit (np. 20 zapytań dziennie na model), a każdy przeanalizowany mail to jedno zapytanie. Do codziennej pracy – zwłaszcza kilku osób – włącz płatny plan (Billing) w Google AI Studio. Po wyczerpaniu limitu aplikacja przełącza się na drugi model, a Skrzynka AI wstrzymuje kolejkę do odnowienia limitu.
+
 ## Prywatność
 
 Wszystko dzieje się w przeglądarce: klucz Gemini, identyfikatory aplikacji i tokeny logowania są przechowywane lokalnie, a treść maili trafia wyłącznie do Gmail/Microsoft Graph oraz Gemini API – bez serwera pośredniczącego.
