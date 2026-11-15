@@ -552,7 +552,7 @@
                 <textarea id="analyzer-content" name="content" rows="14" maxlength="60000" class="field-input" placeholder="Wklej treść umowy, notatkę ze spotkania, opis faktury, CV lub dowolny inny dokument…" required></textarea>
                 <div class="mt-1 flex justify-between text-[11px] text-slate-400"><span class="field-error text-red-600"></span><span data-counter-for="analyzer-content"></span></div>
               </div>
-              <div data-file-field="analyzer:files" data-label="Lub dołącz plik" data-optional data-multiple data-hint="Umowa, faktura, CV, skan notatki – PDF lub zdjęcia, do 10 MB na plik"></div>
+              <div data-file-field="analyzer:files" data-label="Lub dołącz plik" data-attach-label="Dokument do analizy" data-optional data-multiple data-hint="Umowa, faktura, CV, notatka – PDF, Word, Excel lub zdjęcia, do 10 MB na plik"></div>
               <div class="pt-1">
                 <button type="submit" class="submit-btn"></button>
               </div>
@@ -678,7 +678,7 @@
                   <textarea id="compare-a" name="docA" rows="6" maxlength="40000" class="field-input" placeholder="Wklej treść pierwszej wersji / pierwszej oferty…"></textarea>
                   <div class="mt-1 flex justify-between text-[11px] text-slate-400"><span class="field-error text-red-600"></span><span data-counter-for="compare-a"></span></div>
                 </div>
-                <div data-file-field="compare:filesA" data-label="Lub dołącz plik" data-attach-label="Dokument A" data-optional data-multiple data-hint="Zamiast tekstu możesz dołączyć PDF lub zdjęcia stron"></div>
+                <div data-file-field="compare:filesA" data-label="Lub dołącz plik" data-attach-label="Dokument A" data-optional data-multiple data-hint="Zamiast tekstu możesz dołączyć PDF, Word lub zdjęcia stron"></div>
               </div>
               <div class="rounded-lg border border-slate-200 p-4 space-y-3">
                 <div>
@@ -686,7 +686,7 @@
                   <textarea id="compare-b" name="docB" rows="6" maxlength="40000" class="field-input" placeholder="Wklej treść drugiej wersji / drugiej oferty…"></textarea>
                   <div class="mt-1 flex justify-between text-[11px] text-slate-400"><span class="field-error text-red-600"></span><span data-counter-for="compare-b"></span></div>
                 </div>
-                <div data-file-field="compare:filesB" data-label="Lub dołącz plik" data-attach-label="Dokument B" data-optional data-multiple data-hint="Zamiast tekstu możesz dołączyć PDF lub zdjęcia stron"></div>
+                <div data-file-field="compare:filesB" data-label="Lub dołącz plik" data-attach-label="Dokument B" data-optional data-multiple data-hint="Zamiast tekstu możesz dołączyć PDF, Word lub zdjęcia stron"></div>
               </div>
               <div>
                 <label for="compare-focus" class="field-label">Na co zwrócić uwagę? <span class="font-normal text-slate-500">(opcjonalnie)</span></label>
@@ -697,7 +697,7 @@
 
             <!-- Formularz: Faktury i paragony -->
             <form id="form-invoices" data-tool="invoices" class="tool-form hidden p-5 sm:p-6 space-y-5" novalidate>
-              <div data-file-field="invoices:files" data-label="Faktury, rachunki, paragony" data-multiple data-hint="Zdjęcia lub PDF-y – kilka dokumentów naraz, do 10 MB na plik i 14 MB łącznie"></div>
+              <div data-file-field="invoices:files" data-label="Faktury, rachunki, paragony" data-multiple data-hint="Zdjęcia, PDF-y, Word lub Excel (np. rejestr faktur) – kilka plików naraz, do 10 MB na plik i 14 MB łącznie"></div>
               <div>
                 <label for="invoices-content" class="field-label">Lub wklej treść dokumentu <span class="font-normal text-slate-500">(opcjonalnie)</span></label>
                 <textarea id="invoices-content" name="content" rows="6" maxlength="30000" class="field-input" placeholder="Tekst faktury skopiowany z PDF-a lub maila…"></textarea>
@@ -727,7 +727,7 @@
                 <textarea id="recruit-cv" name="cv" rows="7" maxlength="30000" class="field-input" placeholder="Wklej treść CV albo dołącz plik poniżej…"></textarea>
                 <div class="mt-1 flex justify-between text-[11px] text-slate-400"><span class="field-error text-red-600"></span><span data-counter-for="recruit-cv"></span></div>
               </div>
-              <div data-file-field="recruit:cvFiles" data-label="Plik CV" data-optional data-hint="PDF lub zdjęcie CV · do 10 MB"></div>
+              <div data-file-field="recruit:cvFiles" data-label="Plik CV" data-optional data-hint="PDF, Word lub zdjęcie CV · do 10 MB"></div>
               <div>
                 <label for="recruit-notes" class="field-label">Uwagi rekrutera <span class="font-normal text-slate-500">(opcjonalnie)</span></label>
                 <input id="recruit-notes" name="notes" type="text" maxlength="500" class="field-input" placeholder="np. kluczowa jest znajomość Excela, praca od stycznia" />
@@ -2854,7 +2854,9 @@ ZASADY
       return out;
     }
     function describeFiles(files) {
-      return (files || []).map(f => `${f.name} (${FILE_TYPES[f.mimeType] || f.mimeType}, ${formatSize(f.size)})`).join('; ');
+      return (files || []).map(f => f.kind
+        ? `${f.name} (${OFFICE_LABEL[f.kind]} – treść przekazana jako tekst${f.kind === 'excel' ? ', arkusze jako tabele' : ''})`
+        : `${f.name} (${FILE_TYPES[f.mimeType] || f.mimeType}, ${formatSize(f.size)})`).join('; ');
     }
 
     async function addFormFiles(fieldKey, fileList) {
@@ -2866,14 +2868,29 @@ ZASADY
       const otherSize = Object.entries(formFiles).filter(([k]) => k.startsWith(toolId + ':') && k !== fieldKey).reduce((a, [, v]) => a + v.reduce((x, f) => x + f.size, 0), 0);
       for (const file of Array.from(fileList)) {
         const mime = fileMime(file);
-        if (!mime) { toast(`Nieobsługiwany format: ${file.name}. Dozwolone: PDF, JPG, PNG, WEBP, HEIC, TXT, CSV.`, 'error'); continue; }
+        const kind = officeKind(file.name, file.type);
+        if (!mime && !kind) {
+          toast(isLegacyOffice(file.name)
+            ? `${file.name}: to stary format Office (.doc/.xls). Otwórz plik w Wordzie lub Excelu i zapisz jako .docx/.xlsx albo PDF.`
+            : `Nieobsługiwany format: ${file.name}. Dozwolone: PDF, Word (.docx), Excel (.xlsx), JPG, PNG, WEBP, HEIC, TXT, CSV.`, 'error');
+          continue;
+        }
         if (file.size > FILE_MAX) { toast(`Plik ${file.name} jest za duży (maks. 10 MB).`, 'error'); continue; }
         const used = otherSize + list.reduce((a, f) => a + f.size, 0);
-        if (used + file.size > FILES_TOTAL_MAX) { toast('Łączny rozmiar plików w jednym zapytaniu nie może przekroczyć 14 MB.', 'error'); continue; }
         try {
-          list.push({ name: file.name, mimeType: mime, size: file.size, data: await readAsBase64(file) });
+          if (kind) {
+            // Word / Excel: zamiana na tekst w przeglądarce – do Gemini trafia sama treść
+            const text = await officeToText(await file.arrayBuffer(), kind);
+            const data = utf8ToB64(text);
+            const bytes = Math.round(data.length * 3 / 4);
+            if (used + bytes > FILES_TOTAL_MAX) { toast('Łączny rozmiar plików w jednym zapytaniu nie może przekroczyć 14 MB.', 'error'); continue; }
+            list.push({ name: file.name, mimeType: 'text/plain', size: bytes, origSize: file.size, chars: text.length, kind, data });
+          } else {
+            if (used + file.size > FILES_TOTAL_MAX) { toast('Łączny rozmiar plików w jednym zapytaniu nie może przekroczyć 14 MB.', 'error'); continue; }
+            list.push({ name: file.name, mimeType: mime, size: file.size, data: await readAsBase64(file) });
+          }
         } catch (e) {
-          toast(`Nie udało się odczytać pliku ${file.name}.`, 'error');
+          toast(`Nie udało się odczytać pliku ${file.name}${e && e.message ? ': ' + e.message : ''}.`, 'error');
         }
         if (!multiple) break;
       }
@@ -2887,15 +2904,15 @@ ZASADY
       const files = formFiles[el.dataset.fileField] || [];
       el.querySelector('[data-file-list]').innerHTML = files.map((f, i) => `
         <li class="flex items-center gap-2 rounded-lg border border-slate-200 bg-canvas px-3 py-1.5 text-sm">
-          ${iconSvg(f.mimeType.startsWith('image/') ? 'photo' : 'paperclip', 'h-4 w-4 shrink-0 text-slate-500')}
+          ${iconSvg(f.kind === 'excel' ? 'table' : f.kind === 'word' ? 'document' : f.mimeType.startsWith('image/') ? 'photo' : 'paperclip', 'h-4 w-4 shrink-0 text-slate-500')}
           <span class="min-w-0 flex-1 truncate">${escapeHtml(f.name)}</span>
-          <span class="shrink-0 text-xs text-slate-500">${FILE_TYPES[f.mimeType]} · ${formatSize(f.size)}</span>
+          <span class="shrink-0 text-xs text-slate-500" ${f.kind ? `title="Treść odczytana jako tekst: ${f.chars.toLocaleString('pl-PL')} znaków"` : ''}>${f.kind ? `${OFFICE_LABEL[f.kind]} → tekst · ${formatSize(f.origSize)}` : `${FILE_TYPES[f.mimeType]} · ${formatSize(f.size)}`}</span>
           <button type="button" data-remove-file="${i}" class="rounded p-0.5 text-slate-500 hover:bg-slate-100 hover:text-red-600" aria-label="Usuń plik ${escapeHtml(f.name)}">${iconSvg('x', 'h-4 w-4')}</button>
         </li>`).join('');
     }
 
     function initFileFields() {
-      const accept = Object.keys(EXT_TYPES).map(e => '.' + e).join(',');
+      const accept = [...Object.keys(EXT_TYPES), ...Object.keys(OFFICE_EXT), 'doc', 'xls'].map(e => '.' + e).join(',');
       $$('[data-file-field]').forEach(el => {
         const multiple = el.hasAttribute('data-multiple');
         el.innerHTML = `
@@ -2907,7 +2924,7 @@ ZASADY
             <input type="file" class="hidden" accept="${accept}" ${multiple ? 'multiple' : ''} />
           </div>
           <ul data-file-list class="mt-2 space-y-1.5"></ul>
-          <p class="mt-1 text-xs text-slate-500">${escapeHtml(el.dataset.hint || 'PDF, zdjęcia (JPG, PNG, WEBP, HEIC) lub TXT/CSV · do 10 MB na plik')}</p>`;
+          <p class="mt-1 text-xs text-slate-500">${escapeHtml(el.dataset.hint || 'PDF, Word, Excel, zdjęcia (JPG, PNG, WEBP, HEIC) lub TXT/CSV · do 10 MB na plik')}</p>`;
         const input = el.querySelector('input[type=file]');
         const drop = el.querySelector('[data-drop]');
         el.querySelector('[data-pick]').addEventListener('click', () => input.click());
@@ -2923,6 +2940,257 @@ ZASADY
         });
         formFiles[el.dataset.fileField] = [];
       });
+    }
+
+    /* =====================================================================
+       WORD I EXCEL → TEKST
+       Gemini nie czyta plików .docx/.xlsx, więc rozpakowujemy je w przeglądarce
+       (wbudowany DecompressionStream – bez zewnętrznych bibliotek) i przekazujemy
+       treść jako tekst: akapity, nagłówki i listy, a tabele i arkusze jako tabele Markdown.
+       ===================================================================== */
+    const OFFICE_EXT = { docx: 'word', docm: 'word', xlsx: 'excel', xlsm: 'excel' };
+    const OFFICE_MIME = {
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'word',
+      'application/vnd.ms-word.document.macroenabled.12': 'word',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'excel',
+      'application/vnd.ms-excel.sheet.macroenabled.12': 'excel'
+    };
+    const OFFICE_LABEL = { word: 'Word', excel: 'Excel' };
+    const OFFICE_TEXT_MAX = 200000;              // maks. znaków przekazywanych z jednego pliku
+    const OFFICE_UNZIP_MAX = 60 * 1024 * 1024;   // ochrona przed „bombami zip”
+    const OFFICE_MAX_ROWS = 1000;                // wierszy z danymi na arkusz
+    const OFFICE_MAX_COLS = 60;
+
+    function officeKind(name, mime) {
+      const ext = (String(name || '').split('.').pop() || '').toLowerCase();
+      return OFFICE_MIME[String(mime || '').toLowerCase()] || OFFICE_EXT[ext] || '';
+    }
+    function isLegacyOffice(name) { return /\.(doc|xls)$/i.test(String(name || '')); }
+
+    async function openZip(buffer) {
+      const u8 = new Uint8Array(buffer);
+      const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+      let eocd = -1;
+      for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) {
+        if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+      }
+      if (eocd < 0) throw new Error('nie udało się otworzyć pliku – może być chroniony hasłem, uszkodzony albo zapisany w innym formacie');
+      const count = dv.getUint16(eocd + 10, true);
+      let p = dv.getUint32(eocd + 16, true);
+      const dec = new TextDecoder('utf-8');
+      const entries = {};
+      for (let i = 0; i < count && p + 46 <= u8.length; i++) {
+        if (dv.getUint32(p, true) !== 0x02014b50) break;
+        const nameLen = dv.getUint16(p + 28, true), extraLen = dv.getUint16(p + 30, true), commentLen = dv.getUint16(p + 32, true);
+        entries[dec.decode(u8.subarray(p + 46, p + 46 + nameLen))] = {
+          method: dv.getUint16(p + 10, true), csize: dv.getUint32(p + 20, true), usize: dv.getUint32(p + 24, true), offset: dv.getUint32(p + 42, true)
+        };
+        p += 46 + nameLen + extraLen + commentLen;
+      }
+      let unpacked = 0;
+      return {
+        has: (name) => !!entries[name],
+        async read(name) {
+          const e = entries[name];
+          if (!e) return null;
+          if (e.csize === 0xFFFFFFFF || e.usize === 0xFFFFFFFF) throw new Error('plik jest zbyt duży (format ZIP64)');
+          unpacked += e.usize;
+          if (unpacked > OFFICE_UNZIP_MAX) throw new Error('plik po rozpakowaniu jest zbyt duży');
+          const start = e.offset + 30 + dv.getUint16(e.offset + 26, true) + dv.getUint16(e.offset + 28, true);
+          const data = u8.subarray(start, start + e.csize);
+          if (e.method === 0) return dec.decode(data);
+          if (e.method !== 8) throw new Error('nieobsługiwana metoda kompresji');
+          const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+          return await new Response(stream).text();
+        }
+      };
+    }
+    function parseXml(text) {
+      const doc = new DOMParser().parseFromString(text, 'application/xml');
+      if (doc.getElementsByTagName('parsererror').length) throw new Error('uszkodzona struktura pliku');
+      return doc;
+    }
+    const xKids = (el, name) => (el ? Array.from(el.children).filter(c => c.localName === name) : []);
+    const xKid = (el, name) => xKids(el, name)[0] || null;
+    const xAll = (el, name) => (el ? Array.from(el.getElementsByTagNameNS('*', name)) : []);
+    function xAttr(el, name) {
+      if (!el) return null;
+      for (const a of Array.from(el.attributes)) if (a.localName === name) return a.value;
+      return null;
+    }
+    const mdEsc = (s) => String(s).replace(/\s+/g, ' ').replace(/\|/g, '\\|').trim();
+    function mdTable(rows) {
+      const cols = Math.max(1, ...rows.map(r => r.length));
+      const fill = (r) => Array.from({ length: cols }, (_, i) => mdEsc(r[i] == null ? '' : r[i]));
+      return [`| ${fill(rows[0]).join(' | ')} |`, `|${' --- |'.repeat(cols)}`, ...rows.slice(1).map(r => `| ${fill(r).join(' | ')} |`)].join('\n');
+    }
+
+    async function docxToMarkdown(buffer) {
+      const zip = await openZip(buffer);
+      const xml = await zip.read('word/document.xml');
+      if (!xml) throw new Error('w pliku nie ma treści dokumentu Word');
+      // Nazwy stylów („heading 1”) są stałe, a identyfikatory zależą od języka Worda (np. „Nagwek1”)
+      const styleNames = {};
+      const stylesXml = await zip.read('word/styles.xml');
+      if (stylesXml) xAll(parseXml(stylesXml), 'style').forEach(st => { styleNames[xAttr(st, 'styleId')] = String(xAttr(xKid(st, 'name'), 'val') || '').toLowerCase(); });
+      const body = xAll(parseXml(xml), 'body')[0];
+      const blocks = [];
+      const runText = (p) => {
+        let t = '';
+        xAll(p, '*').forEach(el => {
+          const inRun = el.parentNode && el.parentNode.localName === 'r';
+          if (el.localName === 't' && inRun) t += el.textContent;              // w:delText (usunięte zmiany) pomijamy
+          else if (el.localName === 'tab' && inRun) t += '\t';
+          else if ((el.localName === 'br' || el.localName === 'cr') && inRun) t += '\n';
+          else if (el.localName === 'noBreakHyphen') t += '-';
+        });
+        return t;
+      };
+      const styleOf = (p) => {
+        const id = xAttr(xKid(xKid(p, 'pPr'), 'pStyle'), 'val');
+        return id ? (styleNames[id] || id.toLowerCase()) : '';
+      };
+      const headingLevel = (name) => {
+        const m = name.match(/^(?:heading|nag(?:ł|l)?(?:ó|o)?wek)\s*(\d)/);
+        if (m) return Math.min(6, +m[1]);
+        return name === 'title' || name === 'tytuł' ? 1 : 0;
+      };
+      const walk = (el) => {
+        Array.from(el.children).forEach(c => {
+          if (c.localName === 'p') {
+            const text = runText(c).replace(/[ \t]+$/gm, '');
+            if (!text.trim()) return;
+            const style = styleOf(c);
+            const h = headingLevel(style);
+            const list = !!xKid(xKid(c, 'pPr'), 'numPr') || /list/.test(style);
+            blocks.push({ list: !h && list, text: h ? `${'#'.repeat(h)} ${text.trim()}` : list ? `- ${text.trim()}` : text });
+          } else if (c.localName === 'tbl') {
+            const rows = xKids(c, 'tr').map(tr => xKids(tr, 'tc').map(tc => xAll(tc, 'p').map(runText).join(' ')));
+            if (rows.length) blocks.push({ text: mdTable(rows) });
+          } else if (c.localName === 'sdt') walk(xKid(c, 'sdtContent') || c);
+          else if (c.localName === 'customXml' || c.localName === 'smartTag') walk(c);
+        });
+      };
+      if (body) walk(body);
+      return blocks.map((b, i) => (i && b.list && blocks[i - 1].list ? '\n' : i ? '\n\n' : '') + b.text).join('');
+    }
+
+    const XLSX_DATE_FORMATS = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 45, 46, 47, 50, 51, 52, 53, 54, 55, 56, 57, 58]);
+    function xlsxFormatKind(code, id) {
+      if (id === 9 || id === 10) return 'percent';
+      if (XLSX_DATE_FORMATS.has(id)) return 'date';
+      if (!code) return '';
+      const c = code.replace(/"[^"]*"/g, '').replace(/\[[^\]]*\]/g, '').replace(/\\./g, '');
+      if (c.includes('%')) return 'percent';
+      if (/[dmyhs]/i.test(c) && !/^general$/i.test(c.trim())) return 'date';
+      return '';
+    }
+    function xlsxDate(serial, date1904) {
+      const d = new Date(Date.UTC(1899, 11, 30) + Math.round((serial + (date1904 ? 1462 : 0)) * 864e5));
+      const p2 = (n) => String(n).padStart(2, '0');
+      const ymd = `${d.getUTCFullYear()}-${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())}`;
+      const hm = `${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
+      if (serial >= 0 && serial < 1) return hm;
+      return Math.abs(serial % 1) > 1e-9 ? `${ymd} ${hm}` : ymd;
+    }
+    function xlsxColIndex(ref) {
+      const m = /^([A-Z]+)/.exec(ref || '');
+      if (!m) return -1;
+      let n = 0;
+      for (const ch of m[1]) n = n * 26 + ch.charCodeAt(0) - 64;
+      return n - 1;
+    }
+
+    async function xlsxToMarkdown(buffer) {
+      const zip = await openZip(buffer);
+      const wbXml = await zip.read('xl/workbook.xml');
+      if (!wbXml) throw new Error('w pliku nie ma skoroszytu Excel');
+      const wb = parseXml(wbXml);
+      const date1904 = /^(1|true)$/i.test(xAttr(xAll(wb, 'workbookPr')[0], 'date1904') || '');
+      const rels = {};
+      const relXml = await zip.read('xl/_rels/workbook.xml.rels');
+      if (relXml) xAll(parseXml(relXml), 'Relationship').forEach(r => { rels[xAttr(r, 'Id')] = xAttr(r, 'Target'); });
+      const shared = [];
+      const sstXml = await zip.read('xl/sharedStrings.xml');
+      if (sstXml) xAll(parseXml(sstXml), 'si').forEach(si => shared.push(xAll(si, 't').filter(t => t.parentNode.localName !== 'rPh').map(t => t.textContent).join('')));
+      const xfKinds = [];
+      const stylesXml = await zip.read('xl/styles.xml');
+      if (stylesXml) {
+        const st = parseXml(stylesXml);
+        const custom = {};
+        xAll(st, 'numFmt').forEach(f => { custom[xAttr(f, 'numFmtId')] = xAttr(f, 'formatCode'); });
+        xKids(xAll(st, 'cellXfs')[0], 'xf').forEach(xf => { const id = parseInt(xAttr(xf, 'numFmtId') || '0', 10); xfKinds.push(xlsxFormatKind(custom[id], id)); });
+      }
+      const parts = [];
+      let total = 0, truncated = false;
+      for (const sheet of xAll(wb, 'sheet').slice(0, 30)) {
+        const name = xAttr(sheet, 'name') || 'Arkusz';
+        const target = rels[xAttr(sheet, 'id')];
+        if (!target) continue;
+        const path = target.startsWith('/') ? target.slice(1) : 'xl/' + target.replace(/^\.\//, '');
+        const xml = await zip.read(path);
+        if (!xml) continue;
+        const rows = [];
+        let sheetTruncated = false;
+        for (const row of xAll(parseXml(xml), 'row')) {
+          const cells = [];
+          let next = 0;
+          xKids(row, 'c').forEach(c => {
+            const ref = xAttr(c, 'r');
+            const ci = ref ? xlsxColIndex(ref) : next;
+            next = ci + 1;
+            if (ci < 0 || ci >= OFFICE_MAX_COLS) return;
+            const t = xAttr(c, 't');
+            const v = xKid(c, 'v') ? xKid(c, 'v').textContent : '';
+            let val = '';
+            if (t === 's') val = shared[parseInt(v, 10)] ?? '';
+            else if (t === 'inlineStr') val = xAll(c, 't').map(x => x.textContent).join('');
+            else if (t === 'b') val = v === '1' ? 'PRAWDA' : 'FAŁSZ';
+            else if (t === 'str' || t === 'e') val = v;                // wynik formuły tekstowej / błąd (#DZIEL/0!)
+            else if (v !== '') {
+              const num = parseFloat(v);
+              const kind = xfKinds[parseInt(xAttr(c, 's') || '0', 10)] || '';
+              if (isNaN(num)) val = v;
+              else if (kind === 'date') val = xlsxDate(num, date1904);
+              else if (kind === 'percent') val = `${+(num * 100).toPrecision(12)}%`;
+              else val = String(+num.toPrecision(15));
+            }
+            if (String(val).trim() !== '') cells[ci] = val;
+          });
+          if (!cells.length) continue;
+          if (rows.length >= OFFICE_MAX_ROWS) { sheetTruncated = true; break; }
+          rows.push(cells);
+        }
+        // pomijamy kolumny puste w całym arkuszu (np. odstępy w układzie)
+        const width = Math.max(0, ...rows.map(r => r.length));
+        const used = Array.from({ length: width }, (_, i) => rows.some(r => r[i] != null && r[i] !== ''));
+        const compact = rows.map(r => used.map((u, i) => (u ? (r[i] == null ? '' : r[i]) : null)).filter(x => x !== null));
+        const hidden = /hidden/i.test(xAttr(sheet, 'state') || '') ? ', ukryty' : '';
+        const n = rows.length;
+        const wiersze = n === 1 ? 'wiersz' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? 'wiersze' : 'wierszy';
+        let block = `## Arkusz: ${name} (${n}${sheetTruncated ? '+' : ''} ${wiersze} z danymi${hidden})`;
+        block += compact.length ? `\n\n${mdTable(compact)}` : '\n\n(arkusz pusty)';
+        if (sheetTruncated) block += `\n\n[… pokazano pierwsze ${OFFICE_MAX_ROWS} wierszy]`;
+        if (total + block.length > OFFICE_TEXT_MAX) { truncated = true; break; }
+        total += block.length;
+        parts.push(block);
+      }
+      if (truncated) parts.push('[… pozostałe arkusze pominięto – plik jest bardzo duży]');
+      return parts.join('\n\n');
+    }
+
+    async function officeToText(buffer, kind) {
+      if (typeof DecompressionStream === 'undefined') throw new Error('ta przeglądarka nie potrafi odczytać plików Word i Excel – zaktualizuj ją lub zapisz plik jako PDF');
+      let text = (kind === 'word' ? await docxToMarkdown(buffer) : await xlsxToMarkdown(buffer)).trim();
+      if (!text) throw new Error(kind === 'word' ? 'dokument jest pusty' : 'arkusz jest pusty');
+      if (text.length > OFFICE_TEXT_MAX) text = text.slice(0, OFFICE_TEXT_MAX) + '\n\n[… treść skrócona – plik był bardzo długi]';
+      return `[Treść pliku ${OFFICE_LABEL[kind]} odczytana automatycznie${kind === 'excel' ? ' – każdy arkusz jako tabela' : ''}]\n\n${text}`;
+    }
+    function base64ToBuffer(b64) {
+      const bin = atob(String(b64 || '').replace(/-/g, '+').replace(/_/g, '/'));
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out.buffer;
     }
 
     /* =====================================================================
@@ -3491,7 +3759,7 @@ GOTOWE FRAGMENTY
 Jeśli podano gotowe fragmenty (firmowe lub użytkownika) i któryś pasuje do sprawy – wykorzystaj jego treść (możesz dopasować styl), nie zmieniając zawartych w nim faktów, kwot ani numerów.
 
 ZAŁĄCZNIKI
-Treść załączników wiadomości (PDF, zdjęcia) jest przekazana razem z nią – uwzględnij ją (np. kwoty z faktury, numer zamówienia, opis usterki ze zdjęcia). Nie zgaduj treści załączników, których nie przekazano.
+Treść załączników wiadomości (PDF, zdjęcia, a pliki Word i Excel jako odczytany tekst i tabele) jest przekazana razem z nią – uwzględnij ją (np. kwoty z faktury, numer zamówienia, opis usterki ze zdjęcia). Nie zgaduj treści załączników, których nie przekazano.
 
 PRZYPOMNIENIA
 Gdy zadaniem jest przypomnienie (brak reakcji na Twoją wcześniejszą wiadomość): napisz krótko (2–4 zdania), uprzejmie i bez wyrzutów, nawiąż do wcześniejszej wiadomości, ponów najważniejsze pytanie lub propozycję i ułatw odpowiedź.
@@ -4016,9 +4284,10 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       let total = 0;
       for (const r of refs) {
         const ext = (String(r.name).split('.').pop() || '').toLowerCase();
-        const mime = MAIL_ATT_TYPES.includes(r.mimeType) ? r.mimeType : (EXT_TYPES[ext] || '');
-        const info = { name: r.name, size: r.size, used: false, reason: '' };
-        if (!mime) info.reason = 'format nieobsługiwany przez AI (np. Word, Excel)';
+        const kind = officeKind(r.name, r.mimeType);
+        const mime = kind ? 'text/plain' : MAIL_ATT_TYPES.includes(r.mimeType) ? r.mimeType : (EXT_TYPES[ext] || '');
+        const info = { name: r.name, size: r.size, used: false, reason: '', note: kind ? `${OFFICE_LABEL[kind]} → tekst` : '' };
+        if (!mime) info.reason = isLegacyOffice(r.name) ? 'stary format .doc/.xls – AI czyta pliki .docx i .xlsx' : 'format nieobsługiwany przez AI';
         else if (parts.length >= 4) info.reason = 'pominięty – maks. 4 załączniki';
         else if (r.size > 7 * 1048576) info.reason = 'za duży (maks. 7 MB)';
         else if (total + r.size > 12 * 1048576) info.reason = 'pominięty – łączny limit 12 MB';
@@ -4034,11 +4303,12 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
               data = d.contentBytes;
             }
             if (!data) throw new Error('pusty załącznik');
+            if (kind) data = utf8ToB64(await officeToText(base64ToBuffer(data), kind));
             parts.push({ name: r.name, mimeType: mime, data, label: 'Załącznik wiadomości' });
             total += r.size;
             info.used = true;
           } catch (e) {
-            info.reason = 'nie udało się pobrać';
+            info.reason = kind ? `nie udało się odczytać pliku ${OFFICE_LABEL[kind]}${e && e.message ? ` (${e.message})` : ''}` : 'nie udało się pobrać';
           }
         }
         meta.push(info);
@@ -4625,7 +4895,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         String(item.body || item.snippet || '').slice(0, 15000),
         '"""'
       );
-      if (att.meta.length) lines.push('', '### ZAŁĄCZNIKI WIADOMOŚCI', ...att.meta.map(m => `- ${m.name}: ${m.used ? 'przekazany do analizy (powyżej)' : `nieprzeanalizowany – ${m.reason}`}`));
+      if (att.meta.length) lines.push('', '### ZAŁĄCZNIKI WIADOMOŚCI', ...att.meta.map(m => `- ${m.name}: ${m.used ? `przekazany do analizy (powyżej)${m.note ? ` – ${m.note}` : ''}` : `nieprzeanalizowany – ${m.reason}`}`));
       if (isFollowUp) {
         lines.push('', `### MOJA WCZEŚNIEJSZA ODPOWIEDŹ (wysłana ${new Date(item.sentAt).toLocaleDateString('pl-PL')}, brak reakcji od ${item.followDays} dni)`, '"""', item.sentText || '', '"""',
           '', '### ZADANIE', 'Przygotuj PRZYPOMNIENIE w tym samym wątku. Ustaw needsReply = true, expectReply = true, meeting.requested = false, category zgodną ze sprawą.');
@@ -4970,7 +5240,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       const atts = item.attachmentsMeta || [];
       const attHtml = atts.length ? `
         <div class="mt-2 flex flex-wrap gap-1.5">
-          ${atts.map(m => `<span class="inline-flex max-w-full items-center gap-1 rounded-full border ${m.used ? 'border-slate-300 bg-slate-50 text-slate-700' : 'border-dashed border-slate-300 text-slate-500'} px-2 py-0.5 text-[11px]" title="${escapeHtml(m.used ? 'Przeanalizowany przez AI' : (m.reason || ''))}">${iconSvg('paperclip', 'h-3 w-3 shrink-0')}<span class="truncate">${escapeHtml(m.name)}</span>${m.used ? iconSvg('check', 'h-3 w-3 shrink-0 text-emerald-600') : ''}</span>`).join('')}
+          ${atts.map(m => `<span class="inline-flex max-w-full items-center gap-1 rounded-full border ${m.used ? 'border-slate-300 bg-slate-50 text-slate-700' : 'border-dashed border-slate-300 text-slate-500'} px-2 py-0.5 text-[11px]" title="${escapeHtml(m.used ? `Przeanalizowany przez AI${m.note ? ` (${m.note})` : ''}` : (m.reason || ''))}">${iconSvg('paperclip', 'h-3 w-3 shrink-0')}<span class="truncate">${escapeHtml(m.name)}</span>${m.used ? iconSvg('check', 'h-3 w-3 shrink-0 text-emerald-600') : ''}</span>`).join('')}
         </div>` : '';
       const head = `
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">

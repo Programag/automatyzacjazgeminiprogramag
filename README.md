@@ -12,7 +12,7 @@ Wdróż `index.html` jako Static Site (np. na Render) albo otwórz go w przeglą
 
 ### Skrzynka AI (Gmail, Outlook, Microsoft 365)
 Czyta nieprzeczytane maile, pomija newslettery, powiadomienia i podejrzane wiadomości, a do pozostałych przygotowuje propozycję odpowiedzi. Każdą możesz edytować, poprawić poleceniem („krócej”, „zaproponuj czwartek”), zapisać jako szkic albo zatwierdzić i wysłać w tym samym wątku (z 5 s na cofnięcie).
-- **Załączniki** – PDF-y i zdjęcia z maila (do 4 plików, 7 MB każdy) są analizowane razem z treścią; pozostałe formaty są oznaczone jako nieprzeanalizowane.
+- **Załączniki** – PDF-y, zdjęcia oraz pliki Word (.docx) i Excel (.xlsx) z maila (do 4 plików, 7 MB każdy) są analizowane razem z treścią; pozostałe formaty (np. stare .doc/.xls) są oznaczone jako nieprzeanalizowane.
 - **Automatyczne etykiety** – kategoria AI trafia do skrzynki jako etykieta Gmail `OfficeFlow/…` lub kategoria Outlook `OfficeFlow: …`.
 - **Terminy z kalendarza** – przy prośbie o spotkanie AI proponuje wolne terminy z Kalendarza Google lub Outlooka (w Twoich godzinach pracy), a przycisk „Dodaj do kalendarza” tworzy wydarzenie, opcjonalnie z zaproszeniem dla nadawcy.
 - **Przypomnienia o braku odpowiedzi** – gdy wysłana oferta lub pytanie zostaną bez reakcji przez 2–7 dni, w skrzynce pojawia się karta z gotowym przypomnieniem (maks. dwa przypomnienia na sprawę).
@@ -32,6 +32,8 @@ Czyta nieprzeczytane maile, pomija newslettery, powiadomienia i podejrzane wiado
 | Dokumenty | **Porównanie dokumentów** | różnice między wersjami umowy z oceną ryzyka albo porównanie dwóch ofert |
 | Dokumenty | **Faktury i paragony** | odczyt danych ze zdjęć/PDF-ów (wiele naraz), kontrola NIP i sum, eksport do Excela (CSV) |
 | Kadry | **Rekrutacja** | ocena dopasowania CV do ogłoszenia, pytania na rozmowę, zaproszenie lub odmowa dla kandydata |
+
+Narzędzia z polem pliku przyjmują PDF-y, zdjęcia, TXT/CSV oraz **Word (.docx) i Excel (.xlsx)** – te dwa formaty są zamieniane w przeglądarce na tekst (tabele i arkusze jako tabele, z datami, procentami i wynikami formuł), bo Gemini nie czyta ich bezpośrednio. Stare formaty .doc/.xls trzeba zapisać jako .docx/.xlsx lub PDF.
 
 Każdy wynik można **wyeksportować**: Word (.docx), PDF (przez okno drukowania), Markdown, tekst, nowa wiadomość w Gmailu / Outlooku / domyślnym programie pocztowym, a dla faktur – Excel (CSV).
 
