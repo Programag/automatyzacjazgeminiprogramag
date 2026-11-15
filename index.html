@@ -83,6 +83,8 @@
     .setup-steps { counter-reset: step; }
     .setup-steps > li { counter-increment: step; position: relative; padding-left: 2.25rem; margin: .85rem 0; font-size: .875rem; line-height: 1.55; color: #334155; }
     .setup-steps > li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 1.5rem; height: 1.5rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-weight: 600; font-size: .75rem; display: flex; align-items: center; justify-content: center; }
+    body[data-role="employee"] [data-tech-only] { display: none !important; }
+    body[data-role="tech"] [data-employee-only] { display: none !important; }
     .reply-box { font-family: inherit; line-height: 1.6; }
     .mail-original { white-space: pre-wrap; word-break: break-word; }
     .scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -117,7 +119,17 @@
         <div class="px-2 mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Narzędzia biurowe</div>
         <ul id="toolMenu" class="space-y-1"></ul>
 
-        <div class="mt-8 mx-2 rounded-xl border border-white/10 bg-white/5 p-4">
+        <div data-employee-only class="mt-8 mx-2 rounded-xl border border-white/10 bg-white/5 p-4">
+          <div class="flex items-center gap-2 text-white text-sm font-semibold">
+            <svg data-icon="lock" class="h-4 w-4 text-indigo-300"></svg>
+            Ty decydujesz
+          </div>
+          <p class="mt-2 text-xs leading-relaxed text-slate-400">
+            Asystent tylko przygotowuje propozycje. Żadna odpowiedź nie zostanie wysłana, dopóki nie klikniesz „Zatwierdź i wyślij”.
+          </p>
+        </div>
+
+        <div data-tech-only class="mt-8 mx-2 rounded-xl border border-white/10 bg-white/5 p-4">
           <div class="flex items-center gap-2 text-white text-sm font-semibold">
             <svg data-icon="lock" class="h-4 w-4 text-indigo-300"></svg>
             Model BYOK
@@ -129,12 +141,16 @@
       </nav>
 
       <div class="border-t border-white/10 p-4 shrink-0">
-        <button id="openSettingsBtn" class="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/10 hover:text-white transition">
-          <svg data-icon="key" class="h-5 w-5 text-slate-400 group-hover:text-indigo-300"></svg>
-          <span class="flex-1 text-left">Ustawienia API</span>
+        <button id="openAdminBtn" data-tech-only class="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/10 hover:text-white transition">
+          <svg data-icon="wrench" class="h-5 w-5 text-slate-400 group-hover:text-indigo-300"></svg>
+          <span class="flex-1 text-left">Panel technika</span>
           <span id="sidebarKeyDot" class="h-2 w-2 rounded-full bg-red-400"></span>
         </button>
-        <div class="mt-2 px-3 text-[11px] text-slate-500">Model: <span id="sidebarModel" class="font-mono text-slate-400"></span></div>
+        <div data-tech-only class="mt-2 px-3 text-[11px] text-slate-500">Model: <span id="sidebarModel" class="font-mono text-slate-400"></span></div>
+        <div data-employee-only class="px-3 py-1 text-[11px] leading-relaxed text-slate-500">
+          Problem z aplikacją? Skontaktuj się z technikiem.
+          <button type="button" id="techModeBtn" class="mt-1 block text-slate-400 underline underline-offset-2 hover:text-white">Tryb technika</button>
+        </div>
       </div>
     </aside>
 
@@ -320,8 +336,8 @@
                       </details>
                       <div class="mt-4 flex flex-wrap gap-2">
                         <button type="button" id="errorRetryBtn" class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">Spróbuj ponownie</button>
-                        <button type="button" id="errorSettingsBtn" class="hidden rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100">Otwórz ustawienia API</button>
-                        <button type="button" id="errorModelBtn" class="hidden rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"></button>
+                        <button type="button" id="errorSettingsBtn" data-tech-only class="hidden rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100">Otwórz ustawienia API</button>
+                        <button type="button" id="errorModelBtn" data-tech-only class="hidden rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"></button>
                       </div>
                     </div>
                   </div>
@@ -358,7 +374,7 @@
             <div id="inboxConnections" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4"></div>
 
             <details id="inboxPrefs" class="mt-5 rounded-xl border border-slate-200 bg-slate-50/60">
-              <summary class="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-navy-900">Ustawienia odpowiedzi – ton, podpis, kontekst firmy</summary>
+              <summary class="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-navy-900">Moje ustawienia odpowiedzi – podpis i ton</summary>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 pb-4 pt-1">
                 <div>
                   <label for="inboxTone" class="field-label">Domyślny ton</label>
@@ -385,13 +401,9 @@
                     <option value="14">14 dni</option>
                   </select>
                 </div>
-                <div class="md:col-span-1">
-                  <label for="inboxSignature" class="field-label">Podpis</label>
+                <div class="md:col-span-3">
+                  <label for="inboxSignature" class="field-label">Mój podpis</label>
                   <textarea id="inboxSignature" rows="4" maxlength="600" class="field-input !min-h-0" placeholder="Anna Nowak&#10;Kierownik Sprzedaży&#10;Firma Sp. z o.o.&#10;tel. 600 100 200"></textarea>
-                </div>
-                <div class="md:col-span-2">
-                  <label for="inboxContext" class="field-label">Kontekst firmy (opcjonalnie)</label>
-                  <textarea id="inboxContext" rows="4" maxlength="3000" class="field-input !min-h-0" placeholder="Czym się zajmujecie, standardowe terminy realizacji, godziny pracy, zasady reklamacji, warunki płatności… AI wykorzysta te fakty w odpowiedziach."></textarea>
                 </div>
               </div>
             </details>
@@ -399,6 +411,44 @@
 
           <div id="inboxOnboarding"></div>
           <div id="inboxList" class="space-y-4"></div>
+        </div>
+
+        <!-- ===== Widok: Panel technika ===== -->
+        <div id="view-admin" class="hidden p-4 sm:p-6 max-w-[1100px] mx-auto space-y-5">
+          <section class="rounded-2xl bg-white shadow-card border border-slate-200/70 p-5 sm:p-6">
+            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div>
+                <h2 class="font-semibold text-navy-900 text-lg">Konfiguracja dla całej firmy</h2>
+                <p class="mt-1 max-w-2xl text-sm text-slate-500">Ta sekcja jest dla osoby, która wdraża OfficeFlow. Pracownicy jej nie widzą – dostają gotowy link i korzystają tylko ze Skrzynki AI oraz narzędzi biurowych.</p>
+              </div>
+              <button type="button" id="previewEmployeeBtn" class="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Zobacz widok pracownika</button>
+            </div>
+            <div id="adminChecklist" class="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+          </section>
+
+          <section class="rounded-2xl bg-white shadow-card border border-slate-200/70 p-5 sm:p-6">
+            <h3 class="font-semibold text-navy-900"><span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">1</span>Klucz AI i model</h3>
+            <div id="adminAi" class="mt-4"></div>
+          </section>
+
+          <section class="rounded-2xl bg-white shadow-card border border-slate-200/70 p-5 sm:p-6">
+            <h3 class="font-semibold text-navy-900"><span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">2</span>Skrzynki pocztowe</h3>
+            <p class="mt-1 text-sm text-slate-500">Jednorazowa rejestracja aplikacji u Google i/lub Microsoftu. Wystarczy skonfigurować te skrzynki, z których korzysta firma.</p>
+            <div id="adminMail" class="mt-4 space-y-3"></div>
+          </section>
+
+          <section class="rounded-2xl bg-white shadow-card border border-slate-200/70 p-5 sm:p-6">
+            <h3 class="font-semibold text-navy-900"><span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">3</span>Informacje o firmie dla AI</h3>
+            <p class="mt-1 text-sm text-slate-500">Fakty, które AI może wykorzystywać w odpowiedziach wszystkich pracowników (trafiają do linku zaproszenia). Im konkretniej, tym mniej pól [do uzupełnienia] w odpowiedziach.</p>
+            <textarea id="adminContext" rows="6" maxlength="3000" class="field-input mt-3" placeholder="np. Sprzedajemy meble biurowe. Krzesło ErgoPro: 590 zł netto. Dostawa do 14 dni roboczych. Przy płatności z góry rabat 3%. Reklamacje rozpatrujemy w 7 dni. Biuro czynne pn–pt 8–16."></textarea>
+            <p class="mt-1.5 text-xs text-slate-400">Zapisuje się automatycznie. Po zmianie wyślij pracownikom nowy link, aby otrzymali aktualne informacje.</p>
+          </section>
+
+          <section id="adminInviteSection" class="rounded-2xl bg-white shadow-card border border-slate-200/70 p-5 sm:p-6">
+            <h3 class="font-semibold text-navy-900"><span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">4</span>Zaproś pracowników</h3>
+            <p class="mt-1 text-sm text-slate-500">Pracownik otwiera link, klika „Połącz” i loguje się do swojej poczty – bez żadnej konfiguracji.</p>
+            <div id="adminInvite" class="mt-4"></div>
+          </section>
         </div>
       </main>
     </div>
@@ -510,25 +560,6 @@
   </div>
 
 
-  <!-- ============ MODAL: ZAPROŚ PRACOWNIKÓW ============ -->
-  <div id="inviteModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="inviteTitle">
-    <div data-close-invite class="absolute inset-0 bg-navy-950/60 backdrop-blur-sm"></div>
-    <div class="relative flex min-h-full items-center justify-center p-4">
-      <div class="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl fade-in">
-        <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
-          <div>
-            <h2 id="inviteTitle" class="font-semibold text-navy-900">Zaproś pracowników</h2>
-            <p class="text-xs text-slate-500">Pracownik otwiera link, klika „Połącz” i loguje się do swojej poczty – bez żadnej konfiguracji</p>
-          </div>
-          <button type="button" data-close-invite class="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Zamknij">
-            <svg data-icon="x" class="h-5 w-5"></svg>
-          </button>
-        </div>
-        <div id="inviteBody" class="max-h-[75vh] overflow-y-auto scroll-thin px-6 py-5"></div>
-      </div>
-    </div>
-  </div>
-
   <!-- ============ MODAL: ZASTOSUJ KONFIGURACJĘ FIRMY ============ -->
   <div id="orgSetupModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="orgSetupTitle">
     <div class="absolute inset-0 bg-navy-950/60 backdrop-blur-sm"></div>
@@ -539,7 +570,7 @@
             <svg data-icon="sparkles" class="h-7 w-7"></svg>
           </div>
           <h2 id="orgSetupTitle" class="mt-4 text-lg font-semibold text-navy-900"></h2>
-          <p class="mt-1 text-sm text-slate-500">Ten link przygotował administrator Twojej firmy. Po kliknięciu „Zastosuj” wystarczy połączyć skrzynkę pocztową.</p>
+          <p class="mt-1 text-sm text-slate-500">Ten link przygotował technik Twojej firmy. Po kliknięciu „Zastosuj” wystarczy połączyć skrzynkę pocztową.</p>
         </div>
         <div id="orgSetupBody" class="px-6 py-5"></div>
         <div class="flex flex-col-reverse sm:flex-row gap-2 justify-end border-t border-slate-100 px-6 py-4">
@@ -595,6 +626,7 @@
       warning: 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z',
       lock: 'M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z',
       bolt: 'm3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z',
+      wrench: 'M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z',
       inbox: 'M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 0 0-2.15-1.588H6.911a2.25 2.25 0 0 0-2.15 1.588L2.35 13.177a2.25 2.25 0 0 0-.1.661Z',
       refresh: 'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99',
       send: 'M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5',
@@ -939,6 +971,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
     function renderModelLabel() {
       const el = document.getElementById('sidebarModel');
       if (el) el.textContent = getModel();
+      if (typeof renderAdminIfVisible === 'function') renderAdminIfVisible();
     }
     function isGemini3Plus(model) {
       const m = /^gemini-(\d+)/.exec(model);
@@ -1411,6 +1444,13 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       const key = getApiKey();
       const el = $('#apiStatus');
       const dot = $('#sidebarKeyDot');
+      if (typeof isTech === 'function' && !isTech()) {
+        el.innerHTML = key
+          ? `<span class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700"><span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>AI aktywne</span>`
+          : `<span class="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700"><span class="h-2.5 w-2.5 rounded-full bg-red-500"></span>AI niedostępne<span class="hidden sm:inline"> – skontaktuj się z technikiem</span></span>`;
+        return;
+      }
+      if (typeof renderAdminIfVisible === 'function') renderAdminIfVisible();
       if (key) {
         el.innerHTML = `
           <button type="button" data-action="open-settings" class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition" title="Klucz: ${escapeHtml(maskKey(key))} – kliknij, aby zarządzać">
@@ -1467,12 +1507,18 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
           </li>`;
       }).join('');
       if (typeof updateInboxBadge === 'function') updateInboxBadge();
+      const adminBtn = document.getElementById('openAdminBtn');
+      if (adminBtn) {
+        adminBtn.classList.toggle('bg-white/10', state.view === 'admin');
+        adminBtn.classList.toggle('text-white', state.view === 'admin');
+      }
     }
 
     function showInbox() {
       state.view = 'inbox';
       storageSet(STORAGE_TOOL, 'inbox');
       $('#view-tools').classList.add('hidden');
+      $('#view-admin').classList.add('hidden');
       $('#view-inbox').classList.remove('hidden');
       $('#toolTitle').textContent = 'Skrzynka AI';
       $('#toolSubtitle').textContent = 'Propozycje odpowiedzi na nowe maile z Gmaila i Outlooka – do zatwierdzenia jednym kliknięciem';
@@ -1482,9 +1528,11 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
 
     function setActiveTool(id) {
       if (id === 'inbox') { showInbox(); return; }
+      if (id === 'admin') { showAdmin(); return; }
       if (!TOOLS[id]) id = 'email';
       state.view = 'tools';
       $('#view-inbox').classList.add('hidden');
+      $('#view-admin').classList.add('hidden');
       $('#view-tools').classList.remove('hidden');
       state.activeTool = id;
       storageSet(STORAGE_TOOL, id);
@@ -1600,8 +1648,9 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
         const e = r.error;
         $('#errorTitle').textContent = e.title;
         $('#errorMessage').textContent = e.message;
-        $('#errorHints').innerHTML = (e.hints || []).map(h => `<li>${escapeHtml(h)}</li>`).join('');
-        $('#errorHints').classList.toggle('hidden', !(e.hints && e.hints.length));
+        const hints = hintsForRole(e.hints);
+        $('#errorHints').innerHTML = hints.map(h => `<li>${escapeHtml(h)}</li>`).join('');
+        $('#errorHints').classList.toggle('hidden', !hints.length);
         $('#errorDetails').textContent = e.details || '';
         $('#errorDetailsWrap').classList.toggle('hidden', !e.details);
         $('#errorSettingsBtn').classList.toggle('hidden', !e.isKeyProblem);
@@ -2197,7 +2246,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
           checkMail({ manual: false });
         },
         error_callback: (err) => {
-          const msg = err && err.type === 'popup_closed' ? 'Okno logowania Google zostało zamknięte. Jeśli Google pokazał „Dostęp zablokowany”, poproś administratora o dodanie Twojego adresu e-mail do aplikacji.'
+          const msg = err && err.type === 'popup_closed' ? 'Okno logowania Google zostało zamknięte. Jeśli Google pokazał „Dostęp zablokowany”, poproś technika o dodanie Twojego adresu e-mail do aplikacji.'
             : err && err.type === 'popup_failed_to_open' ? 'Przeglądarka zablokowała okno logowania Google – zezwól na wyskakujące okienka dla tej strony.'
             : `Gmail: ${(err && (err.message || err.type)) || 'błąd logowania'}`;
           toast(msg, 'error');
@@ -2695,7 +2744,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
 
     function updateInboxBadge() {
       const n = inboxCounts().ready;
-      const base = state.view === 'inbox' ? 'Skrzynka AI' : TOOLS[state.activeTool].short;
+      const base = state.view === 'inbox' ? 'Skrzynka AI' : state.view === 'admin' ? 'Panel technika' : TOOLS[state.activeTool].short;
       document.title = `${n ? `(${n}) ` : ''}${base} · OfficeFlow AI`;
       const badge = document.getElementById('inboxMenuBadge');
       if (badge) { badge.textContent = n; badge.classList.toggle('hidden', !n); }
@@ -2722,14 +2771,14 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
         const e = inbox.pauseError;
         pause.innerHTML = `<strong class="font-semibold">${escapeHtml(e.title)}.</strong> ${escapeHtml(e.message)}
           Wiadomości w kolejce (${inbox.queue.length}) zostaną obsłużone automatycznie, gdy limit się odnowi${e.dailyQuota ? ' – pod warunkiem, że ta karta będzie otwarta' : ''}.
-          ${e.dailyQuota ? '<br><a class="font-medium underline underline-offset-2" href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer">Włącz płatny plan w Google AI Studio</a>, aby zwiększyć limit (jedna odpowiedź to zwykle 1–2 grosze).' : ''}`;
+          ${e.dailyQuota ? (isTech() ? '<br><a class="font-medium underline underline-offset-2" href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer">Włącz płatny plan w Google AI Studio</a>, aby zwiększyć limit (jedna odpowiedź to zwykle 1–2 grosze).' : '<br>Daj znać technikowi – może zwiększyć limit.') : ''}`;
       }
     }
 
     function connectionCard(provider) {
       const isGmail = provider === 'gmail';
       const configured = isGmail ? !!gmailClientId() : !!msClientId();
-      const managed = isManaged();
+      const managed = !isTech();
       if (managed && !configured) return '';
       const connected = isGmail ? gmailConnected() : outlookConnected();
       const account = isGmail ? inbox.gmail.email : (inbox.ms.account && inbox.ms.account.username);
@@ -2768,8 +2817,8 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
     function renderConnections() {
       let html = connectionCard('gmail') + connectionCard('outlook');
       if (!html.trim()) {
-        html = '<div class="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Administrator nie skonfigurował jeszcze żadnej skrzynki. Poproś go o nowy link konfiguracyjny.</div>';
-      } else if (!isManaged() && (gmailClientId() || msClientId())) {
+        html = '<div class="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Skrzynki pocztowe nie zostały jeszcze skonfigurowane. Poproś technika o link konfiguracyjny.</div>';
+      } else if (isTech() && (gmailClientId() || msClientId())) {
         html += `
           <div class="md:col-span-2 flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 px-4 py-3">
             <span class="flex-1 min-w-[14rem] text-sm text-slate-600"><strong class="font-medium text-navy-900">Pracownicy też mają korzystać?</strong> Wyślij im link – kliknią „Połącz” i od razu działa, bez konfiguracji.</span>
@@ -2779,6 +2828,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       $('#inboxConnections').innerHTML = html;
       renderInboxToolbar();
       renderOnboarding();
+      renderAdminIfVisible();
     }
 
     const PRIORITY_STYLES = { 'Wysoki': 'bg-red-50 text-red-700 border-red-200', 'Średni': 'bg-amber-50 text-amber-700 border-amber-200', 'Niski': 'bg-slate-50 text-slate-600 border-slate-200' };
@@ -2821,7 +2871,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
             <div class="mt-0.5">${escapeHtml(e.message || String(e))}</div>
             <div class="mt-3 flex flex-wrap gap-2">
               <button type="button" data-mail-action="retry" class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Spróbuj ponownie</button>
-              ${e.isKeyProblem ? '<button type="button" data-action="open-settings" class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100">Ustawienia API</button>' : ''}
+              ${e.isKeyProblem && isTech() ? '<button type="button" data-action="open-settings" class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100">Ustawienia API</button>' : ''}
               <button type="button" data-mail-action="skip" class="rounded-lg px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100">Pomiń</button>
             </div>
           </div>`;
@@ -3072,13 +3122,13 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       const rows = [];
       if (d.g) rows.push(['Gmail', 'gotowy do połączenia']);
       if (d.m) rows.push(['Outlook / Microsoft 365', 'gotowy do połączenia']);
-      rows.push(['Klucz AI (Gemini)', d.k ? `firmowy (${maskKey(d.k)})` : (getApiKey() ? 'Twój obecny klucz' : 'brak – poproś administratora o klucz')]);
+      rows.push(['Klucz AI (Gemini)', d.k ? `firmowy (${maskKey(d.k)})` : (getApiKey() ? 'Twój obecny klucz' : 'brak – poproś technika o klucz')]);
       if (d.ctx) rows.push(['Informacje o firmie dla AI', 'dołączone']);
       $('#orgSetupBody').innerHTML = `
         <ul class="divide-y divide-slate-100 rounded-xl border border-slate-200 text-sm">
           ${rows.map(([k, v]) => `<li class="flex items-center justify-between gap-3 px-4 py-2.5"><span class="text-slate-600">${escapeHtml(k)}</span><span class="font-medium text-slate-900 text-right">${escapeHtml(v)}</span></li>`).join('')}
         </ul>
-        <p class="mt-3 text-xs leading-relaxed text-slate-500">Akceptuj tylko link otrzymany od swojego administratora. Ustawienia zostaną zapisane wyłącznie w tej przeglądarce.</p>`;
+        <p class="mt-3 text-xs leading-relaxed text-slate-500">Akceptuj tylko link otrzymany od technika lub przełożonego w Twojej firmie. Ustawienia zostaną zapisane wyłącznie w tej przeglądarce.</p>`;
       $('#orgSetupModal').classList.remove('hidden');
       document.body.style.overflow = 'hidden';
     }
@@ -3103,6 +3153,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       if (d.max) patch.maxCount = d.max;
       saveInboxPrefs(patch);
       saveJson(ORG_KEY, { name: d.org || '', at: Date.now() });
+      storageSet(ROLE_KEY, 'employee');
       storageSet(STORAGE_TOOL, 'inbox');
       clearSetupFromUrl();
       location.reload();
@@ -3150,9 +3201,9 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
         ? `<li><strong>Klucz Gemini</strong> będzie wspólny dla wszystkich – limity i koszty też. Ogranicz go do adresu tej strony w <a class="font-medium text-indigo-600 underline underline-offset-2" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Google Cloud → Credentials</a> (<em>Websites</em>: <code class="font-mono text-xs">${escapeHtml(location.origin)}/*</code>). Przy kilku osobach rozważ płatny plan w AI Studio – darmowy limit szybko się wyczerpie.</li>`
         : '<li><strong>Bez klucza Gemini w linku</strong> każdy pracownik będzie musiał wkleić własny klucz w „Ustawieniach API”.</li>');
 
-      $('#inviteBody').innerHTML = `
+      $('#adminInvite').innerHTML = `
         ${!isPublic ? '<div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Ta strona jest otwarta lokalnie – link nie zadziała u pracowników. Wygeneruj go na stronie otwartej z adresu Render (https://…).</div>' : ''}
-        ${!hasProvider ? '<div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">Najpierw skonfiguruj Gmail lub Outlook (przycisk „Skonfiguruj” w Skrzynce AI).</div>' : ''}
+        ${!hasProvider ? '<div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">Najpierw skonfiguruj Gmail lub Outlook (krok 2 powyżej).</div>' : ''}
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="sm:col-span-2">
             <label for="inviteOrg" class="field-label">Nazwa firmy (widoczna dla pracownika)</label>
@@ -3183,18 +3234,8 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       $('#inviteLinkOut').value = link;
       $('#inviteMsgOut').value = inviteMessage(link);
     }
-    function openInvite() {
-      renderInvite();
-      $('#inviteModal').classList.remove('hidden');
-      document.body.style.overflow = 'hidden';
-    }
-    function closeInvite() {
-      $('#inviteModal').classList.add('hidden');
-      document.body.style.overflow = '';
-    }
     function bindOrgUi() {
-      $('#inviteModal').addEventListener('click', async (e) => {
-        if (e.target.closest('[data-close-invite]')) { closeInvite(); return; }
+      $('#adminInvite').addEventListener('click', async (e) => {
         const c = e.target.closest('[data-copy-invite]');
         if (c) {
           const ok = await copyText(c.dataset.copyInvite === 'link' ? $('#inviteLinkOut').value : $('#inviteMsgOut').value);
@@ -3203,10 +3244,10 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
           else toast('Zaznacz tekst i skopiuj go ręcznie (Ctrl+C).', 'info');
         }
       });
-      $('#inviteModal').addEventListener('input', (e) => {
+      $('#adminInvite').addEventListener('input', (e) => {
         if (e.target.id === 'inviteOrg') { inviteOpts.org = e.target.value; updateInviteOutputs(); }
       });
-      $('#inviteModal').addEventListener('change', (e) => {
+      $('#adminInvite').addEventListener('change', (e) => {
         const opt = e.target.dataset && e.target.dataset.inviteOpt;
         if (opt) { inviteOpts[opt] = e.target.checked; renderInvite(); }
       });
@@ -3233,8 +3274,9 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
           </div>
         </li>`; };
       const steps = [];
-      if (!hasKey) steps.push(step(false, 'Dodaj klucz AI', 'Brakuje klucza Gemini. Poproś administratora o link konfiguracyjny albo wklej klucz w ustawieniach.',
-        '<button type="button" data-action="open-settings" class="mt-2 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">Ustawienia API</button>'));
+      if (!hasKey) steps.push(isTech()
+        ? step(false, 'Dodaj klucz AI', 'Brakuje klucza Gemini – dodaj go w Panelu technika.', '<button type="button" data-tool-link="admin" class="mt-2 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">Panel technika</button>')
+        : step(false, 'Brakuje klucza AI', 'Poproś technika o nowy link konfiguracyjny.'));
       steps.push(step(connected, 'Połącz swoją skrzynkę', 'Kliknij niebieski przycisk „Połącz” powyżej i zaloguj się tym samym kontem, którego używasz do poczty. Jeśli Google pokaże „Aplikacja nie została zweryfikowana”, kliknij „Kontynuuj”.'));
       steps.push(step(hasSignature, 'Wpisz swój podpis', 'Podpis pojawi się na końcu każdej odpowiedzi.',
         '<button type="button" data-onboarding="signature" class="mt-2 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">Uzupełnij podpis</button>'));
@@ -3245,6 +3287,112 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
           <p class="mt-1 text-sm text-slate-600">Asystent przeczyta Twoje nowe maile i przygotuje propozycje odpowiedzi. Ty je tylko sprawdzasz i zatwierdzasz.</p>
           <ol class="mt-4 space-y-4">${steps.join('')}</ol>
         </section>`;
+    }
+
+    /* ---------- tryby: technik / pracownik ---------- */
+    const ROLE_KEY = 'officeflow_role';
+    function getRole() {
+      const r = storageGet(ROLE_KEY);
+      if (r === 'tech' || r === 'employee') return r;
+      return isManaged() ? 'employee' : 'tech';
+    }
+    function isTech() { return getRole() === 'tech'; }
+    function setRole(role) {
+      storageSet(ROLE_KEY, role);
+      applyRoleUi();
+    }
+    function applyRoleUi() {
+      document.body.dataset.role = getRole();
+      if (!isTech() && state.view === 'admin') showInbox();
+      renderApiStatus();
+      renderConnections();
+      renderMenu();
+    }
+    // Wskazówki techniczne (klucze, modele, Google Cloud) nie są dla pracownika – zamiast nich: „przekaż technikowi”
+    function hintsForRole(hints) {
+      if (isTech()) return hints || [];
+      const simple = (hints || []).filter(h => !/ustawieni|model|klucz|google cloud|ai studio|billing|projekcie|api|ogranicze/i.test(h));
+      return [...simple, 'Jeśli problem się powtarza, przekaż ten komunikat technikowi.'];
+    }
+
+    /* ---------- Panel technika ---------- */
+    function showAdmin(focus) {
+      if (!isTech()) { showInbox(); return; }
+      state.view = 'admin';
+      storageSet(STORAGE_TOOL, 'admin');
+      $('#view-tools').classList.add('hidden');
+      $('#view-inbox').classList.add('hidden');
+      $('#view-admin').classList.remove('hidden');
+      $('#toolTitle').textContent = 'Panel technika';
+      $('#toolSubtitle').textContent = 'Klucz AI, skrzynki pocztowe, informacje o firmie i zaproszenia dla pracowników';
+      $('#adminContext').value = getInboxPrefs().context;
+      renderAdmin();
+      renderInvite();
+      renderMenu();
+      closeSidebar();
+      if (focus === 'invite') setTimeout(() => $('#adminInviteSection').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    }
+
+    function plZnaki(n) {
+      if (n === 1) return 'znak';
+      return n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'znaki' : 'znaków';
+    }
+
+    function renderAdminIfVisible() {
+      if (state.view === 'admin' && document.getElementById('adminChecklist')) {
+        renderAdmin();
+        // nie przerysowuj formularza zaproszenia, gdy technik właśnie w nim pisze
+        if (!document.getElementById('adminInvite').contains(document.activeElement)) renderInvite();
+      }
+    }
+
+    function renderAdmin() {
+      const key = getApiKey();
+      const g = gmailClientId(), m = msClientId();
+      const ctx = getInboxPrefs().context.trim();
+      const tile = (ok, title, detail, optional) => `
+        <div class="rounded-xl border ${ok ? 'border-emerald-200 bg-emerald-50/60' : optional ? 'border-slate-200 bg-slate-50' : 'border-amber-200 bg-amber-50/60'} p-3.5">
+          <div class="flex items-center gap-2 text-sm font-semibold ${ok ? 'text-emerald-800' : optional ? 'text-slate-600' : 'text-amber-800'}">
+            ${ok ? iconSvg('check', 'h-4 w-4') : `<span class="h-2 w-2 rounded-full ${optional ? 'bg-slate-400' : 'bg-amber-500'}"></span>`}${title}
+          </div>
+          <div class="mt-1 truncate text-xs ${ok ? 'text-emerald-700' : 'text-slate-500'}">${detail}</div>
+        </div>`;
+      const anyMail = !!(g || m);
+      $('#adminChecklist').innerHTML =
+        tile(!!key, 'Klucz AI', key ? escapeHtml(maskKey(key)) : 'brak – krok 1') +
+        tile(!!g, 'Gmail', g ? 'skonfigurowany' : (anyMail ? 'nieużywany' : 'nieskonfigurowany – krok 2'), !g && anyMail) +
+        tile(!!m, 'Outlook / Microsoft 365', m ? 'skonfigurowany' : (anyMail ? 'nieużywany' : 'nieskonfigurowany – krok 2'), !m && anyMail) +
+        tile(!!ctx, 'Informacje o firmie', ctx ? `${ctx.length} ${plZnaki(ctx.length)}` : 'zalecane – krok 3', true);
+
+      const levelNames = { low: 'Niski (najszybszy)', medium: 'Średni', high: 'Wysoki' };
+      $('#adminAi').innerHTML = `
+        <dl class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+          <div class="rounded-lg bg-slate-50 px-3 py-2.5"><dt class="text-xs text-slate-500">Klucz Gemini</dt><dd class="mt-0.5 font-mono text-slate-900">${key ? escapeHtml(maskKey(key)) : '<span class="font-sans text-amber-700">nie dodano</span>'}</dd></div>
+          <div class="rounded-lg bg-slate-50 px-3 py-2.5"><dt class="text-xs text-slate-500">Model</dt><dd class="mt-0.5 font-mono text-slate-900">${escapeHtml(getModel())}</dd></div>
+          <div class="rounded-lg bg-slate-50 px-3 py-2.5"><dt class="text-xs text-slate-500">Poziom rozumowania</dt><dd class="mt-0.5 text-slate-900">${levelNames[getThinkingLevel()]}</dd></div>
+        </dl>
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <button type="button" data-action="open-settings" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">${key ? 'Zmień klucz lub model' : 'Dodaj klucz Gemini'}</button>
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-sm font-medium text-indigo-600 underline underline-offset-2">Google AI Studio</a>
+        </div>
+        <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900">
+          <strong>Limity:</strong> darmowy plan Gemini pozwala na ok. 20 zapytań dziennie na model, a każdy przeanalizowany mail to jedno zapytanie. Do pracy biura włącz płatny plan (<em>Billing</em>) w Google AI Studio – jedna odpowiedź kosztuje zwykle 1–2 grosze.
+          Jeśli klucz trafi do pracowników (link zaproszenia), ogranicz go do adresu tej strony w <a class="font-medium underline underline-offset-2" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Google Cloud → Credentials</a>.
+        </div>`;
+
+      const mailRow = (provider, name, id, help) => `
+        <div class="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 p-4">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg ${provider === 'gmail' ? 'bg-red-50 text-red-600' : 'bg-sky-50 text-sky-700'} font-bold">${provider === 'gmail' ? 'G' : 'O'}</span>
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-semibold text-navy-900">${name}</div>
+            <div class="truncate text-xs ${id ? 'text-emerald-700' : 'text-slate-500'}">${id ? `Skonfigurowano · ${escapeHtml(id.slice(0, 18))}…` : help}</div>
+          </div>
+          <button type="button" data-admin-setup="${provider}" class="rounded-lg ${id ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50' : 'bg-indigo-600 text-white hover:bg-indigo-700'} px-3 py-1.5 text-sm font-semibold">${id ? 'Zmień' : 'Skonfiguruj'}</button>
+        </div>`;
+      $('#adminMail').innerHTML =
+        mailRow('gmail', 'Gmail', g, 'Konta @gmail.com i Google Workspace · ok. 5 min w Google Cloud') +
+        mailRow('outlook', 'Outlook / Microsoft 365', m, 'Konta @outlook.com i firmowe Microsoft 365 · ok. 5 min w Microsoft Entra') +
+        `<p class="text-xs text-slate-500">Po skonfigurowaniu połącz własną skrzynkę w <button type="button" data-tool-link="inbox" class="font-medium text-indigo-600 underline underline-offset-2">Skrzynce AI</button>, żeby sprawdzić, czy wszystko działa – zanim zaprosisz pracowników.</p>`;
     }
 
     /* ---------- automatyczne sprawdzanie ---------- */
@@ -3262,7 +3410,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       $('#inboxMax').value = String(prefs.maxCount);
       $('#inboxDays').value = String(prefs.days);
       $('#inboxSignature').value = prefs.signature;
-      $('#inboxContext').value = prefs.context;
+      $('#adminContext').value = prefs.context;
       $('#inboxAuto').checked = !!prefs.auto;
 
       $('#inboxTone').addEventListener('change', e => saveInboxPrefs({ tone: e.target.value }));
@@ -3277,7 +3425,21 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
         }
       });
       bindOrgUi();
-      $('#inboxContext').addEventListener('input', e => saveInboxPrefs({ context: e.target.value }));
+      $('#adminContext').addEventListener('input', e => { saveInboxPrefs({ context: e.target.value }); renderAdmin(); updateInviteOutputs(); });
+      $('#view-admin').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-admin-setup]');
+        if (b) openMailSetup(b.dataset.adminSetup);
+      });
+      $('#previewEmployeeBtn').addEventListener('click', () => {
+        setRole('employee');
+        showInbox();
+        toast('Widok pracownika. Aby wrócić, kliknij „Tryb technika” na dole menu.', 'info');
+      });
+      $('#techModeBtn').addEventListener('click', () => {
+        if (!confirm('Tryb technika służy do konfiguracji aplikacji (klucz AI, skrzynki, zaproszenia). Przejść do trybu technika?')) return;
+        setRole('tech');
+        showAdmin();
+      });
       $('#inboxAuto').addEventListener('change', e => { saveInboxPrefs({ auto: e.target.checked }); applyAutoPolling(); if (e.target.checked) checkMail({ manual: false }); });
       $('#inboxCheckBtn').addEventListener('click', () => checkMail({ manual: true }));
 
@@ -3285,7 +3447,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
         const btn = e.target.closest('[data-mail-action]');
         if (!btn) return;
         const p = btn.dataset.provider, action = btn.dataset.mailAction;
-        if (action === 'invite') openInvite();
+        if (action === 'invite') showAdmin('invite');
         else if (action === 'setup') openMailSetup(p);
         else if (action === 'connect') { if (inbox.providerErrors) delete inbox.providerErrors[p]; p === 'gmail' ? connectGmail() : connectOutlook(); }
         else if (action === 'disconnect') p === 'gmail' ? disconnectGmail() : disconnectOutlook();
@@ -3360,7 +3522,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       });
       $('#resetModelBtn').addEventListener('click', () => { $('#modelInput').value = DEFAULT_MODEL; });
 
-      $('#openSettingsBtn').addEventListener('click', () => { closeSidebar(); openSettings(); });
+      $('#openAdminBtn').addEventListener('click', () => showAdmin());
       $('#closeSettingsBtn').addEventListener('click', closeSettings);
       $('#settingsBackdrop').addEventListener('click', closeSettings);
       $('#settingsForm').addEventListener('submit', handleSaveKey);
@@ -3386,7 +3548,6 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
         if (e.key === 'Escape') {
           if (!$('#settingsModal').classList.contains('hidden')) closeSettings();
           else if (!$('#mailSetupModal').classList.contains('hidden')) closeMailSetup();
-          else if (!$('#inviteModal').classList.contains('hidden')) closeInvite();
           else closeSidebar();
         }
       });
@@ -3404,8 +3565,9 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       initSubmitButtons();
       bindEvents();
       updateAnalyzerHint();
+      document.body.dataset.role = getRole();
       const savedTool = storageGet(STORAGE_TOOL);
-      setActiveTool(TOOLS[savedTool] || savedTool === 'inbox' ? savedTool : 'email');
+      setActiveTool(TOOLS[savedTool] || savedTool === 'inbox' || (savedTool === 'admin' && isTech()) ? savedTool : (isTech() ? 'email' : 'inbox'));
       initInbox();
       $('#modelSuggestions').innerHTML = MODEL_SUGGESTIONS.map(m => `<option value="${m}"></option>`).join('');
       renderModelLabel();
@@ -3415,8 +3577,8 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
         showOrgSetup(setup);
       } else if (location.hash.includes('setup=')) {
         clearSetupFromUrl();
-        toast('Link konfiguracyjny jest niekompletny lub uszkodzony – poproś administratora o nowy.', 'error');
-      } else if (!getApiKey()) {
+        toast('Link konfiguracyjny jest niekompletny lub uszkodzony – poproś technika o nowy.', 'error');
+      } else if (!getApiKey() && isTech()) {
         setTimeout(() => openSettings('Witaj w OfficeFlow AI! Aby rozpocząć, wklej swój klucz API Google Gemini. Klucz zostanie zapisany wyłącznie w tej przeglądarce.'), 400);
       }
     }

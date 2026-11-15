@@ -17,7 +17,7 @@ Wdróż `index.html` jako Static Site (np. na Render) albo otwórz go w przeglą
 
 ## Konfiguracja skrzynek (jednorazowo)
 
-Instrukcja krok po kroku jest też w aplikacji: **Skrzynka AI → Skonfiguruj**.
+Instrukcja krok po kroku jest też w aplikacji: **Panel technika → Skrzynki pocztowe → Skonfiguruj**.
 
 ### Gmail
 1. [Google Cloud Console](https://console.cloud.google.com/projectcreate) → utwórz projekt.
@@ -32,11 +32,19 @@ Instrukcja krok po kroku jest też w aplikacji: **Skrzynka AI → Skonfiguruj**.
 3. *Redirect URI*: platforma **Single-page application (SPA)**, adres strony, np. `https://officeflow-ai.onrender.com/`.
 4. Skopiuj **Application (client) ID** i wklej w aplikacji. W koncie firmowym administrator może musieć zatwierdzić uprawnienia `Mail.ReadWrite`, `Mail.Send`, `User.Read`.
 
-## Pracownicy biura – bez konfiguracji
+## Dwa tryby: technik i pracownik
 
-Administrator konfiguruje Gmail/Outlook raz, a potem w **Skrzynce AI** klika **Zaproś pracowników**. Aplikacja generuje link konfiguracyjny i gotową wiadomość do wysłania (mail, Teams, Slack). Pracownik otwiera link, klika **Zastosuj** i **Połącz**, loguje się do swojej poczty i wpisuje podpis – bez żadnych identyfikatorów czy kluczy.
+**Panel technika** (dla osoby wdrażającej aplikację) zbiera całą konfigurację w jednym miejscu, z listą kontrolną postępu:
+1. **Klucz AI i model** – klucz Gemini, model, poziom rozumowania, informacja o limitach.
+2. **Skrzynki pocztowe** – rejestracja aplikacji w Google Cloud (Gmail) i Microsoft Entra (Outlook / Microsoft 365).
+3. **Informacje o firmie dla AI** – fakty wykorzystywane w odpowiedziach wszystkich pracowników.
+4. **Zaproś pracowników** – link konfiguracyjny i gotowa wiadomość do wysłania (mail, Teams, Slack) oraz lista rzeczy do odhaczenia u Google/Microsoftu.
 
-Przed wysłaniem linku administrator powinien:
+**Widok pracownika** pokazuje tylko Skrzynkę AI (połącz skrzynkę, podpis, zatwierdzanie odpowiedzi) i narzędzia biurowe – bez kluczy, modeli i konfiguracji. Komunikaty o problemach technicznych kończą się prośbą o kontakt z technikiem.
+
+Pracownik otwiera link od technika, klika **Zastosuj** i **Połącz**, loguje się do swojej poczty i wpisuje podpis. Technik może podejrzeć aplikację oczami pracownika („Zobacz widok pracownika”) i wrócić linkiem **Tryb technika** na dole menu.
+
+Przed wysłaniem linku technik powinien:
 - **Gmail (@gmail.com):** dodać adres każdego pracownika jako *Test user* (Google Auth Platform → Audience, do 100 osób). **Google Workspace:** ustawić typ odbiorców *Internal* – wtedy nie trzeba listy.
 - **Microsoft 365:** kliknąć *Grant admin consent* w *API permissions* aplikacji.
 - **Klucz Gemini:** jeśli jest dołączony do linku, jest wspólny dla wszystkich – warto ograniczyć go do adresu strony i włączyć płatny plan.
