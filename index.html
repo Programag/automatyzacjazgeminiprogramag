@@ -268,6 +268,9 @@
                 <button type="button" id="clearResultBtn" class="hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition" title="Wyczyść wynik" aria-label="Wyczyść wynik">
                   <svg data-icon="trash" class="h-4 w-4"></svg>
                 </button>
+                <button type="button" id="cancelBtn" class="hidden inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition">
+                  <svg data-icon="x" class="h-4 w-4"></svg><span>Zatrzymaj</span>
+                </button>
                 <button type="button" id="copyBtn" disabled class="inline-flex items-center gap-2 rounded-lg bg-navy-800 px-3.5 py-2 text-sm font-medium text-white shadow-sm hover:bg-navy-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none transition">
                   <svg data-icon="clipboard" class="h-4 w-4"></svg>
                   <span class="hidden sm:inline">Kopiuj do schowka</span><span class="sm:hidden">Kopiuj</span>
@@ -291,6 +294,7 @@
                 <p class="mt-5 font-medium text-navy-900">Gemini analizuje dane…</p>
                 <p id="loadingStep" class="mt-1 text-sm text-slate-500">Przygotowuję zapytanie</p>
                 <p id="loadingTimer" class="mt-3 font-mono text-xs text-slate-400">0,0 s</p>
+                <p id="loadingHint" class="hidden mt-4 max-w-xs text-xs leading-relaxed text-slate-400">Przy dużym obciążeniu serwerów Google odpowiedź może potrwać dłużej. W razie potrzeby aplikacja sama ponowi zapytanie.</p>
               </div>
 
               <!-- Błąd -->
@@ -374,6 +378,16 @@
             <p class="mt-1.5 text-xs text-slate-500">Gdy Google wycofa model, wpisz tu nazwę nowego (bez prefiksu „models/”).</p>
           </div>
 
+          <div>
+            <label for="thinkingSelect" class="field-label">Poziom rozumowania (Gemini 3 i nowsze)</label>
+            <select id="thinkingSelect" class="field-input">
+              <option value="low">Niski – najszybsze odpowiedzi (zalecany)</option>
+              <option value="medium">Średni – domyślny poziom Google</option>
+              <option value="high">Wysoki – najdokładniej, ale najwolniej</option>
+            </select>
+            <p class="mt-1.5 text-xs text-slate-500">Do maili, notatek i ofert w zupełności wystarcza poziom niski. Wyższy poziom wydłuża czas odpowiedzi.</p>
+          </div>
+
           <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs leading-relaxed text-slate-600 space-y-2">
             <p><strong class="text-slate-800">Jak zdobyć klucz?</strong> Wejdź na
               <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="font-medium text-indigo-600 underline underline-offset-2">Google AI Studio → Get API key</a>,
@@ -410,12 +424,19 @@
        KONFIGURACJA
        ===================================================================== */
     const DEFAULT_MODEL = 'gemini-3.8-flash';
-    const MODEL_SUGGESTIONS = ['gemini-3.8-flash'];
+    const FALLBACK_MODEL = 'gemini-3.6-flash';
+    const MODEL_SUGGESTIONS = ['gemini-3.8-flash', FALLBACK_MODEL];
     const STORAGE_MODEL = 'officeflow_gemini_model';
     const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
     const STORAGE_KEY = 'officeflow_gemini_api_key';
     const STORAGE_TOOL = 'officeflow_active_tool';
-    const REQUEST_TIMEOUT_MS = 120000;
+    const HEADERS_TIMEOUT_MS = 75000;   // maks. czas na rozpoczęcie odpowiedzi przez Gemini
+    const IDLE_TIMEOUT_MS = 120000;     // maks. przerwa między kolejnymi fragmentami odpowiedzi
+    const MAX_ATTEMPTS = 3;             // automatyczne ponawianie przy przeciążeniu serwerów Google
+    const RETRY_DELAYS_MS = [3000, 8000];
+    const STORAGE_THINKING = 'officeflow_thinking_level';
+    const DEFAULT_THINKING = 'low';
+    const THINKING_LEVELS = ['low', 'medium', 'high'];
 
     /* =====================================================================
        IKONY (Heroicons, outline)
@@ -709,6 +730,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       activeTool: 'email',
       memoryKey: null,           // gdy localStorage jest niedostępny
       memoryModel: null,
+      memoryThinking: null,
       storageAvailable: true,
       results: {
         email:    { status: 'empty', markdown: '', meta: '', notice: '', error: null, startedAt: 0 },
@@ -760,6 +782,15 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       renderModelLabel();
       return model;
     }
+    function getThinkingLevel() {
+      const v = storageGet(STORAGE_THINKING) || state.memoryThinking || DEFAULT_THINKING;
+      return THINKING_LEVELS.includes(v) ? v : DEFAULT_THINKING;
+    }
+    function saveThinkingLevel(value) {
+      const v = THINKING_LEVELS.includes(value) ? value : DEFAULT_THINKING;
+      if (!storageSet(STORAGE_THINKING, v)) state.memoryThinking = v;
+      return v;
+    }
     function renderModelLabel() {
       const el = document.getElementById('sidebarModel');
       if (el) el.textContent = getModel();
@@ -801,6 +832,13 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
     }
 
     function mapApiError(httpStatus, body, rawText) {
+      const e = describeApiError(httpStatus, body, rawText);
+      e.httpStatus = httpStatus;
+      e.transient = [500, 502, 503, 504].includes(httpStatus);
+      return e;
+    }
+
+    function describeApiError(httpStatus, body, rawText) {
       const err = (body && body.error) || {};
       const apiMsg = err.message || '';
       const apiStatus = err.status || '';
@@ -868,7 +906,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
         case 500:
           return new GeminiError({ title: 'Błąd serwera Google', message: 'Wystąpił wewnętrzny błąd po stronie Gemini API.', hints: ['Spróbuj ponownie za kilka sekund.', 'Przy bardzo długich tekstach spróbuj je skrócić.'], details });
         case 503:
-          return new GeminiError({ title: 'Model jest przeciążony', message: 'Gemini jest chwilowo przeciążony dużą liczbą zapytań.', hints: ['Spróbuj ponownie za kilkanaście sekund.'], details });
+          return new GeminiError({ title: 'Model jest przeciążony', message: 'Gemini jest chwilowo przeciążony dużą liczbą zapytań.', hints: ['Spróbuj ponownie za kilka minut – przeciążenie zwykle jest chwilowe.', `Możesz też przełączyć model w Ustawieniach API, np. na ${FALLBACK_MODEL}.`], details });
         case 504:
           return new GeminiError({ title: 'Przekroczono czas odpowiedzi', message: 'Serwer Gemini nie zdążył przetworzyć zapytania.', hints: ['Spróbuj ponownie lub skróć tekst wejściowy.'], details });
         default:
@@ -876,13 +914,37 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       }
     }
 
-    function networkError(e) {
-      if (e && e.name === 'AbortError') {
+    function networkError(e, reason) {
+      const details = String((e && e.message) || e || reason || '');
+      if (reason === 'cancel') {
+        return Object.assign(new GeminiError({ title: 'Przerwano', message: 'Generowanie zostało przerwane.', details }), { cancelled: true });
+      }
+      if (reason === 'timeout-headers') {
+        return Object.assign(new GeminiError({
+          title: 'Serwery Google nie odpowiadają',
+          message: `Gemini nie zaczął odpowiadać w ciągu ${Math.round(HEADERS_TIMEOUT_MS / 1000)} s. Google potwierdza, że przy dużym obciążeniu (zwłaszcza na darmowym planie) odpowiedzi nowych modeli bywają mocno opóźnione – to nie jest problem z Twoim internetem.`,
+          hints: [
+            'Spróbuj ponownie za kilka minut – przeciążenie zwykle jest chwilowe.',
+            'Upewnij się, że w Ustawieniach API „Poziom rozumowania” jest ustawiony na „Niski” (najszybsze odpowiedzi).',
+            `Możesz też przełączyć model w Ustawieniach API, np. na ${FALLBACK_MODEL}, który Google nadal wspiera.`
+          ],
+          details
+        }), { transient: true });
+      }
+      if (reason === 'timeout-idle') {
+        return Object.assign(new GeminiError({
+          title: 'Odpowiedź urwała się',
+          message: `Przez ${Math.round(IDLE_TIMEOUT_MS / 1000)} s nie dotarł żaden nowy fragment odpowiedzi od Gemini.`,
+          hints: ['Spróbuj ponownie za chwilę.', 'Przy bardzo długich tekstach rozważ ich skrócenie.'],
+          details
+        }), { transient: true });
+      }
+      if (reason === 'timeout') {
         return new GeminiError({
           title: 'Przekroczono czas oczekiwania',
-          message: `Brak odpowiedzi od Gemini w ciągu ${Math.round(REQUEST_TIMEOUT_MS / 1000)} sekund.`,
-          hints: ['Sprawdź połączenie z internetem.', 'Spróbuj ponownie lub skróć tekst wejściowy.'],
-          details: String(e && e.message || e)
+          message: 'Serwer Google nie odpowiedział na czas.',
+          hints: ['Spróbuj ponownie za chwilę.'],
+          details
         });
       }
       if (!navigator.onLine) {
@@ -890,15 +952,15 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
           title: 'Brak połączenia z internetem',
           message: 'Twoje urządzenie jest offline. Zapytanie nie mogło zostać wysłane.',
           hints: ['Sprawdź połączenie Wi-Fi lub kabel sieciowy.', 'Po przywróceniu połączenia kliknij „Spróbuj ponownie”.'],
-          details: String(e && e.message || e)
+          details
         });
       }
-      return new GeminiError({
+      return Object.assign(new GeminiError({
         title: 'Nie udało się połączyć z Gemini API',
         message: 'Połączenie z serwerem Google zostało przerwane lub zablokowane.',
         hints: ['Sprawdź połączenie z internetem.', 'Zapora sieciowa, VPN, proxy firmowe lub rozszerzenie przeglądarki (np. blokujące reklamy) mogą blokować adres generativelanguage.googleapis.com.', 'Jeśli uruchamiasz aplikację w środowisku z ograniczonym dostępem do sieci (np. podgląd w piaskownicy), otwórz plik bezpośrednio w przeglądarce.'],
-        details: String(e && e.message || e)
-      });
+        details
+      }), { transient: true });
     }
 
     // Klucz przesyłany w nagłówku HTTP (obsługuje klucze „AIza…” i „AQ.…”), nie w adresie URL
@@ -906,105 +968,195 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       return Object.assign({ 'x-goog-api-key': apiKey }, extra);
     }
 
-    async function postJson(url, payload, apiKey) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-      let res;
-      try {
-        res = await fetch(url, {
-          method: 'POST',
-          headers: authHeaders(apiKey, { 'Content-Type': 'application/json' }),
-          body: JSON.stringify(payload),
-          signal: controller.signal
-        });
-      } catch (e) {
-        throw networkError(e);
-      } finally {
-        clearTimeout(timer);
-      }
-      const raw = await res.text();
-      let body = null;
-      try { body = raw ? JSON.parse(raw) : null; } catch (e) { body = null; }
-      return { res, body, raw };
+    function sleep(ms, signal) {
+      return new Promise((resolve, reject) => {
+        if (signal && signal.aborted) return reject(networkError(null, 'cancel'));
+        const t = setTimeout(() => { if (signal) signal.removeEventListener('abort', onAbort); resolve(); }, ms);
+        function onAbort() { clearTimeout(t); reject(networkError(null, 'cancel')); }
+        if (signal) signal.addEventListener('abort', onAbort, { once: true });
+      });
     }
 
-    async function callGemini({ apiKey, model, systemInstruction, userText, temperature }) {
-      const url = `${API_BASE}/${encodeURIComponent(model)}:generateContent`;
-      const generationConfig = { topP: 0.95, maxOutputTokens: 16384 };
-      // Google zaleca domyślną temperaturę (1.0) dla modeli Gemini 3+; niższa może pogarszać jakość
-      if (!isGemini3Plus(model)) generationConfig.temperature = temperature;
+    // Jedno zdarzenie SSE z streamGenerateContent: „data: {GenerateContentResponse}”
+    function handleSseEvent(evt, acc, onText) {
+      const data = evt.split('\n').filter(l => l.startsWith('data:')).map(l => l.slice(5).trimStart()).join('\n');
+      if (!data || data === '[DONE]') return;
+      let obj;
+      try { obj = JSON.parse(data); } catch (e) { return; }
+      if (Array.isArray(obj)) obj = obj[0] || {};
+      if (obj.error) throw mapApiError(obj.error.code || 500, obj, data);
+      if (obj.promptFeedback && obj.promptFeedback.blockReason) acc.blockReason = obj.promptFeedback.blockReason;
+      const cand = (obj.candidates || [])[0];
+      if (cand) {
+        const parts = (cand.content && cand.content.parts) || [];
+        const chunk = parts.filter(p => typeof p.text === 'string' && !p.thought).map(p => p.text).join('');
+        if (chunk) { acc.text += chunk; if (onText) onText(acc.text); }
+        if (cand.finishReason) acc.finish = cand.finishReason;
+      }
+      if (obj.usageMetadata) acc.usage = obj.usageMetadata;
+    }
+
+    // Jedna próba: wysyła zapytanie i czyta strumień odpowiedzi (Server-Sent Events)
+    async function streamOnce({ url, apiKey, payload, onText, signal }) {
+      const controller = new AbortController();
+      let abortReason = null;
+      let reader = null;
+      const abort = (reason) => {
+        if (abortReason) return;
+        abortReason = reason;
+        controller.abort();
+        if (reader) reader.cancel().catch(() => {}); // natychmiast przerywa oczekujące reader.read()
+      };
+      const onUserAbort = () => abort('cancel');
+      if (signal) { if (signal.aborted) abort('cancel'); else signal.addEventListener('abort', onUserAbort); }
+
+      // Osobne limity: na rozpoczęcie odpowiedzi oraz na przerwę między kolejnymi fragmentami
+      let timer = setTimeout(() => abort('timeout-headers'), HEADERS_TIMEOUT_MS);
+      const resetIdle = () => { clearTimeout(timer); timer = setTimeout(() => abort('timeout-idle'), IDLE_TIMEOUT_MS); };
+      const acc = { text: '', finish: '', usage: null, blockReason: '' };
+
+      try {
+        let res;
+        try {
+          res = await fetch(url, {
+            method: 'POST',
+            headers: authHeaders(apiKey, { 'Content-Type': 'application/json' }),
+            body: JSON.stringify(payload),
+            signal: controller.signal
+          });
+        } catch (e) {
+          throw networkError(e, abortReason);
+        }
+        resetIdle();
+
+        if (!res.ok) {
+          const raw = await res.text().catch(() => '');
+          let body = null;
+          try { body = raw ? JSON.parse(raw) : null; } catch (e) { body = null; }
+          if (Array.isArray(body)) body = body[0];
+          throw mapApiError(res.status, body, raw);
+        }
+
+        let buf = '';
+        const flush = (final) => {
+          buf = buf.replace(/\r\n/g, '\n');
+          let idx;
+          while ((idx = buf.indexOf('\n\n')) !== -1) {
+            const evt = buf.slice(0, idx);
+            buf = buf.slice(idx + 2);
+            handleSseEvent(evt, acc, onText);
+          }
+          if (final && buf.trim()) { handleSseEvent(buf, acc, onText); buf = ''; }
+        };
+
+        try {
+          if (res.body && res.body.getReader) {
+            reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            for (;;) {
+              const { value, done } = await reader.read();
+              if (done) break;
+              resetIdle();
+              buf += decoder.decode(value, { stream: true });
+              flush(false);
+            }
+            if (abortReason) throw networkError(null, abortReason);
+            buf += decoder.decode();
+          } else {
+            buf = await res.text();
+          }
+          flush(true);
+        } catch (e) {
+          throw e instanceof GeminiError ? e : networkError(e, abortReason);
+        }
+        return acc;
+      } catch (e) {
+        if (e instanceof GeminiError) e.partial = acc.text;
+        throw e;
+      } finally {
+        clearTimeout(timer);
+        if (signal) signal.removeEventListener('abort', onUserAbort);
+      }
+    }
+
+    function finalizeResponse(acc) {
+      const text = acc.text.trim();
+      const finish = acc.finish || '';
+      if (!text) {
+        if (acc.blockReason) {
+          throw new GeminiError({
+            title: 'Zapytanie zablokowane przez filtry bezpieczeństwa',
+            message: 'Gemini odmówił przetworzenia treści ze względu na zasady bezpieczeństwa.',
+            hints: ['Usuń z tekstu treści, które mogą zostać uznane za wrażliwe, i spróbuj ponownie.'],
+            details: `blockReason: ${acc.blockReason}`
+          });
+        }
+        if (['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII'].includes(finish)) {
+          throw new GeminiError({ title: 'Odpowiedź zablokowana', message: 'Wygenerowana treść została zablokowana przez filtry bezpieczeństwa Google.', hints: ['Przeformułuj dane wejściowe i spróbuj ponownie.'], details: `finishReason: ${finish}` });
+        }
+        if (finish === 'MAX_TOKENS') {
+          throw new GeminiError({ title: 'Przekroczono limit długości', message: 'Model wyczerpał limit tokenów, zanim zdążył wygenerować odpowiedź.', hints: ['Skróć tekst wejściowy lub ustaw niższy poziom rozumowania i spróbuj ponownie.'], details: `finishReason: ${finish}` });
+        }
+        throw Object.assign(new GeminiError({ title: 'Pusta odpowiedź', message: 'Model nie zwrócił treści.', hints: ['Spróbuj ponownie.'], details: `finishReason: ${finish || 'brak'}` }), { transient: true });
+      }
+      let notice = '';
+      if (finish === 'MAX_TOKENS') notice = 'Odpowiedź została ucięta, ponieważ osiągnęła maksymalną długość. Rozważ skrócenie tekstu wejściowego.';
+      else if (finish && finish !== 'STOP') notice = `Generowanie zakończyło się nietypowo (${finish}). Zweryfikuj kompletność wyniku.`;
+      return { text, notice, usage: acc.usage || {} };
+    }
+
+    async function callGemini({ apiKey, model, systemInstruction, userText, temperature, thinkingLevel, onText, onStatus, signal }) {
+      const url = `${API_BASE}/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
+      const gemini3 = isGemini3Plus(model);
+      const generationConfig = { maxOutputTokens: 16384 };
+      if (gemini3) {
+        // Gemini 3+: Google odradza ustawianie temperature/topP; szybkość reguluje poziom rozumowania
+        if (thinkingLevel) generationConfig.thinkingConfig = { thinkingLevel };
+      } else {
+        generationConfig.temperature = temperature;
+        generationConfig.topP = 0.95;
+      }
       const payload = {
         systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: [{ role: 'user', parts: [{ text: userText }] }],
         generationConfig
       };
 
-      let attempt = 0;
-      let lastError = null;
-      while (attempt < 2) {
-        attempt++;
-        const { res, body, raw } = await postJson(url, payload, apiKey);
-        if (res.ok) return parseGeminiResponse(body, raw);
-        lastError = mapApiError(res.status, body, raw);
-        // Jedna automatyczna ponowna próba przy chwilowym przeciążeniu
-        if ((res.status === 503 || res.status === 500) && attempt < 2) {
-          setLoadingStep('Serwer przeciążony – ponawiam próbę…');
-          await new Promise(r => setTimeout(r, 2000));
-          continue;
+      for (let attempt = 1; ; attempt++) {
+        try {
+          const acc = await streamOnce({ url, apiKey, payload, onText, signal });
+          return finalizeResponse(acc);
+        } catch (e) {
+          if (!(e instanceof GeminiError) || e.cancelled) throw e;
+          // Model odrzucił parametr poziomu rozumowania – ponów bez niego (nie liczy się jako próba)
+          if (generationConfig.thinkingConfig && e.httpStatus === 400 && /thinking/i.test(e.details || '')) {
+            delete generationConfig.thinkingConfig;
+            attempt--;
+            continue;
+          }
+          if (e.partial) throw e; // część odpowiedzi już dotarła – nie powtarzamy
+          if (!e.transient || attempt >= MAX_ATTEMPTS || (signal && signal.aborted)) {
+            if (attempt > 1) e.hints = [`Aplikacja automatycznie ponowiła zapytanie (łącznie prób: ${attempt}).`, ...(e.hints || [])];
+            throw e;
+          }
+          const delay = RETRY_DELAYS_MS[Math.min(attempt - 1, RETRY_DELAYS_MS.length - 1)] + Math.round(Math.random() * 1000);
+          if (onStatus) onStatus(`${e.title} – ponawiam za ${Math.round(delay / 1000)} s (próba ${attempt + 1} z ${MAX_ATTEMPTS})…`);
+          await sleep(delay, signal);
+          if (onStatus) onStatus(`Próba ${attempt + 1} z ${MAX_ATTEMPTS} – czekam na odpowiedź Gemini…`);
         }
-        break;
       }
-      throw lastError;
-    }
-
-    function parseGeminiResponse(body, raw) {
-      if (!body) {
-        throw new GeminiError({ title: 'Nieczytelna odpowiedź', message: 'Serwer zwrócił odpowiedź w nieoczekiwanym formacie.', details: (raw || '').slice(0, 1000) });
-      }
-      const feedback = body.promptFeedback;
-      if (feedback && feedback.blockReason) {
-        throw new GeminiError({
-          title: 'Zapytanie zablokowane przez filtry bezpieczeństwa',
-          message: 'Gemini odmówił przetworzenia treści ze względu na zasady bezpieczeństwa.',
-          hints: ['Usuń z tekstu treści, które mogą zostać uznane za wrażliwe, i spróbuj ponownie.'],
-          details: `blockReason: ${feedback.blockReason}`
-        });
-      }
-      const cand = (body.candidates || [])[0];
-      if (!cand) {
-        throw new GeminiError({ title: 'Pusta odpowiedź', message: 'Model nie zwrócił żadnej treści.', hints: ['Spróbuj ponownie.'], details: JSON.stringify(body).slice(0, 1000) });
-      }
-      const parts = (cand.content && cand.content.parts) || [];
-      const text = parts.filter(p => typeof p.text === 'string' && !p.thought).map(p => p.text).join('').trim();
-      const finish = cand.finishReason || '';
-
-      if (!text) {
-        if (finish === 'SAFETY' || finish === 'PROHIBITED_CONTENT' || finish === 'BLOCKLIST' || finish === 'SPII') {
-          throw new GeminiError({ title: 'Odpowiedź zablokowana', message: 'Wygenerowana treść została zablokowana przez filtry bezpieczeństwa Google.', hints: ['Przeformułuj dane wejściowe i spróbuj ponownie.'], details: `finishReason: ${finish}` });
-        }
-        if (finish === 'MAX_TOKENS') {
-          throw new GeminiError({ title: 'Przekroczono limit długości', message: 'Model wyczerpał limit tokenów, zanim zdążył wygenerować odpowiedź.', hints: ['Skróć tekst wejściowy i spróbuj ponownie.'], details: `finishReason: ${finish}` });
-        }
-        throw new GeminiError({ title: 'Pusta odpowiedź', message: 'Model nie zwrócił treści.', hints: ['Spróbuj ponownie.'], details: `finishReason: ${finish || 'brak'}` });
-      }
-
-      let notice = '';
-      if (finish === 'MAX_TOKENS') notice = 'Odpowiedź została ucięta, ponieważ osiągnęła maksymalną długość. Rozważ skrócenie tekstu wejściowego.';
-      else if (finish && finish !== 'STOP') notice = `Generowanie zakończyło się nietypowo (${finish}). Zweryfikuj kompletność wyniku.`;
-
-      const usage = body.usageMetadata || {};
-      return { text, notice, usage };
     }
 
     async function testApiKey(apiKey, model) {
       const url = `${API_BASE}/${encodeURIComponent(model)}`;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 15000);
+      let timedOut = false;
+      const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 15000);
       let res;
       try {
         res = await fetch(url, { method: 'GET', headers: authHeaders(apiKey), signal: controller.signal });
       } catch (e) {
-        throw networkError(e);
+        throw networkError(e, timedOut ? 'timeout' : null);
       } finally {
         clearTimeout(timer);
       }
@@ -1087,7 +1239,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       const menu = $('#toolMenu');
       menu.innerHTML = Object.entries(TOOLS).map(([id, t]) => {
         const active = id === state.activeTool;
-        const busy = state.results[id].status === 'loading';
+        const busy = ['loading', 'streaming'].includes(state.results[id].status);
         return `
           <li>
             <button type="button" data-tool-link="${id}" class="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${active ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40' : 'text-slate-300 hover:bg-white/10 hover:text-white'}" ${active ? 'aria-current="page"' : ''}>
@@ -1147,9 +1299,16 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
     function startLoadingAnimation(startedAt) {
       stopLoadingAnimation();
       const timerEl = $('#loadingTimer');
-      const tick = () => { timerEl.textContent = ((Date.now() - startedAt) / 1000).toFixed(1).replace('.', ',') + ' s'; };
+      const hintEl = $('#loadingHint');
+      const tick = () => {
+        const secs = (Date.now() - startedAt) / 1000;
+        timerEl.textContent = secs.toFixed(1).replace('.', ',') + ' s';
+        hintEl.classList.toggle('hidden', secs < 15);
+      };
       tick();
       loadingTimerId = setInterval(tick, 100);
+      const statusText = state.results[state.activeTool].statusText;
+      if (statusText) { setLoadingStep(statusText); return; }
       let i = Math.min(LOADING_STEPS.length - 1, Math.floor((Date.now() - startedAt) / 2500));
       setLoadingStep(LOADING_STEPS[i]);
       loadingStepId = setInterval(() => {
@@ -1161,13 +1320,31 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       loadingTimerId = loadingStepId = null;
     }
 
-    function renderResult() {
+    let streamRenderPending = false;
+    function scheduleStreamRender() {
+      if (streamRenderPending) return;
+      streamRenderPending = true;
+      requestAnimationFrame(() => {
+        streamRenderPending = false;
+        const r = state.results[state.activeTool];
+        if (r.status === 'streaming') renderStreamBody(r);
+      });
+    }
+    function renderStreamBody(r) {
+      const box = $('#resultContent');
+      const nearBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 60;
+      $('#resultBody').innerHTML = renderMarkdown(r.markdown);
+      if (nearBottom) box.scrollTop = box.scrollHeight;
+    }
+
+    function renderResult({ keepScroll = false } = {}) {
       const r = state.results[state.activeTool];
       const t = TOOLS[state.activeTool];
       const show = (id) => ['#resultEmpty', '#resultLoading', '#resultError', '#resultContent'].forEach(s => $(s).classList.toggle('hidden', s !== id));
 
       $('#copyBtn').disabled = r.status !== 'done';
       $('#clearResultBtn').classList.toggle('hidden', r.status !== 'done' && r.status !== 'error');
+      $('#cancelBtn').classList.toggle('hidden', r.status !== 'loading' && r.status !== 'streaming');
 
       if (r.status === 'loading') {
         show('#resultLoading');
@@ -1176,6 +1353,14 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
         return;
       }
       stopLoadingAnimation();
+
+      if (r.status === 'streaming') {
+        show('#resultContent');
+        $('#resultMeta').textContent = 'Generowanie… treść pojawia się na bieżąco';
+        $('#resultNotice').classList.add('hidden');
+        renderStreamBody(r);
+        return;
+      }
 
       if (r.status === 'error') {
         show('#resultError');
@@ -1203,7 +1388,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
         const notice = $('#resultNotice');
         notice.textContent = r.notice || '';
         notice.classList.toggle('hidden', !r.notice);
-        $('#resultContent').scrollTop = 0;
+        if (!keepScroll) $('#resultContent').scrollTop = 0;
         return;
       }
 
@@ -1281,7 +1466,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       const form = $(`#form-${toolId}`);
       const tool = TOOLS[toolId];
       const r = state.results[toolId];
-      if (r.status === 'loading') return;
+      if (r.status === 'loading' || r.status === 'streaming') return;
 
       if (!validateForm(form, toolId)) {
         toast('Uzupełnij wymagane pola formularza', 'error');
@@ -1295,33 +1480,66 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       }
 
       const data = getFormData(form);
-      Object.assign(r, { status: 'loading', error: null, notice: '', startedAt: Date.now() });
+      const controller = new AbortController();
+      Object.assign(r, { status: 'loading', error: null, notice: '', markdown: '', statusText: '', startedAt: Date.now(), controller });
       setFormBusy(toolId, true);
       renderMenu();
       if (state.activeTool === toolId) renderResult();
 
+      const isActive = () => state.activeTool === toolId;
+      let streamed = false;
       try {
         const out = await callGemini({
           apiKey,
           model: getModel(),
+          thinkingLevel: getThinkingLevel(),
           systemInstruction: tool.systemInstruction,
           userText: tool.buildPrompt(data),
-          temperature: tool.temperature
+          temperature: tool.temperature,
+          signal: controller.signal,
+          onText: (text) => {
+            const first = r.status !== 'streaming';
+            streamed = true;
+            r.status = 'streaming';
+            r.markdown = text;
+            if (!isActive()) return;
+            if (first) renderResult(); else scheduleStreamRender();
+          },
+          onStatus: (msg) => {
+            r.statusText = msg;
+            if (isActive() && r.status === 'loading') { clearInterval(loadingStepId); setLoadingStep(msg); }
+          }
         });
         const secs = ((Date.now() - r.startedAt) / 1000).toFixed(1).replace('.', ',');
         const tokens = out.usage && out.usage.totalTokenCount ? ` · ${out.usage.totalTokenCount.toLocaleString('pl-PL')} tokenów` : '';
-        const time = new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
-        Object.assign(r, { status: 'done', markdown: out.text, notice: out.notice, meta: `${time} · ${secs} s${tokens}` });
-        if (state.activeTool !== toolId) toast(`Gotowe: ${tool.short}`, 'success');
+        Object.assign(r, { status: 'done', markdown: out.text, notice: out.notice, meta: `${timeNow()} · ${secs} s${tokens}` });
+        if (!isActive()) toast(`Gotowe: ${tool.short}`, 'success');
       } catch (e) {
         const err = e instanceof GeminiError ? e : new GeminiError({ title: 'Nieoczekiwany błąd', message: 'Wystąpił nieoczekiwany błąd aplikacji.', details: String(e && e.stack || e) });
-        Object.assign(r, { status: 'error', error: err });
-        if (state.activeTool !== toolId) toast(`Błąd: ${tool.short} – ${err.title}`, 'error');
+        if (err.cancelled) {
+          if (r.markdown.trim()) {
+            Object.assign(r, { status: 'done', notice: 'Generowanie zostało zatrzymane – wynik może być niekompletny.', meta: `${timeNow()} · przerwano` });
+          } else {
+            Object.assign(r, { status: 'empty', markdown: '' });
+            toast('Generowanie anulowane', 'info');
+          }
+        } else if (err.partial && err.partial.trim()) {
+          Object.assign(r, { status: 'done', markdown: err.partial, notice: `Połączenie zostało przerwane w trakcie generowania (${err.title}). Wynik może być niekompletny – spróbuj ponownie.`, meta: `${timeNow()} · niekompletne` });
+        } else {
+          Object.assign(r, { status: 'error', error: err });
+          if (!isActive()) toast(`Błąd: ${tool.short} – ${err.title}`, 'error');
+        }
       } finally {
+        r.controller = null;
+        r.statusText = '';
         setFormBusy(toolId, false);
         renderMenu();
-        if (state.activeTool === toolId) renderResult();
+        if (isActive()) renderResult({ keepScroll: streamed });
       }
+    }
+
+    function timeNow() {
+      return new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
     }
 
     /* =====================================================================
@@ -1397,6 +1615,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       setKeyMsg('#apiKeyTestResult', '');
       $('#deleteKeyBtn').classList.toggle('hidden', !key);
       $('#modelInput').value = getModel();
+      $('#thinkingSelect').value = getThinkingLevel();
       const reasonEl = $('#settingsReason');
       reasonEl.textContent = reason || '';
       reasonEl.classList.toggle('hidden', !reason);
@@ -1439,6 +1658,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       if (!value) return;
       const persisted = saveApiKey(value);
       saveModel($('#modelInput').value);
+      saveThinkingLevel($('#thinkingSelect').value);
       renderApiStatus();
       closeSettings();
       toast(persisted ? 'Klucz API zapisany w przeglądarce' : 'Klucz zapisany tymczasowo (localStorage niedostępny)', persisted ? 'success' : 'info');
@@ -1530,6 +1750,10 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       $('#fillExampleBtn').addEventListener('click', fillExample);
       $('#resetFormBtn').addEventListener('click', resetForm);
       $('#copyBtn').addEventListener('click', copyResult);
+      $('#cancelBtn').addEventListener('click', () => {
+        const c = state.results[state.activeTool].controller;
+        if (c) c.abort();
+      });
       $('#clearResultBtn').addEventListener('click', () => {
         Object.assign(state.results[state.activeTool], { status: 'empty', markdown: '', error: null, notice: '', meta: '' });
         renderResult();
