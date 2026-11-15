@@ -430,7 +430,8 @@
     const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
     const STORAGE_KEY = 'officeflow_gemini_api_key';
     const STORAGE_TOOL = 'officeflow_active_tool';
-    const HEADERS_TIMEOUT_MS = 75000;   // maks. czas na rozpoczęcie odpowiedzi przez Gemini
+    const HEADERS_TIMEOUT_MS = 45000;   // maks. czas na rozpoczęcie odpowiedzi przez Gemini
+    const OVERLOAD_COOLDOWN_MS = 15 * 60 * 1000; // jak długo omijać przeciążony model
     const IDLE_TIMEOUT_MS = 120000;     // maks. przerwa między kolejnymi fragmentami odpowiedzi
     const MAX_ATTEMPTS = 3;             // automatyczne ponawianie przy przeciążeniu serwerów Google
     const RETRY_DELAYS_MS = [3000, 8000];
@@ -731,6 +732,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       memoryKey: null,           // gdy localStorage jest niedostępny
       memoryModel: null,
       memoryThinking: null,
+      overloadedUntil: {},       // model -> znacznik czasu, do kiedy używać modelu zapasowego
       storageAvailable: true,
       results: {
         email:    { status: 'empty', markdown: '', meta: '', notice: '', error: null, startedAt: 0 },
@@ -1105,44 +1107,62 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       return { text, notice, usage: acc.usage || {} };
     }
 
-    async function callGemini({ apiKey, model, systemInstruction, userText, temperature, thinkingLevel, onText, onStatus, signal }) {
-      const url = `${API_BASE}/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
-      const gemini3 = isGemini3Plus(model);
+    function buildPayload({ model, systemInstruction, userText, temperature, thinkingLevel }) {
       const generationConfig = { maxOutputTokens: 16384 };
-      if (gemini3) {
+      if (isGemini3Plus(model)) {
         // Gemini 3+: Google odradza ustawianie temperature/topP; szybkość reguluje poziom rozumowania
         if (thinkingLevel) generationConfig.thinkingConfig = { thinkingLevel };
       } else {
         generationConfig.temperature = temperature;
         generationConfig.topP = 0.95;
       }
-      const payload = {
+      return {
         systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: [{ role: 'user', parts: [{ text: userText }] }],
         generationConfig
       };
+    }
 
+    // Który model zapytać w danej próbie: przy przeciążeniu głównego przechodzimy na model zapasowy
+    function modelForAttempt(primary, attempt) {
+      if (primary === FALLBACK_MODEL) return primary;
+      if ((state.overloadedUntil[primary] || 0) > Date.now()) return FALLBACK_MODEL;
+      return attempt === 1 ? primary : FALLBACK_MODEL;
+    }
+
+    async function callGemini({ apiKey, model, systemInstruction, userText, temperature, thinkingLevel, onText, onStatus, signal }) {
+      let useThinking = true;
       for (let attempt = 1; ; attempt++) {
+        const current = modelForAttempt(model, attempt);
+        const url = `${API_BASE}/${encodeURIComponent(current)}:streamGenerateContent?alt=sse`;
+        const payload = buildPayload({ model: current, systemInstruction, userText, temperature, thinkingLevel: useThinking ? thinkingLevel : null });
         try {
           const acc = await streamOnce({ url, apiKey, payload, onText, signal });
-          return finalizeResponse(acc);
+          return Object.assign(finalizeResponse(acc), { modelUsed: current });
         } catch (e) {
           if (!(e instanceof GeminiError) || e.cancelled) throw e;
           // Model odrzucił parametr poziomu rozumowania – ponów bez niego (nie liczy się jako próba)
-          if (generationConfig.thinkingConfig && e.httpStatus === 400 && /thinking/i.test(e.details || '')) {
-            delete generationConfig.thinkingConfig;
+          if (useThinking && payload.generationConfig.thinkingConfig && e.httpStatus === 400 && /thinking/i.test(e.details || '')) {
+            useThinking = false;
             attempt--;
             continue;
           }
           if (e.partial) throw e; // część odpowiedzi już dotarła – nie powtarzamy
+          if (e.transient && current === model && model !== FALLBACK_MODEL) {
+            state.overloadedUntil[model] = Date.now() + OVERLOAD_COOLDOWN_MS;
+          }
           if (!e.transient || attempt >= MAX_ATTEMPTS || (signal && signal.aborted)) {
             if (attempt > 1) e.hints = [`Aplikacja automatycznie ponowiła zapytanie (łącznie prób: ${attempt}).`, ...(e.hints || [])];
             throw e;
           }
-          const delay = RETRY_DELAYS_MS[Math.min(attempt - 1, RETRY_DELAYS_MS.length - 1)] + Math.round(Math.random() * 1000);
-          if (onStatus) onStatus(`${e.title} – ponawiam za ${Math.round(delay / 1000)} s (próba ${attempt + 1} z ${MAX_ATTEMPTS})…`);
+          const next = modelForAttempt(model, attempt + 1);
+          const switching = next !== current;
+          const delay = switching ? 500 : RETRY_DELAYS_MS[Math.min(attempt - 1, RETRY_DELAYS_MS.length - 1)] + Math.round(Math.random() * 1000);
+          if (onStatus) onStatus(switching
+            ? `${current} jest przeciążony – przełączam na ${next}…`
+            : `${e.title} – ponawiam za ${Math.round(delay / 1000)} s (próba ${attempt + 1} z ${MAX_ATTEMPTS})…`);
           await sleep(delay, signal);
-          if (onStatus) onStatus(`Próba ${attempt + 1} z ${MAX_ATTEMPTS} – czekam na odpowiedź Gemini…`);
+          if (onStatus) onStatus(`Próba ${attempt + 1} z ${MAX_ATTEMPTS} – czekam na odpowiedź ${next}…`);
         }
       }
     }
@@ -1512,7 +1532,11 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
         });
         const secs = ((Date.now() - r.startedAt) / 1000).toFixed(1).replace('.', ',');
         const tokens = out.usage && out.usage.totalTokenCount ? ` · ${out.usage.totalTokenCount.toLocaleString('pl-PL')} tokenów` : '';
-        Object.assign(r, { status: 'done', markdown: out.text, notice: out.notice, meta: `${timeNow()} · ${secs} s${tokens}` });
+        const requested = getModel();
+        const fallbackNotice = out.modelUsed !== requested
+          ? `Model ${requested} jest teraz przeciążony po stronie Google, więc odpowiedzi udzielił ${out.modelUsed}. Przez najbliższe 15 minut aplikacja będzie od razu używać ${out.modelUsed}.`
+          : '';
+        Object.assign(r, { status: 'done', markdown: out.text, notice: [fallbackNotice, out.notice].filter(Boolean).join(' '), meta: `${timeNow()} · ${out.modelUsed} · ${secs} s${tokens}` });
         if (!isActive()) toast(`Gotowe: ${tool.short}`, 'success');
       } catch (e) {
         const err = e instanceof GeminiError ? e : new GeminiError({ title: 'Nieoczekiwany błąd', message: 'Wystąpił nieoczekiwany błąd aplikacji.', details: String(e && e.stack || e) });
