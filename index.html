@@ -2744,7 +2744,9 @@ ZASADY
 
       const data = getFormData(form);
       const files = collectToolFiles(toolId);
-      const attachments = Object.values(files).flat();
+      const fileList = Object.values(files).flat();
+      const attachments = fileList.flatMap(f => [f, ...(f.extraParts || []).map(x => Object.assign({ label: f.label }, x))]);
+      const fileWarnings = fileList.flatMap(f => (f.warnings || []).map(w => `${f.name}: ${w}`));
       const controller = new AbortController();
       Object.assign(r, { status: 'loading', error: null, notice: '', markdown: '', data: null, statusText: '', startedAt: Date.now(), controller });
       setFormBusy(toolId, true);
@@ -2789,7 +2791,7 @@ ZASADY
           const pp = tool.postprocess(out.text);
           markdown = pp.markdown; resultData = pp.data; ppNotice = pp.notice || '';
         }
-        Object.assign(r, { status: 'done', markdown, data: resultData, notice: [fallbackNotice, out.notice, ppNotice].filter(Boolean).join(' '), meta: `${timeNow()} · ${out.modelUsed} · ${secs} s${tokens}` });
+        Object.assign(r, { status: 'done', markdown, data: resultData, notice: [fallbackNotice, out.notice, ppNotice, fileWarnings.length ? `Nie wszystko z dołączonych plików trafiło do AI – ${fileWarnings.join(' ')}` : ''].filter(Boolean).join(' '), meta: `${timeNow()} · ${out.modelUsed} · ${secs} s${tokens}` });
         if (!isActive()) toast(`Gotowe: ${tool.short}`, 'success');
       } catch (e) {
         const err = e instanceof GeminiError ? e : new GeminiError({ title: 'Nieoczekiwany błąd', message: 'Wystąpił nieoczekiwany błąd aplikacji.', details: String(e && e.stack || e) });
@@ -2855,7 +2857,7 @@ ZASADY
     }
     function describeFiles(files) {
       return (files || []).map(f => f.kind
-        ? `${f.name} (${OFFICE_LABEL[f.kind]} – treść przekazana jako tekst${f.kind === 'excel' ? ', arkusze jako tabele' : ''})`
+        ? `${f.name} (${f.summary || OFFICE_LABEL[f.kind] + ' → tekst'}: treść jako tekst${f.kind === 'excel' ? ', arkusze jako tabele' : ''}${f.charts ? ', wykresy jako tabele danych' : ''}${f.extraParts && f.extraParts.length ? ', obrazy w osobnych załącznikach' : ''})`
         : `${f.name} (${FILE_TYPES[f.mimeType] || f.mimeType}, ${formatSize(f.size)})`).join('; ');
     }
 
@@ -2879,12 +2881,14 @@ ZASADY
         const used = otherSize + list.reduce((a, f) => a + f.size, 0);
         try {
           if (kind) {
-            // Word / Excel: zamiana na tekst w przeglądarce – do Gemini trafia sama treść
-            const text = await officeToText(await file.arrayBuffer(), kind);
-            const data = utf8ToB64(text);
-            const bytes = Math.round(data.length * 3 / 4);
+            // Word / Excel: treść jako tekst, wykresy jako tabele danych, obrazy jako osobne części zapytania
+            const res = await officeToText(await file.arrayBuffer(), kind, { fileName: file.name });
+            const data = utf8ToB64(res.text);
+            const extraParts = res.images.map(img => ({ name: img.name, mimeType: img.mimeType, data: img.data, size: img.size }));
+            const bytes = Math.round(data.length * 3 / 4) + extraParts.reduce((x, img) => x + img.size, 0);
             if (used + bytes > FILES_TOTAL_MAX) { toast('Łączny rozmiar plików w jednym zapytaniu nie może przekroczyć 14 MB.', 'error'); continue; }
-            list.push({ name: file.name, mimeType: 'text/plain', size: bytes, origSize: file.size, chars: text.length, kind, data });
+            list.push({ name: file.name, mimeType: 'text/plain', size: bytes, origSize: file.size, chars: res.text.length, kind, data, extraParts, charts: res.charts, summary: officeSummary(kind, res), warnings: res.warnings });
+            if (res.warnings.length) toast(`${file.name}: ${res.warnings.join(' ')}`, 'warning', 10000);
           } else {
             if (used + file.size > FILES_TOTAL_MAX) { toast('Łączny rozmiar plików w jednym zapytaniu nie może przekroczyć 14 MB.', 'error'); continue; }
             list.push({ name: file.name, mimeType: mime, size: file.size, data: await readAsBase64(file) });
@@ -2902,13 +2906,19 @@ ZASADY
 
     function renderFileField(el) {
       const files = formFiles[el.dataset.fileField] || [];
-      el.querySelector('[data-file-list]').innerHTML = files.map((f, i) => `
-        <li class="flex items-center gap-2 rounded-lg border border-slate-200 bg-canvas px-3 py-1.5 text-sm">
-          ${iconSvg(f.kind === 'excel' ? 'table' : f.kind === 'word' ? 'document' : f.mimeType.startsWith('image/') ? 'photo' : 'paperclip', 'h-4 w-4 shrink-0 text-slate-500')}
-          <span class="min-w-0 flex-1 truncate">${escapeHtml(f.name)}</span>
-          <span class="shrink-0 text-xs text-slate-500" ${f.kind ? `title="Treść odczytana jako tekst: ${f.chars.toLocaleString('pl-PL')} znaków"` : ''}>${f.kind ? `${OFFICE_LABEL[f.kind]} → tekst · ${formatSize(f.origSize)}` : `${FILE_TYPES[f.mimeType]} · ${formatSize(f.size)}`}</span>
-          <button type="button" data-remove-file="${i}" class="rounded p-0.5 text-slate-500 hover:bg-slate-100 hover:text-red-600" aria-label="Usuń plik ${escapeHtml(f.name)}">${iconSvg('x', 'h-4 w-4')}</button>
-        </li>`).join('');
+      el.querySelector('[data-file-list]').innerHTML = files.map((f, i) => {
+        const warn = f.warnings && f.warnings.length;
+        return `
+        <li class="rounded-lg border ${warn ? 'border-amber-300' : 'border-slate-200'} bg-canvas px-3 py-1.5 text-sm">
+          <div class="flex items-center gap-2">
+            ${iconSvg(f.kind === 'excel' ? 'table' : f.kind === 'word' ? 'document' : f.mimeType.startsWith('image/') ? 'photo' : 'paperclip', 'h-4 w-4 shrink-0 text-slate-500')}
+            <span class="min-w-0 flex-1 truncate">${escapeHtml(f.name)}</span>
+            <span class="shrink-0 text-xs text-slate-500" ${f.kind ? `title="Treść odczytana jako tekst: ${f.chars.toLocaleString('pl-PL')} znaków"` : ''}>${f.kind ? `${escapeHtml(f.summary || OFFICE_LABEL[f.kind] + ' → tekst')} · ${formatSize(f.origSize)}` : `${FILE_TYPES[f.mimeType]} · ${formatSize(f.size)}`}</span>
+            <button type="button" data-remove-file="${i}" class="rounded p-0.5 text-slate-500 hover:bg-slate-100 hover:text-red-600" aria-label="Usuń plik ${escapeHtml(f.name)}">${iconSvg('x', 'h-4 w-4')}</button>
+          </div>
+          ${warn ? `<ul class="mt-1.5 space-y-1 border-t border-amber-200 pt-1.5 text-xs leading-relaxed text-amber-800" role="note">${f.warnings.map(w => `<li class="flex gap-1.5">${iconSvg('warning', 'mt-px h-3.5 w-3.5 shrink-0')}<span>${escapeHtml(w)}</span></li>`).join('')}</ul>` : ''}
+        </li>`;
+      }).join('');
     }
 
     function initFileFields() {
@@ -2943,10 +2953,14 @@ ZASADY
     }
 
     /* =====================================================================
-       WORD I EXCEL → TEKST
+       WORD I EXCEL → TEKST + OBRAZY
        Gemini nie czyta plików .docx/.xlsx, więc rozpakowujemy je w przeglądarce
-       (wbudowany DecompressionStream – bez zewnętrznych bibliotek) i przekazujemy
-       treść jako tekst: akapity, nagłówki i listy, a tabele i arkusze jako tabele Markdown.
+       (wbudowany DecompressionStream – bez zewnętrznych bibliotek):
+       – tekst, nagłówki, listy i tabele → Markdown,
+       – arkusze → tabele (daty, procenty, wyniki formuł),
+       – wykresy → tytuł, typ i tabela danych,
+       – obrazy → osobne obrazy dla Gemini (duże są pomniejszane),
+       a wszystko, czego nie dało się przekazać w całości, trafia do listy ostrzeżeń.
        ===================================================================== */
     const OFFICE_EXT = { docx: 'word', docm: 'word', xlsx: 'excel', xlsm: 'excel' };
     const OFFICE_MIME = {
@@ -2957,9 +2971,22 @@ ZASADY
     };
     const OFFICE_LABEL = { word: 'Word', excel: 'Excel' };
     const OFFICE_TEXT_MAX = 200000;              // maks. znaków przekazywanych z jednego pliku
-    const OFFICE_UNZIP_MAX = 60 * 1024 * 1024;   // ochrona przed „bombami zip”
+    const OFFICE_UNZIP_MAX = 80 * 1024 * 1024;   // ochrona przed „bombami zip”
     const OFFICE_MAX_ROWS = 1000;                // wierszy z danymi na arkusz
     const OFFICE_MAX_COLS = 60;
+    const OFFICE_MAX_SHEETS = 30;
+    const OFFICE_MAX_IMAGES = 10;                // obrazów z jednego pliku
+    const OFFICE_IMAGES_BYTES_MAX = 6 * 1024 * 1024;
+    const OFFICE_IMAGE_MAX_SIDE = 1600;          // większe obrazy są pomniejszane
+    const IMAGE_EXT_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', jpe: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff' };
+    const CHART_TYPES = {
+      barChart: 'słupkowy', bar3DChart: 'słupkowy 3D', lineChart: 'liniowy', line3DChart: 'liniowy 3D',
+      pieChart: 'kołowy', pie3DChart: 'kołowy 3D', doughnutChart: 'pierścieniowy', ofPieChart: 'kołowy z wycinkiem',
+      areaChart: 'warstwowy', area3DChart: 'warstwowy 3D', scatterChart: 'punktowy (XY)', radarChart: 'radarowy',
+      bubbleChart: 'bąbelkowy', stockChart: 'giełdowy', surfaceChart: 'powierzchniowy', surface3DChart: 'powierzchniowy 3D'
+    };
+    const plForm = (n, one, few, many) => n === 1 ? one : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? few : many;
+    const plNum = (n) => Number(n).toLocaleString('pl-PL');
 
     function officeKind(name, mime) {
       const ext = (String(name || '').split('.').pop() || '').toLowerCase();
@@ -2988,21 +3015,23 @@ ZASADY
         p += 46 + nameLen + extraLen + commentLen;
       }
       let unpacked = 0;
+      const raw = async (name) => {
+        const e = entries[name];
+        if (!e) return null;
+        if (e.csize === 0xFFFFFFFF || e.usize === 0xFFFFFFFF) throw new Error('plik jest zbyt duży (format ZIP64)');
+        unpacked += e.usize;
+        if (unpacked > OFFICE_UNZIP_MAX) throw new Error('plik po rozpakowaniu jest zbyt duży');
+        const start = e.offset + 30 + dv.getUint16(e.offset + 26, true) + dv.getUint16(e.offset + 28, true);
+        const data = u8.subarray(start, start + e.csize);
+        if (e.method === 0) return data.slice();
+        if (e.method !== 8) throw new Error('nieobsługiwana metoda kompresji');
+        const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+        return new Uint8Array(await new Response(stream).arrayBuffer());
+      };
       return {
         has: (name) => !!entries[name],
-        async read(name) {
-          const e = entries[name];
-          if (!e) return null;
-          if (e.csize === 0xFFFFFFFF || e.usize === 0xFFFFFFFF) throw new Error('plik jest zbyt duży (format ZIP64)');
-          unpacked += e.usize;
-          if (unpacked > OFFICE_UNZIP_MAX) throw new Error('plik po rozpakowaniu jest zbyt duży');
-          const start = e.offset + 30 + dv.getUint16(e.offset + 26, true) + dv.getUint16(e.offset + 28, true);
-          const data = u8.subarray(start, start + e.csize);
-          if (e.method === 0) return dec.decode(data);
-          if (e.method !== 8) throw new Error('nieobsługiwana metoda kompresji');
-          const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-          return await new Response(stream).text();
-        }
+        raw,
+        async read(name) { const b = await raw(name); return b ? dec.decode(b) : null; }
       };
     }
     function parseXml(text) {
@@ -3018,14 +3047,149 @@ ZASADY
       for (const a of Array.from(el.attributes)) if (a.localName === name) return a.value;
       return null;
     }
+    const xText = (el, name = 't') => xAll(el, name).map(t => t.textContent).join('');
     const mdEsc = (s) => String(s).replace(/\s+/g, ' ').replace(/\|/g, '\\|').trim();
     function mdTable(rows) {
       const cols = Math.max(1, ...rows.map(r => r.length));
       const fill = (r) => Array.from({ length: cols }, (_, i) => mdEsc(r[i] == null ? '' : r[i]));
       return [`| ${fill(rows[0]).join(' | ')} |`, `|${' --- |'.repeat(cols)}`, ...rows.slice(1).map(r => `| ${fill(r).join(' | ')} |`)].join('\n');
     }
+    function zipPath(baseDir, target) {
+      if (!target) return '';
+      if (target.startsWith('/')) return target.slice(1);
+      const parts = baseDir.split('/').filter(Boolean);
+      target.split('/').forEach(seg => { if (seg === '..') parts.pop(); else if (seg && seg !== '.') parts.push(seg); });
+      return parts.join('/');
+    }
+    // Relacje części pakietu, np. word/document.xml → word/_rels/document.xml.rels
+    async function readRels(zip, partPath) {
+      const i = partPath.lastIndexOf('/');
+      const dir = partPath.slice(0, i);
+      const xml = await zip.read(`${dir}/_rels/${partPath.slice(i + 1)}.rels`);
+      const map = {};
+      if (xml) xAll(parseXml(xml), 'Relationship').forEach(r => {
+        if (xAttr(r, 'TargetMode') === 'External') return;
+        map[xAttr(r, 'Id')] = { target: zipPath(dir, xAttr(r, 'Target')), type: xAttr(r, 'Type') || '' };
+      });
+      return map;
+    }
+    function bytesToB64(bytes) {
+      let bin = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      return btoa(bin);
+    }
 
-    async function docxToMarkdown(buffer) {
+    // Obraz dla Gemini: PNG/JPEG/WEBP bez zmian, gdy są małe; większe i inne formaty → JPEG maks. 1600 px
+    async function prepareImage(bytes, ext) {
+      const mime = IMAGE_EXT_MIME[ext];
+      if (!mime) return null;
+      const direct = ['image/png', 'image/jpeg', 'image/webp'].includes(mime);
+      try {
+        const bmp = await createImageBitmap(new Blob([bytes], { type: mime }));
+        if (bmp.width < 40 || bmp.height < 40) { bmp.close && bmp.close(); return 'tiny'; }  // ikony, separatory
+        const scale = Math.min(1, OFFICE_IMAGE_MAX_SIDE / Math.max(bmp.width, bmp.height));
+        if (direct && scale === 1 && bytes.length <= 800 * 1024) { bmp.close && bmp.close(); return { mimeType: mime, data: bytesToB64(bytes) }; }
+        const w = Math.max(1, Math.round(bmp.width * scale)), h = Math.max(1, Math.round(bmp.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(bmp, 0, 0, w, h);
+        bmp.close && bmp.close();
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+        if (!blob) throw new Error('canvas');
+        return { mimeType: 'image/jpeg', data: await readAsBase64(blob) };
+      } catch (e) {
+        return direct && bytes.length <= 4 * 1024 * 1024 ? { mimeType: mime, data: bytesToB64(bytes) } : null;
+      }
+    }
+
+    function newOfficeCollector(fileName, opts = {}) {
+      return { fileName, images: [], imgBytes: 0, charts: 0, skipped: { vector: 0, limit: 0, failed: 0 }, warnings: [], maxImages: opts.maxImages || OFFICE_MAX_IMAGES };
+    }
+    async function collectImage(col, zip, path, where) {
+      const ext = (String(path).split('.').pop() || '').toLowerCase();
+      if (!IMAGE_EXT_MIME[ext]) {
+        if (/^(emf|wmf|emz|wmz|svg|eps|pict)$/.test(ext)) { col.skipped.vector++; return `[obraz${where ? ` – ${where}` : ''} w formacie ${ext.toUpperCase()}, którego AI nie odczyta]`; }
+        return '';
+      }
+      if (col.images.length >= col.maxImages) { col.skipped.limit++; return '[obraz pominięty – limit obrazów w pliku]'; }
+      const bytes = await zip.raw(path);
+      if (!bytes || bytes.length < 1200) return '';
+      const img = await prepareImage(bytes, ext);
+      if (img === 'tiny') return '';
+      if (!img) { col.skipped.failed++; return '[obraz – nie udało się go odczytać]'; }
+      const size = Math.round(img.data.length * 3 / 4);
+      if (col.imgBytes + size > OFFICE_IMAGES_BYTES_MAX) { col.skipped.limit++; return '[obraz pominięty – limit rozmiaru obrazów w pliku]'; }
+      col.imgBytes += size;
+      const n = col.images.length + 1;
+      col.images.push({ name: `Obraz ${n}${where ? ` (${where})` : ''} z pliku ${col.fileName}`, mimeType: img.mimeType, data: img.data, size });
+      return `[Obraz ${n}${where ? ` – ${where}` : ''}: przekazany osobno jako obraz]`;
+    }
+    function finishImageWarnings(col) {
+      const s = col.skipped;
+      if (s.vector) col.warnings.push(`Pominięto ${s.vector} ${plForm(s.vector, 'obraz', 'obrazy', 'obrazów')} w formacie wektorowym (EMF/WMF/SVG) – AI nie potrafi ich odczytać. Zapisz plik jako PDF, jeśli są ważne.`);
+      if (s.limit) col.warnings.push(`Pominięto ${s.limit} ${plForm(s.limit, 'obraz', 'obrazy', 'obrazów')} – z jednego pliku AI otrzymuje najwyżej ${col.maxImages} obrazów (łącznie do ${OFFICE_IMAGES_BYTES_MAX / 1048576} MB).`);
+      if (s.failed) col.warnings.push(`Nie udało się odczytać ${s.failed} ${plForm(s.failed, 'obrazu', 'obrazów', 'obrazów')}.`);
+    }
+
+    // Wykres (DrawingML) → tytuł, typ, osie i tabela danych
+    async function chartToText(zip, path, n, where, resolveRef) {
+      const xml = await zip.read(path);
+      const head = `[Wykres ${n}${where ? ` – ${where}` : ''}`;
+      if (!xml) return `${head}: brak danych w pliku]`;
+      const doc = parseXml(xml);
+      const chart = xAll(doc, 'chart').find(c => c.localName === 'chart' && xKid(c, 'plotArea')) || xAll(doc, 'chart')[0];
+      const titleEl = xKid(chart, 'title');
+      const title = titleEl ? (xText(titleEl, 't') || xText(titleEl, 'v')).trim() : '';
+      const plot = xAll(doc, 'plotArea')[0];
+      if (!plot) return `${head}${title ? `: „${title}”` : ''} – nowy typ wykresu, jego dane nie są dostępne]`;
+      const types = [], series = [];
+      Array.from(plot.children).forEach(el => {
+        if (!CHART_TYPES[el.localName]) return;
+        const dir = xAttr(xKid(el, 'barDir'), 'val');
+        types.push(el.localName.startsWith('bar') && dir === 'col' ? 'kolumnowy' : CHART_TYPES[el.localName]);
+        xKids(el, 'ser').forEach(ser => series.push(ser));
+      });
+      const points = (el) => {
+        const m = new Map();
+        xAll(el, 'pt').forEach(pt => {
+          const idx = +xAttr(pt, 'idx');
+          const v = xKid(pt, 'v') ? xKid(pt, 'v').textContent : '';
+          m.set(idx, m.has(idx) ? `${v} / ${m.get(idx)}` : v);
+        });
+        if (!m.size && resolveRef) {           // brak zapisanych wartości – odczyt z komórek arkusza
+          const f = xAll(el, 'f')[0];
+          if (f) resolveRef(f.textContent).forEach((v, i) => m.set(i, v));
+        }
+        return m;
+      };
+      const num = (v) => (v === '' || v == null || isNaN(+v) ? (v || '') : String(+(+v).toPrecision(12)));
+      const data = series.map((ser, i) => {
+        const tx = xKid(ser, 'tx');
+        const name = tx ? (xText(tx, 'v') || xText(tx, 't')).trim() : '';
+        const nameRef = !name && tx && xAll(tx, 'f')[0] && resolveRef ? resolveRef(xAll(tx, 'f')[0].textContent)[0] : '';
+        return {
+          name: name || nameRef || `Seria ${i + 1}`,
+          cats: points(xKid(ser, 'cat') || xKid(ser, 'xVal')),
+          vals: points(xKid(ser, 'val') || xKid(ser, 'yVal'))
+        };
+      });
+      const axes = ['catAx', 'dateAx', 'valAx'].map(a => xKids(plot, a).map(ax => xText(xKid(ax, 'title'), 't').trim()).filter(Boolean)).flat();
+      let out = `${head}${title ? `: „${title}”` : ''} – wykres ${Array.from(new Set(types)).join(' + ') || 'nieznanego typu'}]`;
+      if (axes.length) out += `\nOsie: ${axes.join('; ')}`;
+      if (!data.length) return out + '\n(brak serii danych)';
+      const idxs = Array.from(new Set(data.flatMap(s => [...s.cats.keys(), ...s.vals.keys()]))).sort((a, b) => a - b);
+      const shown = idxs.slice(0, 100);
+      const rows = [['Kategoria', ...data.map(s => s.name)]];
+      shown.forEach(i => rows.push([data.map(s => s.cats.get(i)).find(c => c != null && c !== '') ?? String(i + 1), ...data.map(s => num(s.vals.get(i)))]));
+      out += `\n${mdTable(rows)}`;
+      if (idxs.length > shown.length) out += `\n[… pokazano 100 z ${plNum(idxs.length)} punktów wykresu]`;
+      return out;
+    }
+
+    async function docxToMarkdown(buffer, col) {
       const zip = await openZip(buffer);
       const xml = await zip.read('word/document.xml');
       if (!xml) throw new Error('w pliku nie ma treści dokumentu Word');
@@ -3033,16 +3197,23 @@ ZASADY
       const styleNames = {};
       const stylesXml = await zip.read('word/styles.xml');
       if (stylesXml) xAll(parseXml(stylesXml), 'style').forEach(st => { styleNames[xAttr(st, 'styleId')] = String(xAttr(xKid(st, 'name'), 'val') || '').toLowerCase(); });
+      const rels = await readRels(zip, 'word/document.xml');
       const body = xAll(parseXml(xml), 'body')[0];
-      const blocks = [];
+      const markers = [];
+      const mark = (type, rid) => `\u0001${markers.push({ type, rid }) - 1}\u0001`;
+      let pendingCharts = [];
       const runText = (p) => {
         let t = '';
         xAll(p, '*').forEach(el => {
+          const ln = el.localName;
           const inRun = el.parentNode && el.parentNode.localName === 'r';
-          if (el.localName === 't' && inRun) t += el.textContent;              // w:delText (usunięte zmiany) pomijamy
-          else if (el.localName === 'tab' && inRun) t += '\t';
-          else if ((el.localName === 'br' || el.localName === 'cr') && inRun) t += '\n';
-          else if (el.localName === 'noBreakHyphen') t += '-';
+          if (ln === 't' && inRun) t += el.textContent;              // w:delText (usunięte zmiany) pomijamy
+          else if (ln === 'tab' && inRun) t += '\t';
+          else if ((ln === 'br' || ln === 'cr') && inRun) t += '\n';
+          else if (ln === 'noBreakHyphen') t += '-';
+          else if (ln === 'blip' && xAttr(el, 'embed')) t += ` ${mark('img', xAttr(el, 'embed'))} `;
+          else if (ln === 'imagedata' && xAttr(el, 'id')) t += ` ${mark('img', xAttr(el, 'id'))} `;   // starsze obrazy VML
+          else if (ln === 'chart' && el.parentNode && el.parentNode.localName === 'graphicData' && xAttr(el, 'id')) pendingCharts.push(mark('chart', xAttr(el, 'id')));
         });
         return t;
       };
@@ -3055,24 +3226,37 @@ ZASADY
         if (m) return Math.min(6, +m[1]);
         return name === 'title' || name === 'tytuł' ? 1 : 0;
       };
+      const blocks = [];
+      const flushCharts = () => { pendingCharts.forEach(c => blocks.push({ text: c })); pendingCharts = []; };
       const walk = (el) => {
         Array.from(el.children).forEach(c => {
           if (c.localName === 'p') {
             const text = runText(c).replace(/[ \t]+$/gm, '');
-            if (!text.trim()) return;
-            const style = styleOf(c);
-            const h = headingLevel(style);
-            const list = !!xKid(xKid(c, 'pPr'), 'numPr') || /list/.test(style);
-            blocks.push({ list: !h && list, text: h ? `${'#'.repeat(h)} ${text.trim()}` : list ? `- ${text.trim()}` : text });
+            if (text.trim()) {
+              const style = styleOf(c);
+              const h = headingLevel(style);
+              const list = !!xKid(xKid(c, 'pPr'), 'numPr') || /list/.test(style);
+              blocks.push({ list: !h && list, text: h ? `${'#'.repeat(h)} ${text.trim()}` : list ? `- ${text.trim()}` : text.trim() });
+            }
+            flushCharts();
           } else if (c.localName === 'tbl') {
             const rows = xKids(c, 'tr').map(tr => xKids(tr, 'tc').map(tc => xAll(tc, 'p').map(runText).join(' ')));
             if (rows.length) blocks.push({ text: mdTable(rows) });
+            flushCharts();
           } else if (c.localName === 'sdt') walk(xKid(c, 'sdtContent') || c);
           else if (c.localName === 'customXml' || c.localName === 'smartTag') walk(c);
         });
       };
       if (body) walk(body);
-      return blocks.map((b, i) => (i && b.list && blocks[i - 1].list ? '\n' : i ? '\n\n' : '') + b.text).join('');
+      let md = blocks.map((b, i) => (i && b.list && blocks[i - 1].list ? '\n' : i ? '\n\n' : '') + b.text).join('');
+      const resolved = [];
+      for (let i = 0; i < markers.length; i++) {
+        const m = markers[i], rel = rels[m.rid];
+        resolved[i] = !rel ? '' : m.type === 'img' ? await collectImage(col, zip, rel.target, '') : await chartToText(zip, rel.target, ++col.charts, '', null);
+      }
+      md = md.replace(/\u0001(\d+)\u0001/g, (_, i) => resolved[+i] || '').replace(/[ \t]{2,}/g, ' ');
+      if (md.length > OFFICE_TEXT_MAX) col.warnings.push(`Dokument jest bardzo długi (${plNum(md.length)} znaków) – AI otrzyma pierwsze ${plNum(OFFICE_TEXT_MAX)} znaków.`);
+      return md;
     }
 
     const XLSX_DATE_FORMATS = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 45, 46, 47, 50, 51, 52, 53, 54, 55, 56, 57, 58]);
@@ -3094,22 +3278,25 @@ ZASADY
       return Math.abs(serial % 1) > 1e-9 ? `${ymd} ${hm}` : ymd;
     }
     function xlsxColIndex(ref) {
-      const m = /^([A-Z]+)/.exec(ref || '');
+      const m = /^\$?([A-Z]+)/.exec(ref || '');
       if (!m) return -1;
       let n = 0;
       for (const ch of m[1]) n = n * 26 + ch.charCodeAt(0) - 64;
       return n - 1;
     }
+    function xlsxColName(i) {
+      let s = '';
+      for (let n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
+      return s;
+    }
 
-    async function xlsxToMarkdown(buffer) {
+    async function xlsxToMarkdown(buffer, col) {
       const zip = await openZip(buffer);
       const wbXml = await zip.read('xl/workbook.xml');
       if (!wbXml) throw new Error('w pliku nie ma skoroszytu Excel');
       const wb = parseXml(wbXml);
       const date1904 = /^(1|true)$/i.test(xAttr(xAll(wb, 'workbookPr')[0], 'date1904') || '');
-      const rels = {};
-      const relXml = await zip.read('xl/_rels/workbook.xml.rels');
-      if (relXml) xAll(parseXml(relXml), 'Relationship').forEach(r => { rels[xAttr(r, 'Id')] = xAttr(r, 'Target'); });
+      const rels = await readRels(zip, 'xl/workbook.xml');
       const shared = [];
       const sstXml = await zip.read('xl/sharedStrings.xml');
       if (sstXml) xAll(parseXml(sstXml), 'si').forEach(si => shared.push(xAll(si, 't').filter(t => t.parentNode.localName !== 'rPh').map(t => t.textContent).join('')));
@@ -3121,70 +3308,153 @@ ZASADY
         xAll(st, 'numFmt').forEach(f => { custom[xAttr(f, 'numFmtId')] = xAttr(f, 'formatCode'); });
         xKids(xAll(st, 'cellXfs')[0], 'xf').forEach(xf => { const id = parseInt(xAttr(xf, 'numFmtId') || '0', 10); xfKinds.push(xlsxFormatKind(custom[id], id)); });
       }
-      const parts = [];
-      let total = 0, truncated = false;
-      for (const sheet of xAll(wb, 'sheet').slice(0, 30)) {
-        const name = xAttr(sheet, 'name') || 'Arkusz';
-        const target = rels[xAttr(sheet, 'id')];
-        if (!target) continue;
-        const path = target.startsWith('/') ? target.slice(1) : 'xl/' + target.replace(/^\.\//, '');
-        const xml = await zip.read(path);
+      const cellValue = (c) => {
+        const t = xAttr(c, 't');
+        const v = xKid(c, 'v') ? xKid(c, 'v').textContent : '';
+        if (t === 's') return shared[parseInt(v, 10)] ?? '';
+        if (t === 'inlineStr') return xText(c, 't');
+        if (t === 'b') return v === '1' ? 'PRAWDA' : 'FAŁSZ';
+        if (t === 'str' || t === 'e') return v;                         // wynik formuły tekstowej / błąd (#DZIEL/0!)
+        if (v === '') return '';
+        const num = parseFloat(v);
+        const kind = xfKinds[parseInt(xAttr(c, 's') || '0', 10)] || '';
+        if (isNaN(num)) return v;
+        if (kind === 'date') return xlsxDate(num, date1904);
+        if (kind === 'percent') return `${+(num * 100).toPrecision(12)}%`;
+        return String(+num.toPrecision(15));
+      };
+
+      // Etap 1: odczyt wszystkich arkuszy (wartości potrzebne też do wykresów bez zapisanych danych)
+      const allSheets = xAll(wb, 'sheet');
+      if (allSheets.length > OFFICE_MAX_SHEETS) col.warnings.push(`Plik ma ${allSheets.length} arkuszy – AI otrzyma pierwsze ${OFFICE_MAX_SHEETS}.`);
+      const sheets = [];
+      for (const sheet of allSheets.slice(0, OFFICE_MAX_SHEETS)) {
+        const rel = rels[xAttr(sheet, 'id')];
+        if (!rel) continue;
+        const xml = await zip.read(rel.target);
         if (!xml) continue;
-        const rows = [];
-        let sheetTruncated = false;
+        const info = { name: xAttr(sheet, 'name') || 'Arkusz', hidden: /hidden/i.test(xAttr(sheet, 'state') || ''), path: rel.target, rows: [], grid: new Map(), totalRows: 0, maxCol: 0 };
+        let rowNo = 0;
         for (const row of xAll(parseXml(xml), 'row')) {
+          rowNo = parseInt(xAttr(row, 'r') || String(rowNo + 1), 10);
           const cells = [];
-          let next = 0;
+          let next = 0, hasData = false;
           xKids(row, 'c').forEach(c => {
             const ref = xAttr(c, 'r');
             const ci = ref ? xlsxColIndex(ref) : next;
             next = ci + 1;
-            if (ci < 0 || ci >= OFFICE_MAX_COLS) return;
-            const t = xAttr(c, 't');
-            const v = xKid(c, 'v') ? xKid(c, 'v').textContent : '';
-            let val = '';
-            if (t === 's') val = shared[parseInt(v, 10)] ?? '';
-            else if (t === 'inlineStr') val = xAll(c, 't').map(x => x.textContent).join('');
-            else if (t === 'b') val = v === '1' ? 'PRAWDA' : 'FAŁSZ';
-            else if (t === 'str' || t === 'e') val = v;                // wynik formuły tekstowej / błąd (#DZIEL/0!)
-            else if (v !== '') {
-              const num = parseFloat(v);
-              const kind = xfKinds[parseInt(xAttr(c, 's') || '0', 10)] || '';
-              if (isNaN(num)) val = v;
-              else if (kind === 'date') val = xlsxDate(num, date1904);
-              else if (kind === 'percent') val = `${+(num * 100).toPrecision(12)}%`;
-              else val = String(+num.toPrecision(15));
-            }
-            if (String(val).trim() !== '') cells[ci] = val;
+            if (ci < 0) return;
+            const val = cellValue(c);
+            if (String(val).trim() === '') return;
+            hasData = true;
+            info.maxCol = Math.max(info.maxCol, ci + 1);
+            if (ci < OFFICE_MAX_COLS) cells[ci] = val;
           });
-          if (!cells.length) continue;
-          if (rows.length >= OFFICE_MAX_ROWS) { sheetTruncated = true; break; }
-          rows.push(cells);
+          if (!hasData) continue;
+          info.totalRows++;
+          if (info.rows.length < OFFICE_MAX_ROWS && cells.length) {
+            info.rows.push(cells);
+            info.grid.set(rowNo, cells);
+          }
         }
-        // pomijamy kolumny puste w całym arkuszu (np. odstępy w układzie)
-        const width = Math.max(0, ...rows.map(r => r.length));
-        const used = Array.from({ length: width }, (_, i) => rows.some(r => r[i] != null && r[i] !== ''));
-        const compact = rows.map(r => used.map((u, i) => (u ? (r[i] == null ? '' : r[i]) : null)).filter(x => x !== null));
-        const hidden = /hidden/i.test(xAttr(sheet, 'state') || '') ? ', ukryty' : '';
-        const n = rows.length;
-        const wiersze = n === 1 ? 'wiersz' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? 'wiersze' : 'wierszy';
-        let block = `## Arkusz: ${name} (${n}${sheetTruncated ? '+' : ''} ${wiersze} z danymi${hidden})`;
-        block += compact.length ? `\n\n${mdTable(compact)}` : '\n\n(arkusz pusty)';
-        if (sheetTruncated) block += `\n\n[… pokazano pierwsze ${OFFICE_MAX_ROWS} wierszy]`;
-        if (total + block.length > OFFICE_TEXT_MAX) { truncated = true; break; }
+        if (info.totalRows > OFFICE_MAX_ROWS) col.warnings.push(`Arkusz „${info.name}” ma ${plNum(info.totalRows)} wierszy z danymi – AI otrzyma tylko pierwsze ${plNum(OFFICE_MAX_ROWS)}. Jeśli ważne są wszystkie dane, podziel arkusz lub usuń zbędne wiersze.`);
+        if (info.maxCol > OFFICE_MAX_COLS) col.warnings.push(`Arkusz „${info.name}” ma ${info.maxCol} kolumn – AI otrzyma tylko pierwsze ${OFFICE_MAX_COLS} (A–${xlsxColName(OFFICE_MAX_COLS - 1)}).`);
+        sheets.push(info);
+      }
+      // Odwołania typu 'Arkusz 1'!$B$2:$B$5 (dla wykresów bez zapisanych wartości)
+      const resolveRef = (ref) => {
+        const m = String(ref || '').match(/^(?:'((?:[^']|'')+)'|([^!]+))!\$?([A-Z]+)\$?(\d+)(?::\$?([A-Z]+)\$?(\d+))?$/);
+        if (!m) return [];
+        const sh = sheets.find(s => s.name === (m[1] ? m[1].replace(/''/g, "'") : m[2]));
+        if (!sh) return [];
+        const c1 = xlsxColIndex(m[3]), r1 = +m[4], c2 = m[5] ? xlsxColIndex(m[5]) : c1, r2 = m[6] ? +m[6] : r1;
+        const out = [];
+        for (let r = r1; r <= r2 && out.length < 500; r++) for (let c = c1; c <= c2; c++) out.push(((sh.grid.get(r) || [])[c]) ?? '');
+        return out;
+      };
+
+      // Etap 2: tabele + obiekty z rysunków (wykresy, obrazy, pola tekstowe)
+      const parts = [];
+      let total = 0;
+      const skippedSheets = [];
+      for (const sh of sheets) {
+        const width = Math.max(0, ...sh.rows.map(r => r.length));
+        const used = Array.from({ length: width }, (_, i) => sh.rows.some(r => r[i] != null && r[i] !== ''));
+        const compact = sh.rows.map(r => used.map((u, i) => (u ? (r[i] == null ? '' : r[i]) : null)).filter(x => x !== null));
+        const n = sh.totalRows;
+        let block = `## Arkusz: ${sh.name} (${plNum(n)} ${plForm(n, 'wiersz', 'wiersze', 'wierszy')} z danymi${sh.hidden ? ', ukryty' : ''})`;
+        block += compact.length ? `\n\n${mdTable(compact)}` : '\n\n(brak danych w komórkach)';
+        if (n > OFFICE_MAX_ROWS) block += `\n\n[… pokazano pierwsze ${plNum(OFFICE_MAX_ROWS)} z ${plNum(n)} wierszy]`;
+        const objects = await sheetObjects(zip, sh.path, col, resolveRef);
+        if (objects.length) block += `\n\nObiekty w arkuszu „${sh.name}”:\n\n${objects.join('\n\n')}`;
+        if (total + block.length > OFFICE_TEXT_MAX) { skippedSheets.push(sh.name); continue; }
         total += block.length;
         parts.push(block);
       }
-      if (truncated) parts.push('[… pozostałe arkusze pominięto – plik jest bardzo duży]');
+      if (skippedSheets.length) {
+        col.warnings.push(`Plik jest bardzo duży – AI nie otrzyma ${plForm(skippedSheets.length, 'arkusza', 'arkuszy', 'arkuszy')}: ${skippedSheets.map(s => `„${s}”`).join(', ')}.`);
+        parts.push(`[… pominięto arkusze: ${skippedSheets.join(', ')} – plik jest bardzo duży]`);
+      }
       return parts.join('\n\n');
     }
 
-    async function officeToText(buffer, kind) {
+    async function sheetObjects(zip, sheetPath, col, resolveRef) {
+      const out = [];
+      const rels = await readRels(zip, sheetPath);
+      for (const rel of Object.values(rels)) {
+        if (!/\/drawing$/.test(rel.type)) continue;
+        const xml = await zip.read(rel.target);
+        if (!xml) continue;
+        const drels = await readRels(zip, rel.target);
+        const visit = async (el, where) => {
+          for (const c of Array.from(el.children)) {
+            if (c.localName === 'pic') {
+              const blip = xAll(c, 'blip')[0];
+              const rid = blip && xAttr(blip, 'embed');
+              if (rid && drels[rid]) { const s = await collectImage(col, zip, drels[rid].target, where); if (s) out.push(s); }
+            } else if (c.localName === 'graphicFrame') {
+              const ch = xAll(c, 'chart')[0];
+              const rid = ch && xAttr(ch, 'id');
+              if (rid && drels[rid]) out.push(await chartToText(zip, drels[rid].target, ++col.charts, where, resolveRef));
+            } else if (c.localName === 'sp') {
+              const txt = xAll(xKid(c, 'txBody'), 'p').map(p => xText(p, 't')).filter(Boolean).join(' ').trim();
+              if (txt) out.push(`[Pole tekstowe – ${where}]: ${txt}`);
+            } else if (c.localName === 'grpSp') await visit(c, where);
+            else if (c.localName === 'AlternateContent') await visit(xKid(c, 'Choice') || c, where);
+          }
+        };
+        for (const anchor of Array.from(parseXml(xml).documentElement.children)) {
+          if (!/Anchor$/.test(anchor.localName)) continue;
+          const from = xKid(anchor, 'from');
+          const where = from ? `przy komórce ${xlsxColName(+xKid(from, 'col').textContent)}${+xKid(from, 'row').textContent + 1}` : 'w arkuszu';
+          await visit(anchor, where);
+        }
+      }
+      return out;
+    }
+
+    // Wynik: tekst dla Gemini, obrazy jako osobne części i ostrzeżenia dla użytkownika
+    async function officeToText(buffer, kind, opts = {}) {
       if (typeof DecompressionStream === 'undefined') throw new Error('ta przeglądarka nie potrafi odczytać plików Word i Excel – zaktualizuj ją lub zapisz plik jako PDF');
-      let text = (kind === 'word' ? await docxToMarkdown(buffer) : await xlsxToMarkdown(buffer)).trim();
-      if (!text) throw new Error(kind === 'word' ? 'dokument jest pusty' : 'arkusz jest pusty');
+      const col = newOfficeCollector(opts.fileName || 'plik', opts);
+      let text = (kind === 'word' ? await docxToMarkdown(buffer, col) : await xlsxToMarkdown(buffer, col)).trim();
+      finishImageWarnings(col);
+      if (!text && !col.images.length) throw new Error(kind === 'word' ? 'dokument jest pusty' : 'arkusz jest pusty');
       if (text.length > OFFICE_TEXT_MAX) text = text.slice(0, OFFICE_TEXT_MAX) + '\n\n[… treść skrócona – plik był bardzo długi]';
-      return `[Treść pliku ${OFFICE_LABEL[kind]} odczytana automatycznie${kind === 'excel' ? ' – każdy arkusz jako tabela' : ''}]\n\n${text}`;
+      const ni = col.images.length, nc = col.charts;
+      const extras = [
+        ni && `${ni} ${plForm(ni, 'obraz przekazany', 'obrazy przekazane', 'obrazów przekazanych')} osobno`,
+        nc && `${nc} ${plForm(nc, 'wykres jako tabela', 'wykresy jako tabele', 'wykresów jako tabele')} danych`
+      ].filter(Boolean);
+      let header = `[Treść pliku ${OFFICE_LABEL[kind]} „${col.fileName}” odczytana automatycznie${kind === 'excel' ? ' – każdy arkusz jako tabela' : ''}${extras.length ? `; ${extras.join(', ')}` : ''}]`;
+      if (col.warnings.length) header += `\n[Uwaga – nie wszystko zostało przekazane: ${col.warnings.join(' ')}]`;
+      return { text: `${header}\n\n${text}`, images: col.images, charts: col.charts, warnings: col.warnings };
+    }
+    function officeSummary(kind, res) {
+      const bits = [`${OFFICE_LABEL[kind]} → tekst`];
+      if (res.images.length) bits.push(`${res.images.length} ${plForm(res.images.length, 'obraz', 'obrazy', 'obrazów')}`);
+      if (res.charts) bits.push(`${res.charts} ${plForm(res.charts, 'wykres', 'wykresy', 'wykresów')}`);
+      return bits.join(' + ');
     }
     function base64ToBuffer(b64) {
       const bin = atob(String(b64 || '').replace(/-/g, '+').replace(/_/g, '/'));
@@ -3685,10 +3955,11 @@ ZASADY
     /* =====================================================================
        TOASTY
        ===================================================================== */
-    function toast(message, type = 'info') {
+    function toast(message, type = 'info', duration = 3200) {
       const colors = {
         success: 'bg-emerald-600 text-white',
         error: 'bg-red-600 text-white',
+        warning: 'bg-amber-600 text-white',
         info: 'bg-navy-800 text-white'
       };
       const el = document.createElement('div');
@@ -3696,7 +3967,7 @@ ZASADY
       el.setAttribute('role', 'status');
       el.textContent = message;
       $('#toastContainer').appendChild(el);
-      setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3200);
+      setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, duration);
     }
 
     /* =====================================================================
@@ -3759,7 +4030,7 @@ GOTOWE FRAGMENTY
 Jeśli podano gotowe fragmenty (firmowe lub użytkownika) i któryś pasuje do sprawy – wykorzystaj jego treść (możesz dopasować styl), nie zmieniając zawartych w nim faktów, kwot ani numerów.
 
 ZAŁĄCZNIKI
-Treść załączników wiadomości (PDF, zdjęcia, a pliki Word i Excel jako odczytany tekst i tabele) jest przekazana razem z nią – uwzględnij ją (np. kwoty z faktury, numer zamówienia, opis usterki ze zdjęcia). Nie zgaduj treści załączników, których nie przekazano.
+Treść załączników wiadomości (PDF, zdjęcia, a pliki Word i Excel jako odczytany tekst i tabele, ich wykresy jako tabele danych, a obrazy z nich jako osobne obrazy) jest przekazana razem z nią – uwzględnij ją (np. kwoty z faktury, numer zamówienia, opis usterki ze zdjęcia). Nie zgaduj treści załączników, których nie przekazano.
 
 PRZYPOMNIENIA
 Gdy zadaniem jest przypomnienie (brak reakcji na Twoją wcześniejszą wiadomość): napisz krótko (2–4 zdania), uprzejmie i bez wyrzutów, nawiąż do wcześniejszej wiadomości, ponów najważniejsze pytanie lub propozycję i ułatw odpowiedź.
@@ -4281,14 +4552,14 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       // Pomijamy drobne obrazki z treści (logo w stopce, ikony)
       refs = refs.filter(r => !(r.mimeType.startsWith('image/') && (r.size < 8000 || (r.inline && r.size < 40000))));
       const meta = [], parts = [];
-      let total = 0;
+      let total = 0, filesUsed = 0;
       for (const r of refs) {
         const ext = (String(r.name).split('.').pop() || '').toLowerCase();
         const kind = officeKind(r.name, r.mimeType);
         const mime = kind ? 'text/plain' : MAIL_ATT_TYPES.includes(r.mimeType) ? r.mimeType : (EXT_TYPES[ext] || '');
-        const info = { name: r.name, size: r.size, used: false, reason: '', note: kind ? `${OFFICE_LABEL[kind]} → tekst` : '' };
+        const info = { name: r.name, size: r.size, used: false, reason: '', note: kind ? `${OFFICE_LABEL[kind]} → tekst` : '', warnings: [] };
         if (!mime) info.reason = isLegacyOffice(r.name) ? 'stary format .doc/.xls – AI czyta pliki .docx i .xlsx' : 'format nieobsługiwany przez AI';
-        else if (parts.length >= 4) info.reason = 'pominięty – maks. 4 załączniki';
+        else if (filesUsed >= 4) info.reason = 'pominięty – maks. 4 załączniki';
         else if (r.size > 7 * 1048576) info.reason = 'za duży (maks. 7 MB)';
         else if (total + r.size > 12 * 1048576) info.reason = 'pominięty – łączny limit 12 MB';
         else {
@@ -4303,9 +4574,23 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
               data = d.contentBytes;
             }
             if (!data) throw new Error('pusty załącznik');
-            if (kind) data = utf8ToB64(await officeToText(base64ToBuffer(data), kind));
-            parts.push({ name: r.name, mimeType: mime, data, label: 'Załącznik wiadomości' });
+            if (kind) {
+              const res = await officeToText(base64ToBuffer(data), kind, { fileName: r.name, maxImages: 4 });
+              info.note = officeSummary(kind, res);
+              info.warnings = res.warnings.slice();
+              parts.push({ name: r.name, mimeType: mime, data: utf8ToB64(res.text), label: 'Załącznik wiadomości' });
+              let skipped = 0;
+              res.images.forEach(img => {
+                if (total + r.size + img.size > 12 * 1048576) { skipped++; return; }
+                parts.push({ name: img.name, mimeType: img.mimeType, data: img.data, label: 'Obraz z załącznika' });
+                total += img.size;
+              });
+              if (skipped) info.warnings.push(`Pominięto ${skipped} ${plForm(skipped, 'obraz', 'obrazy', 'obrazów')} – łączny limit rozmiaru załączników (12 MB).`);
+            } else {
+              parts.push({ name: r.name, mimeType: mime, data, label: 'Załącznik wiadomości' });
+            }
             total += r.size;
+            filesUsed++;
             info.used = true;
           } catch (e) {
             info.reason = kind ? `nie udało się odczytać pliku ${OFFICE_LABEL[kind]}${e && e.message ? ` (${e.message})` : ''}` : 'nie udało się pobrać';
@@ -4895,7 +5180,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         String(item.body || item.snippet || '').slice(0, 15000),
         '"""'
       );
-      if (att.meta.length) lines.push('', '### ZAŁĄCZNIKI WIADOMOŚCI', ...att.meta.map(m => `- ${m.name}: ${m.used ? `przekazany do analizy (powyżej)${m.note ? ` – ${m.note}` : ''}` : `nieprzeanalizowany – ${m.reason}`}`));
+      if (att.meta.length) lines.push('', '### ZAŁĄCZNIKI WIADOMOŚCI', ...att.meta.map(m => `- ${m.name}: ${m.used ? `przekazany do analizy (powyżej)${m.note ? ` – ${m.note}` : ''}${m.warnings && m.warnings.length ? ` – UWAGA: ${m.warnings.join(' ')}` : ''}` : `nieprzeanalizowany – ${m.reason}`}`));
       if (isFollowUp) {
         lines.push('', `### MOJA WCZEŚNIEJSZA ODPOWIEDŹ (wysłana ${new Date(item.sentAt).toLocaleDateString('pl-PL')}, brak reakcji od ${item.followDays} dni)`, '"""', item.sentText || '', '"""',
           '', '### ZADANIE', 'Przygotuj PRZYPOMNIENIE w tym samym wątku. Ustaw needsReply = true, expectReply = true, meeting.requested = false, category zgodną ze sprawą.');
@@ -5240,8 +5525,18 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       const atts = item.attachmentsMeta || [];
       const attHtml = atts.length ? `
         <div class="mt-2 flex flex-wrap gap-1.5">
-          ${atts.map(m => `<span class="inline-flex max-w-full items-center gap-1 rounded-full border ${m.used ? 'border-slate-300 bg-slate-50 text-slate-700' : 'border-dashed border-slate-300 text-slate-500'} px-2 py-0.5 text-[11px]" title="${escapeHtml(m.used ? `Przeanalizowany przez AI${m.note ? ` (${m.note})` : ''}` : (m.reason || ''))}">${iconSvg('paperclip', 'h-3 w-3 shrink-0')}<span class="truncate">${escapeHtml(m.name)}</span>${m.used ? iconSvg('check', 'h-3 w-3 shrink-0 text-emerald-600') : ''}</span>`).join('')}
-        </div>` : '';
+          ${atts.map(m => {
+            const warn = m.used && m.warnings && m.warnings.length;
+            const tone = warn ? 'border-amber-300 bg-amber-50 text-amber-800' : m.used ? 'border-slate-300 bg-slate-50 text-slate-700' : 'border-dashed border-slate-300 text-slate-500';
+            const title = m.used ? `Przeanalizowany przez AI${m.note ? ` (${m.note})` : ''}${warn ? ` – ${m.warnings.join(' ')}` : ''}` : (m.reason || '');
+            const mark = m.used ? (warn ? iconSvg('warning', 'h-3 w-3 shrink-0 text-amber-600') : iconSvg('check', 'h-3 w-3 shrink-0 text-emerald-600')) : '';
+            return `<span class="inline-flex max-w-full items-center gap-1 rounded-full border ${tone} px-2 py-0.5 text-[11px]" title="${escapeHtml(title)}">${iconSvg('paperclip', 'h-3 w-3 shrink-0')}<span class="truncate">${escapeHtml(m.name)}</span>${m.note && m.used ? `<span class="hidden sm:inline text-slate-500">· ${escapeHtml(m.note)}</span>` : ''}${mark}</span>`;
+          }).join('')}
+        </div>
+        ${atts.some(m => m.used && m.warnings && m.warnings.length) ? `
+          <ul class="mt-1.5 space-y-1 text-xs leading-relaxed text-amber-800" role="note">
+            ${atts.filter(m => m.used && m.warnings && m.warnings.length).flatMap(m => m.warnings.map(w => `<li class="flex gap-1.5">${iconSvg('warning', 'mt-px h-3.5 w-3.5 shrink-0')}<span><strong class="font-medium">${escapeHtml(m.name)}:</strong> ${escapeHtml(w)}</span></li>`)).join('')}
+          </ul>` : ''}` : '';
       const head = `
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
           ${providerBadge}

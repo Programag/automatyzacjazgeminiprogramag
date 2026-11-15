@@ -33,7 +33,13 @@ Czyta nieprzeczytane maile, pomija newslettery, powiadomienia i podejrzane wiado
 | Dokumenty | **Faktury i paragony** | odczyt danych ze zdjęć/PDF-ów (wiele naraz), kontrola NIP i sum, eksport do Excela (CSV) |
 | Kadry | **Rekrutacja** | ocena dopasowania CV do ogłoszenia, pytania na rozmowę, zaproszenie lub odmowa dla kandydata |
 
-Narzędzia z polem pliku przyjmują PDF-y, zdjęcia, TXT/CSV oraz **Word (.docx) i Excel (.xlsx)** – te dwa formaty są zamieniane w przeglądarce na tekst (tabele i arkusze jako tabele, z datami, procentami i wynikami formuł), bo Gemini nie czyta ich bezpośrednio. Stare formaty .doc/.xls trzeba zapisać jako .docx/.xlsx lub PDF.
+Narzędzia z polem pliku przyjmują PDF-y, zdjęcia, TXT/CSV oraz **Word (.docx) i Excel (.xlsx)**. Gemini nie czyta plików Office bezpośrednio, więc aplikacja rozpakowuje je w przeglądarce:
+- tekst, nagłówki, listy i tabele → tekst z tabelami; arkusze → tabele z datami, procentami i wynikami formuł,
+- **wykresy** → tytuł, typ, osie i tabela danych (także gdy plik nie ma zapisanych wartości – odczyt z komórek),
+- **obrazy** (zdjęcia, skany, zrzuty ekranu) → przekazywane AI jako osobne obrazy; duże są pomniejszane do 1600 px, drobne ikony pomijane,
+- pola tekstowe w arkuszach.
+
+Jeśli coś nie trafi do AI w całości (arkusz ponad 1000 wierszy lub 60 kolumn, ponad 30 arkuszy, bardzo długi dokument, obrazy EMF/WMF, limit 10 obrazów na plik), pracownik widzi to od razu: w powiadomieniu po dodaniu pliku, na liście plików, w uwadze przy wyniku, a w Skrzynce AI – na karcie maila. Stare formaty .doc/.xls trzeba zapisać jako .docx/.xlsx lub PDF.
 
 Każdy wynik można **wyeksportować**: Word (.docx), PDF (przez okno drukowania), Markdown, tekst, nowa wiadomość w Gmailu / Outlooku / domyślnym programie pocztowym, a dla faktur – Excel (CSV).
 
