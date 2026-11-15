@@ -10,10 +10,33 @@ Wdróż `index.html` jako Static Site (np. na Render) albo otwórz go w przeglą
 
 ## Moduły
 
-1. **Skrzynka AI** – czyta nieprzeczytane maile z Gmaila i/lub Outlooka (prywatnego i Microsoft 365), pomija newslettery, powiadomienia i podejrzane wiadomości, a do pozostałych przygotowuje propozycję odpowiedzi. Każdą odpowiedź możesz edytować, poprawić poleceniem („krócej”, „zaproponuj czwartek”), zapisać jako szkic albo zatwierdzić i wysłać (z 5 s na cofnięcie). Sprawdzanie automatyczne co 3 min działa, gdy karta z aplikacją jest otwarta.
-2. **Asystent Korespondencji B2B** – gotowe odpowiedzi e-mail (cel, ton, dodatkowe fakty).
-3. **Analizator Dokumentów i Notatek** – podsumowanie + action items, ekstrakcja danych i terminów, ocena ryzyka.
-4. **Generator Ofert Handlowych** – spersonalizowana propozycja: Hak → Problem → Rozwiązanie → CTA.
+### Skrzynka AI (Gmail, Outlook, Microsoft 365)
+Czyta nieprzeczytane maile, pomija newslettery, powiadomienia i podejrzane wiadomości, a do pozostałych przygotowuje propozycję odpowiedzi. Każdą możesz edytować, poprawić poleceniem („krócej”, „zaproponuj czwartek”), zapisać jako szkic albo zatwierdzić i wysłać w tym samym wątku (z 5 s na cofnięcie).
+- **Załączniki** – PDF-y i zdjęcia z maila (do 4 plików, 7 MB każdy) są analizowane razem z treścią; pozostałe formaty są oznaczone jako nieprzeanalizowane.
+- **Automatyczne etykiety** – kategoria AI trafia do skrzynki jako etykieta Gmail `OfficeFlow/…` lub kategoria Outlook `OfficeFlow: …`.
+- **Terminy z kalendarza** – przy prośbie o spotkanie AI proponuje wolne terminy z Kalendarza Google lub Outlooka (w Twoich godzinach pracy), a przycisk „Dodaj do kalendarza” tworzy wydarzenie, opcjonalnie z zaproszeniem dla nadawcy.
+- **Przypomnienia o braku odpowiedzi** – gdy wysłana oferta lub pytanie zostaną bez reakcji przez 2–7 dni, w skrzynce pojawia się karta z gotowym przypomnieniem (maks. dwa przypomnienia na sprawę).
+- **Poranne podsumowanie** – przy pierwszym sprawdzeniu poczty po 6:00: najważniejsze sprawy, kto czeka na odpowiedź, kalendarz na dziś.
+- **Biblioteka gotowych odpowiedzi** – fragmenty firmowe (z Panelu technika, trafiają do linku zaproszenia) i osobiste; AI je wykorzystuje, a do odpowiedzi wstawisz je jednym kliknięciem.
+- **Powiadomienia przeglądarki** – o nowych propozycjach, braku odpowiedzi i podsumowaniu dnia, gdy karta jest w tle.
+- Sprawdzanie automatyczne co 3 min działa, gdy karta z aplikacją jest otwarta.
+
+### Narzędzia
+| Grupa | Narzędzie | Co robi |
+|---|---|---|
+| Pisanie | **Korespondencja B2B** | odpowiedź e-mail wg celu, tonu i faktów |
+| Pisanie | **Generator ofert** | spersonalizowana propozycja: Hak → Problem → Rozwiązanie → CTA |
+| Pisanie | **Pisma firmowe** | wezwanie do zapłaty, odpowiedź na reklamację, reklamacja do dostawcy, wypowiedzenie, aneks, pismo przewodnie |
+| Pisanie | **Korekta i zmiana tonu** | korekta, skracanie, rozwijanie, zmiana tonu, prosty język, tłumaczenie PL/EN/DE |
+| Dokumenty | **Analizator dokumentów** | podsumowanie + zadania, kluczowe dane i terminy, ocena ryzyka – z tekstu lub pliku |
+| Dokumenty | **Porównanie dokumentów** | różnice między wersjami umowy z oceną ryzyka albo porównanie dwóch ofert |
+| Dokumenty | **Faktury i paragony** | odczyt danych ze zdjęć/PDF-ów (wiele naraz), kontrola NIP i sum, eksport do Excela (CSV) |
+| Kadry | **Rekrutacja** | ocena dopasowania CV do ogłoszenia, pytania na rozmowę, zaproszenie lub odmowa dla kandydata |
+
+Każdy wynik można **wyeksportować**: Word (.docx), PDF (przez okno drukowania), Markdown, tekst, nowa wiadomość w Gmailu / Outlooku / domyślnym programie pocztowym, a dla faktur – Excel (CSV).
+
+### Licznik zużycia
+Panel technika pokazuje dzisiejsze i miesięczne zapytania do Gemini, tokeny i szacowany koszt (według cennika Google dla `gemini-3.8-flash`), z paskiem limitu darmowego planu. Licznik działa w danej przeglądarce; pełne zestawienie dla klucza jest w Google AI Studio.
 
 ## Konfiguracja skrzynek (jednorazowo)
 
@@ -21,7 +44,7 @@ Instrukcja krok po kroku jest też w aplikacji: **Panel technika → Skrzynki po
 
 ### Gmail
 1. [Google Cloud Console](https://console.cloud.google.com/projectcreate) → utwórz projekt.
-2. Włącz [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com).
+2. Włącz [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com) oraz [Google Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com) (kalendarz – wolne terminy i spotkania).
 3. [Google Auth Platform](https://console.cloud.google.com/auth/overview) → *Get started*, typ odbiorców **External**; w *Audience* dodaj swój adres jako **Test user**.
 4. *Clients* → *Create client* → **Web application**; *Authorized JavaScript origins*: adres strony, np. `https://officeflow-ai.onrender.com`.
 5. Skopiuj **Client ID** i wklej w aplikacji.
@@ -30,7 +53,7 @@ Instrukcja krok po kroku jest też w aplikacji: **Panel technika → Skrzynki po
 1. [Microsoft Entra → App registrations](https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) → *New registration*.
 2. *Supported account types*: **Accounts in any organizational directory and personal Microsoft accounts**.
 3. *Redirect URI*: platforma **Single-page application (SPA)**, adres strony, np. `https://officeflow-ai.onrender.com/`.
-4. Skopiuj **Application (client) ID** i wklej w aplikacji. W koncie firmowym administrator może musieć zatwierdzić uprawnienia `Mail.ReadWrite`, `Mail.Send`, `User.Read`.
+4. Skopiuj **Application (client) ID** i wklej w aplikacji. W koncie firmowym administrator może musieć zatwierdzić uprawnienia `Mail.ReadWrite`, `Mail.Send`, `Calendars.ReadWrite`, `User.Read`.
 
 ## Dwa tryby: technik i pracownik
 
@@ -38,7 +61,8 @@ Instrukcja krok po kroku jest też w aplikacji: **Panel technika → Skrzynki po
 1. **Klucz AI i model** – klucz Gemini, model, poziom rozumowania, informacja o limitach.
 2. **Skrzynki pocztowe** – rejestracja aplikacji w Google Cloud (Gmail) i Microsoft Entra (Outlook / Microsoft 365).
 3. **Informacje o firmie dla AI** – fakty wykorzystywane w odpowiedziach wszystkich pracowników.
-4. **Zaproś pracowników** – link konfiguracyjny i gotowa wiadomość do wysłania (mail, Teams, Slack) oraz lista rzeczy do odhaczenia u Google/Microsoftu.
+4. **Biblioteka gotowych odpowiedzi** – fragmenty firmowe (cennik, dane do przelewu, regulaminy).
+5. **Zaproś pracowników** – link konfiguracyjny i gotowa wiadomość do wysłania (mail, Teams, Slack) oraz lista rzeczy do odhaczenia u Google/Microsoftu.
 
 **Widok pracownika** pokazuje tylko Skrzynkę AI (połącz skrzynkę, podpis, zatwierdzanie odpowiedzi) i narzędzia biurowe – bez kluczy, modeli i konfiguracji. Komunikaty o problemach technicznych kończą się prośbą o kontakt z technikiem.
 
@@ -55,7 +79,7 @@ Darmowy plan Gemini ma niski dzienny limit (np. 20 zapytań dziennie na model), 
 
 ## Prywatność
 
-Wszystko dzieje się w przeglądarce: klucz Gemini, identyfikatory aplikacji i tokeny logowania są przechowywane lokalnie, a treść maili trafia wyłącznie do Gmail/Microsoft Graph oraz Gemini API – bez serwera pośredniczącego.
+Wszystko dzieje się w przeglądarce: klucz Gemini, identyfikatory aplikacji i tokeny logowania są przechowywane lokalnie, a treść maili (wraz z analizowanymi załącznikami) i dołączone pliki trafiają wyłącznie do Gmail/Microsoft Graph, Kalendarza oraz Gemini API – bez serwera pośredniczącego.
 
 ## Technologie
 
