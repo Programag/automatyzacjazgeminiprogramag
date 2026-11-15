@@ -59,4 +59,4 @@ Wszystko dzieje się w przeglądarce: klucz Gemini, identyfikatory aplikacji i t
 
 ## Technologie
 
-Tailwind CSS (CDN), czysty JavaScript, `marked.js` + `DOMPurify`, Google Identity Services, MSAL.js (`@azure/msal-browser` 3.28.1), Gmail API, Microsoft Graph.
+Tailwind CSS (CDN) z paletą w stylu Primer (jasny i ciemny motyw – automatycznie według systemu lub przełącznikiem w nagłówku), czysty JavaScript, `marked.js` + `DOMPurify`, Google Identity Services, MSAL.js (`@azure/msal-browser` 3.28.1), Gmail API, Microsoft Graph.

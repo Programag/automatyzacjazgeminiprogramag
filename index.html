@@ -6,21 +6,37 @@
   <title>OfficeFlow AI</title>
   <meta name="description" content="OfficeFlow AI – automatyzacja pracy biurowej z Google Gemini w modelu BYOK (Bring Your Own Key)." />
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-
+  <script>
+    // Motyw ustawiany przed wczytaniem stylów, żeby strona nie mrugała
+    try { const t = localStorage.getItem('officeflow_theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
-          colors: {
-            navy: { 50: '#f0f3fa', 100: '#dde4f3', 600: '#2a3f7a', 700: '#1f2f5e', 800: '#172449', 900: '#101a36', 950: '#0a1124' }
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', '"Noto Sans"', 'Helvetica', 'Arial', 'sans-serif', '"Apple Color Emoji"', '"Segoe UI Emoji"'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', '"Liberation Mono"', 'monospace']
           },
+          colors: {
+            slate: { 50: 'rgb(var(--c-slate-50) / <alpha-value>)', 100: 'rgb(var(--c-slate-100) / <alpha-value>)', 200: 'rgb(var(--c-slate-200) / <alpha-value>)', 300: 'rgb(var(--c-slate-300) / <alpha-value>)', 400: 'rgb(var(--c-slate-400) / <alpha-value>)', 500: 'rgb(var(--c-slate-500) / <alpha-value>)', 600: 'rgb(var(--c-slate-600) / <alpha-value>)', 700: 'rgb(var(--c-slate-700) / <alpha-value>)', 800: 'rgb(var(--c-slate-800) / <alpha-value>)', 900: 'rgb(var(--c-slate-900) / <alpha-value>)', 950: 'rgb(var(--c-slate-950) / <alpha-value>)' },
+            navy: { 50: 'rgb(var(--c-navy-50) / <alpha-value>)', 100: 'rgb(var(--c-navy-100) / <alpha-value>)', 200: 'rgb(var(--c-navy-200) / <alpha-value>)', 300: 'rgb(var(--c-navy-300) / <alpha-value>)', 400: 'rgb(var(--c-navy-400) / <alpha-value>)', 500: 'rgb(var(--c-navy-500) / <alpha-value>)', 600: 'rgb(var(--c-navy-600) / <alpha-value>)', 700: 'rgb(var(--c-navy-700) / <alpha-value>)', 800: 'rgb(var(--c-navy-800) / <alpha-value>)', 900: 'rgb(var(--c-navy-900) / <alpha-value>)', 950: 'rgb(var(--c-navy-950) / <alpha-value>)' },
+            indigo: { 50: 'rgb(var(--c-indigo-50) / <alpha-value>)', 100: 'rgb(var(--c-indigo-100) / <alpha-value>)', 200: 'rgb(var(--c-indigo-200) / <alpha-value>)', 300: 'rgb(var(--c-indigo-300) / <alpha-value>)', 400: 'rgb(var(--c-indigo-400) / <alpha-value>)', 500: 'rgb(var(--c-indigo-500) / <alpha-value>)', 600: 'rgb(var(--c-indigo-600) / <alpha-value>)', 700: 'rgb(var(--c-indigo-700) / <alpha-value>)', 800: 'rgb(var(--c-indigo-800) / <alpha-value>)', 900: 'rgb(var(--c-indigo-900) / <alpha-value>)', 950: 'rgb(var(--c-indigo-950) / <alpha-value>)' },
+            sky: { 50: 'rgb(var(--c-sky-50) / <alpha-value>)', 100: 'rgb(var(--c-sky-100) / <alpha-value>)', 200: 'rgb(var(--c-sky-200) / <alpha-value>)', 300: 'rgb(var(--c-sky-300) / <alpha-value>)', 400: 'rgb(var(--c-sky-400) / <alpha-value>)', 500: 'rgb(var(--c-sky-500) / <alpha-value>)', 600: 'rgb(var(--c-sky-600) / <alpha-value>)', 700: 'rgb(var(--c-sky-700) / <alpha-value>)', 800: 'rgb(var(--c-sky-800) / <alpha-value>)', 900: 'rgb(var(--c-sky-900) / <alpha-value>)', 950: 'rgb(var(--c-sky-950) / <alpha-value>)' },
+            emerald: { 50: 'rgb(var(--c-emerald-50) / <alpha-value>)', 100: 'rgb(var(--c-emerald-100) / <alpha-value>)', 200: 'rgb(var(--c-emerald-200) / <alpha-value>)', 300: 'rgb(var(--c-emerald-300) / <alpha-value>)', 400: 'rgb(var(--c-emerald-400) / <alpha-value>)', 500: 'rgb(var(--c-emerald-500) / <alpha-value>)', 600: 'rgb(var(--c-emerald-600) / <alpha-value>)', 700: 'rgb(var(--c-emerald-700) / <alpha-value>)', 800: 'rgb(var(--c-emerald-800) / <alpha-value>)', 900: 'rgb(var(--c-emerald-900) / <alpha-value>)', 950: 'rgb(var(--c-emerald-950) / <alpha-value>)' },
+            red: { 50: 'rgb(var(--c-red-50) / <alpha-value>)', 100: 'rgb(var(--c-red-100) / <alpha-value>)', 200: 'rgb(var(--c-red-200) / <alpha-value>)', 300: 'rgb(var(--c-red-300) / <alpha-value>)', 400: 'rgb(var(--c-red-400) / <alpha-value>)', 500: 'rgb(var(--c-red-500) / <alpha-value>)', 600: 'rgb(var(--c-red-600) / <alpha-value>)', 700: 'rgb(var(--c-red-700) / <alpha-value>)', 800: 'rgb(var(--c-red-800) / <alpha-value>)', 900: 'rgb(var(--c-red-900) / <alpha-value>)', 950: 'rgb(var(--c-red-950) / <alpha-value>)' },
+            amber: { 50: 'rgb(var(--c-amber-50) / <alpha-value>)', 100: 'rgb(var(--c-amber-100) / <alpha-value>)', 200: 'rgb(var(--c-amber-200) / <alpha-value>)', 300: 'rgb(var(--c-amber-300) / <alpha-value>)', 400: 'rgb(var(--c-amber-400) / <alpha-value>)', 500: 'rgb(var(--c-amber-500) / <alpha-value>)', 600: 'rgb(var(--c-amber-600) / <alpha-value>)', 700: 'rgb(var(--c-amber-700) / <alpha-value>)', 800: 'rgb(var(--c-amber-800) / <alpha-value>)', 900: 'rgb(var(--c-amber-900) / <alpha-value>)', 950: 'rgb(var(--c-amber-950) / <alpha-value>)' },
+            canvas: 'rgb(var(--c-canvas) / <alpha-value>)',
+            primary: { DEFAULT: 'rgb(var(--c-primary) / <alpha-value>)', hover: 'rgb(var(--c-primary-hover) / <alpha-value>)', disabled: 'rgb(var(--c-primary-disabled) / <alpha-value>)' }
+          },
+          borderRadius: { lg: '6px', xl: '8px', '2xl': '12px' },
           boxShadow: {
-            card: '0 1px 2px rgba(16,26,54,.04), 0 4px 16px rgba(16,26,54,.06)'
+            card: '0 1px 0 rgb(var(--shadow-color) / 0.04)',
+            sm: '0 1px 0 rgb(var(--shadow-color) / 0.04)',
+            md: '0 1px 0 rgb(var(--shadow-color) / 0.06)',
+            lg: '0 8px 24px rgb(var(--shadow-overlay) / 0.2)',
+            '2xl': '0 12px 28px rgb(var(--shadow-overlay) / 0.3), 0 0 0 1px rgb(var(--c-slate-300) / 0.6)'
           }
         }
       }
@@ -30,66 +46,358 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 
   <style>
-    body { background: #f5f7fb; }
-    [x-cloak] { display: none !important; }
+    /* ===== Paleta (styl Primer): jasna domyślnie, ciemna z systemu lub z przełącznika ===== */
+    :root {
+      color-scheme: light;
+      --shadow-color: 31 35 40;
+      --shadow-overlay: 140 149 159;
+      --c-slate-50: 246 248 250;
+      --c-slate-100: 234 238 242;
+      --c-slate-200: 216 222 228;
+      --c-slate-300: 209 217 224;
+      --c-slate-400: 129 139 152;
+      --c-slate-500: 89 99 110;
+      --c-slate-600: 75 83 93;
+      --c-slate-700: 57 63 70;
+      --c-slate-800: 42 47 53;
+      --c-slate-900: 31 35 40;
+      --c-slate-950: 21 27 35;
+      --c-navy-50: 246 248 250;
+      --c-navy-100: 234 238 242;
+      --c-navy-200: 209 217 224;
+      --c-navy-300: 200 209 218;
+      --c-navy-400: 129 139 152;
+      --c-navy-500: 89 99 110;
+      --c-navy-600: 66 74 83;
+      --c-navy-700: 50 56 63;
+      --c-navy-800: 37 41 46;
+      --c-navy-900: 31 35 40;
+      --c-navy-950: 31 35 40;
+      --c-indigo-50: 221 244 255;
+      --c-indigo-100: 202 232 255;
+      --c-indigo-200: 182 227 255;
+      --c-indigo-300: 128 204 255;
+      --c-indigo-400: 84 174 255;
+      --c-indigo-500: 33 139 255;
+      --c-indigo-600: 9 105 218;
+      --c-indigo-700: 5 80 174;
+      --c-indigo-800: 3 61 139;
+      --c-indigo-900: 10 48 105;
+      --c-indigo-950: 0 33 85;
+      --c-sky-50: 221 244 255;
+      --c-sky-100: 202 232 255;
+      --c-sky-200: 182 227 255;
+      --c-sky-300: 128 204 255;
+      --c-sky-400: 84 174 255;
+      --c-sky-500: 33 139 255;
+      --c-sky-600: 9 105 218;
+      --c-sky-700: 5 80 174;
+      --c-sky-800: 3 61 139;
+      --c-sky-900: 10 48 105;
+      --c-sky-950: 0 33 85;
+      --c-emerald-50: 218 251 225;
+      --c-emerald-100: 196 241 207;
+      --c-emerald-200: 172 238 187;
+      --c-emerald-300: 111 221 139;
+      --c-emerald-400: 74 194 107;
+      --c-emerald-500: 45 164 78;
+      --c-emerald-600: 31 136 61;
+      --c-emerald-700: 26 127 55;
+      --c-emerald-800: 17 99 41;
+      --c-emerald-900: 4 79 30;
+      --c-emerald-950: 0 61 22;
+      --c-red-50: 255 235 233;
+      --c-red-100: 255 220 215;
+      --c-red-200: 255 193 186;
+      --c-red-300: 255 129 130;
+      --c-red-400: 250 69 73;
+      --c-red-500: 229 83 75;
+      --c-red-600: 207 34 46;
+      --c-red-700: 164 14 38;
+      --c-red-800: 130 7 30;
+      --c-red-900: 102 0 24;
+      --c-red-950: 76 0 20;
+      --c-amber-50: 255 248 197;
+      --c-amber-100: 253 240 181;
+      --c-amber-200: 240 215 122;
+      --c-amber-300: 212 167 44;
+      --c-amber-400: 191 135 0;
+      --c-amber-500: 191 135 0;
+      --c-amber-600: 154 103 0;
+      --c-amber-700: 125 78 0;
+      --c-amber-800: 99 60 1;
+      --c-amber-900: 77 45 0;
+      --c-amber-950: 59 35 0;
+      --c-canvas: 255 255 255;
+      --c-primary: 31 136 61;
+      --c-primary-hover: 28 129 57;
+      --c-primary-disabled: 148 211 162;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --shadow-color: 1 4 9;
+        --shadow-overlay: 1 4 9;
+        --c-slate-50: 21 27 35;
+      --c-slate-100: 33 40 48;
+      --c-slate-200: 47 54 61;
+      --c-slate-300: 61 68 77;
+      --c-slate-400: 101 108 118;
+      --c-slate-500: 145 152 161;
+      --c-slate-600: 167 174 182;
+      --c-slate-700: 201 209 217;
+      --c-slate-800: 223 229 235;
+      --c-slate-900: 240 246 252;
+      --c-slate-950: 255 255 255;
+      --c-navy-50: 21 27 35;
+      --c-navy-100: 33 40 48;
+      --c-navy-200: 61 68 77;
+      --c-navy-300: 61 68 77;
+      --c-navy-400: 101 108 118;
+      --c-navy-500: 145 152 161;
+      --c-navy-600: 183 189 200;
+      --c-navy-700: 61 68 77;
+      --c-navy-800: 47 54 61;
+      --c-navy-900: 240 246 252;
+      --c-navy-950: 1 4 9;
+      --c-indigo-50: 18 29 47;
+      --c-indigo-100: 23 44 77;
+      --c-indigo-200: 31 63 110;
+      --c-indigo-300: 42 90 160;
+      --c-indigo-400: 68 147 248;
+      --c-indigo-500: 68 147 248;
+      --c-indigo-600: 68 147 248;
+      --c-indigo-700: 88 166 255;
+      --c-indigo-800: 121 192 255;
+      --c-indigo-900: 165 214 255;
+      --c-indigo-950: 202 232 255;
+      --c-sky-50: 18 29 47;
+      --c-sky-100: 23 44 77;
+      --c-sky-200: 31 63 110;
+      --c-sky-300: 42 90 160;
+      --c-sky-400: 68 147 248;
+      --c-sky-500: 68 147 248;
+      --c-sky-600: 68 147 248;
+      --c-sky-700: 88 166 255;
+      --c-sky-800: 121 192 255;
+      --c-sky-900: 165 214 255;
+      --c-sky-950: 202 232 255;
+      --c-emerald-50: 18 38 30;
+      --c-emerald-100: 21 48 31;
+      --c-emerald-200: 31 74 43;
+      --c-emerald-300: 46 160 67;
+      --c-emerald-400: 63 185 80;
+      --c-emerald-500: 63 185 80;
+      --c-emerald-600: 35 134 54;
+      --c-emerald-700: 63 185 80;
+      --c-emerald-800: 86 211 100;
+      --c-emerald-900: 126 231 135;
+      --c-emerald-950: 175 245 180;
+      --c-red-50: 37 23 28;
+      --c-red-100: 52 27 32;
+      --c-red-200: 93 35 41;
+      --c-red-300: 142 21 25;
+      --c-red-400: 248 81 73;
+      --c-red-500: 248 81 73;
+      --c-red-600: 218 54 51;
+      --c-red-700: 255 123 114;
+      --c-red-800: 255 161 152;
+      --c-red-900: 255 193 186;
+      --c-red-950: 255 220 215;
+      --c-amber-50: 39 33 21;
+      --c-amber-100: 46 38 20;
+      --c-amber-200: 75 59 22;
+      --c-amber-300: 158 106 3;
+      --c-amber-400: 187 128 9;
+      --c-amber-500: 210 153 34;
+      --c-amber-600: 210 153 34;
+      --c-amber-700: 227 179 65;
+      --c-amber-800: 242 204 96;
+      --c-amber-900: 248 227 161;
+      --c-amber-950: 251 239 197;
+      --c-canvas: 13 17 23;
+      --c-primary: 35 134 54;
+      --c-primary-hover: 41 144 59;
+      --c-primary-disabled: 16 88 35;
+      }
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --shadow-color: 1 4 9;
+      --shadow-overlay: 1 4 9;
+      --c-slate-50: 21 27 35;
+      --c-slate-100: 33 40 48;
+      --c-slate-200: 47 54 61;
+      --c-slate-300: 61 68 77;
+      --c-slate-400: 101 108 118;
+      --c-slate-500: 145 152 161;
+      --c-slate-600: 167 174 182;
+      --c-slate-700: 201 209 217;
+      --c-slate-800: 223 229 235;
+      --c-slate-900: 240 246 252;
+      --c-slate-950: 255 255 255;
+      --c-navy-50: 21 27 35;
+      --c-navy-100: 33 40 48;
+      --c-navy-200: 61 68 77;
+      --c-navy-300: 61 68 77;
+      --c-navy-400: 101 108 118;
+      --c-navy-500: 145 152 161;
+      --c-navy-600: 183 189 200;
+      --c-navy-700: 61 68 77;
+      --c-navy-800: 47 54 61;
+      --c-navy-900: 240 246 252;
+      --c-navy-950: 1 4 9;
+      --c-indigo-50: 18 29 47;
+      --c-indigo-100: 23 44 77;
+      --c-indigo-200: 31 63 110;
+      --c-indigo-300: 42 90 160;
+      --c-indigo-400: 68 147 248;
+      --c-indigo-500: 68 147 248;
+      --c-indigo-600: 68 147 248;
+      --c-indigo-700: 88 166 255;
+      --c-indigo-800: 121 192 255;
+      --c-indigo-900: 165 214 255;
+      --c-indigo-950: 202 232 255;
+      --c-sky-50: 18 29 47;
+      --c-sky-100: 23 44 77;
+      --c-sky-200: 31 63 110;
+      --c-sky-300: 42 90 160;
+      --c-sky-400: 68 147 248;
+      --c-sky-500: 68 147 248;
+      --c-sky-600: 68 147 248;
+      --c-sky-700: 88 166 255;
+      --c-sky-800: 121 192 255;
+      --c-sky-900: 165 214 255;
+      --c-sky-950: 202 232 255;
+      --c-emerald-50: 18 38 30;
+      --c-emerald-100: 21 48 31;
+      --c-emerald-200: 31 74 43;
+      --c-emerald-300: 46 160 67;
+      --c-emerald-400: 63 185 80;
+      --c-emerald-500: 63 185 80;
+      --c-emerald-600: 35 134 54;
+      --c-emerald-700: 63 185 80;
+      --c-emerald-800: 86 211 100;
+      --c-emerald-900: 126 231 135;
+      --c-emerald-950: 175 245 180;
+      --c-red-50: 37 23 28;
+      --c-red-100: 52 27 32;
+      --c-red-200: 93 35 41;
+      --c-red-300: 142 21 25;
+      --c-red-400: 248 81 73;
+      --c-red-500: 248 81 73;
+      --c-red-600: 218 54 51;
+      --c-red-700: 255 123 114;
+      --c-red-800: 255 161 152;
+      --c-red-900: 255 193 186;
+      --c-red-950: 255 220 215;
+      --c-amber-50: 39 33 21;
+      --c-amber-100: 46 38 20;
+      --c-amber-200: 75 59 22;
+      --c-amber-300: 158 106 3;
+      --c-amber-400: 187 128 9;
+      --c-amber-500: 210 153 34;
+      --c-amber-600: 210 153 34;
+      --c-amber-700: 227 179 65;
+      --c-amber-800: 242 204 96;
+      --c-amber-900: 248 227 161;
+      --c-amber-950: 251 239 197;
+      --c-canvas: 13 17 23;
+      --c-primary: 35 134 54;
+      --c-primary-hover: 41 144 59;
+      --c-primary-disabled: 16 88 35;
+    }
+    :root {
+      --fg: rgb(var(--c-slate-900));
+      --fg-muted: rgb(var(--c-slate-500));
+      --border: rgb(var(--c-slate-300));
+      --border-muted: rgb(var(--c-slate-200));
+      --accent: rgb(var(--c-indigo-600));
+    }
 
-    /* Formatowanie wyniku Markdown */
-    .md-output { color: #1e293b; font-size: 0.95rem; line-height: 1.7; word-wrap: break-word; }
+    html { -webkit-text-size-adjust: 100%; }
+    body { background: rgb(var(--c-canvas)); color: var(--fg); font-size: 14px; line-height: 1.5; }
+    [x-cloak] { display: none !important; }
+    ::selection { background: rgb(var(--c-indigo-200) / .7); }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* Formatowanie wyniku Markdown (jak README) */
+    .md-output { color: var(--fg); font-size: 14px; line-height: 1.6; word-wrap: break-word; }
     .md-output > *:first-child { margin-top: 0; }
-    .md-output h1 { font-size: 1.35rem; font-weight: 700; color: #101a36; margin: 1.4em 0 .6em; }
-    .md-output h2 { font-size: 1.15rem; font-weight: 700; color: #172449; margin: 1.4em 0 .5em; padding-bottom: .3em; border-bottom: 1px solid #e2e8f0; }
-    .md-output h3 { font-size: 1.02rem; font-weight: 600; color: #1f2f5e; margin: 1.2em 0 .4em; }
-    .md-output h4 { font-size: .95rem; font-weight: 600; color: #334155; margin: 1em 0 .3em; }
-    .md-output p { margin: .7em 0; }
-    .md-output strong { color: #0f172a; font-weight: 600; }
-    .md-output em { color: #334155; }
-    .md-output ul, .md-output ol { margin: .6em 0 .9em; padding-left: 1.4em; }
+    .md-output h1 { font-size: 1.6em; font-weight: 600; margin: 1.3em 0 .6em; padding-bottom: .3em; border-bottom: 1px solid var(--border-muted); }
+    .md-output h2 { font-size: 1.3em; font-weight: 600; margin: 1.4em 0 .6em; padding-bottom: .3em; border-bottom: 1px solid var(--border-muted); }
+    .md-output h3 { font-size: 1.1em; font-weight: 600; margin: 1.2em 0 .45em; }
+    .md-output h4 { font-size: 1em; font-weight: 600; margin: 1em 0 .35em; }
+    .md-output p { margin: 0 0 .9em; }
+    .md-output strong { font-weight: 600; }
+    .md-output ul, .md-output ol { margin: 0 0 .9em; padding-left: 2em; }
     .md-output ul { list-style: disc; }
     .md-output ol { list-style: decimal; }
-    .md-output li { margin: .3em 0; }
-    .md-output li::marker { color: #4f46e5; }
-    .md-output li > ul, .md-output li > ol { margin: .2em 0; }
-    .md-output a { color: #4338ca; text-decoration: underline; text-underline-offset: 2px; }
-    .md-output hr { border: 0; border-top: 1px solid #e2e8f0; margin: 1.4em 0; }
-    .md-output blockquote { border-left: 3px solid #6366f1; background: #eef2ff; color: #312e81; padding: .6em 1em; margin: 1em 0; border-radius: 0 .5rem .5rem 0; }
-    .md-output blockquote p { margin: .3em 0; }
-    .md-output code { background: #f1f5f9; padding: .1em .35em; border-radius: .25rem; font-size: .88em; }
-    .md-output pre { background: #0f172a; color: #e2e8f0; padding: 1em; border-radius: .5rem; overflow-x: auto; }
-    .md-output pre code { background: transparent; padding: 0; color: inherit; }
-    .md-output table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: .9rem; display: block; overflow-x: auto; }
-    .md-output th, .md-output td { border: 1px solid #e2e8f0; padding: .5em .75em; text-align: left; vertical-align: top; }
-    .md-output th { background: #f1f5f9; font-weight: 600; color: #172449; }
-    .md-output tr:nth-child(even) td { background: #fafbfd; }
-    .md-output input[type="checkbox"] { margin-right: .4em; accent-color: #4f46e5; }
+    .md-output li + li { margin-top: .25em; }
+    .md-output li > ul, .md-output li > ol { margin: .25em 0 0; }
+    .md-output a { color: var(--accent); text-decoration: none; }
+    .md-output a:hover { text-decoration: underline; }
+    .md-output hr { border: 0; height: .25em; background: var(--border-muted); margin: 1.5em 0; }
+    .md-output blockquote { border-left: .25em solid var(--border); color: var(--fg-muted); padding: 0 1em; margin: 0 0 .9em; }
+    .md-output code { background: rgb(var(--c-slate-500) / .15); padding: .2em .4em; border-radius: 6px; font-size: 85%; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+    .md-output pre { background: rgb(var(--c-slate-50)); padding: 1em; border-radius: 6px; overflow-x: auto; font-size: 85%; }
+    .md-output pre code { background: transparent; padding: 0; font-size: 100%; }
+    .md-output table { border-collapse: collapse; margin: 0 0 1em; display: block; width: max-content; max-width: 100%; overflow-x: auto; }
+    .md-output th, .md-output td { border: 1px solid var(--border); padding: 6px 13px; text-align: left; vertical-align: top; }
+    .md-output th { font-weight: 600; }
+    .md-output tr { background: rgb(var(--c-canvas)); border-top: 1px solid var(--border-muted); }
+    .md-output tr:nth-child(2n) { background: rgb(var(--c-slate-50)); }
+    .md-output input[type="checkbox"] { margin: 0 .3em .2em -1.4em; vertical-align: middle; accent-color: var(--accent); }
+    .md-output li:has(> input[type="checkbox"]) { list-style: none; }
 
-    .spinner { width: 44px; height: 44px; border-radius: 50%; border: 4px solid #e0e7ff; border-top-color: #4f46e5; animation: spin .8s linear infinite; }
+    .spinner { width: 32px; height: 32px; border-radius: 50%; border: 3px solid var(--border-muted); border-top-color: var(--accent); animation: spin .8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .pulse-dot { animation: pulse 2s ease-in-out infinite; }
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
-    .fade-in { animation: fadeIn .25s ease-out; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .fade-in { animation: fadeIn .2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .fade-in, .pulse-dot { animation: none; } }
 
-    .field-label { display: block; font-size: .8125rem; font-weight: 600; color: #1e293b; margin-bottom: .375rem; }
-    .field-input { width: 100%; border: 1px solid #cbd5e1; border-radius: .5rem; background: #fff; padding: .6rem .8rem; font-size: .9rem; color: #0f172a; transition: border-color .15s, box-shadow .15s; }
-    .field-input::placeholder { color: #94a3b8; }
-    .field-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.18); }
-    .field-input.invalid { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.12); }
-    select.field-input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m19.5 8.25-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .7rem center; background-size: 1rem; padding-right: 2.25rem; }
-    textarea.field-input { resize: vertical; min-height: 7rem; line-height: 1.55; }
+    /* Pola formularzy (form-control) */
+    .field-label { display: block; font-size: 14px; font-weight: 600; color: var(--fg); margin-bottom: 6px; }
+    .field-input { width: 100%; border: 1px solid var(--border); border-radius: 6px; background: rgb(var(--c-canvas)); padding: 5px 12px; min-height: 32px; font-size: 14px; line-height: 20px; color: var(--fg); box-shadow: inset 0 1px 0 rgb(var(--shadow-color) / .02); transition: border-color .12s, box-shadow .12s; }
+    .field-input::placeholder { color: rgb(var(--c-slate-400)); }
+    .field-input:hover { border-color: rgb(var(--c-slate-400) / .7); }
+    .field-input:focus { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+    .field-input:disabled { background: rgb(var(--c-slate-50)); color: var(--fg-muted); cursor: not-allowed; }
+    .field-input.invalid { border-color: rgb(var(--c-red-600)); box-shadow: inset 0 0 0 1px rgb(var(--c-red-600)); }
+    select.field-input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23818b98'%3E%3Cpath d='M4.427 7.427l3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; background-size: 16px; padding-right: 32px; }
+    textarea.field-input { resize: vertical; min-height: 7rem; line-height: 1.55; padding-top: 8px; padding-bottom: 8px; }
+    input[type="checkbox"] { accent-color: rgb(var(--c-indigo-600)); }
 
+    /* Nawigacja boczna */
+    .nav-item { position: relative; display: flex; width: 100%; align-items: center; gap: 10px; border-radius: 6px; padding: 6px 8px; font-size: 14px; color: rgb(var(--c-slate-700)); transition: background-color .1s; }
+    .nav-item:hover { background: rgb(var(--c-slate-500) / .1); color: var(--fg); }
+    .nav-item .nav-icon { color: var(--fg-muted); }
+    .nav-item[aria-current="page"] { background: rgb(var(--c-slate-500) / .12); color: var(--fg); font-weight: 600; }
+    .nav-item[aria-current="page"]::before { content: ""; position: absolute; left: -8px; top: 6px; bottom: 6px; width: 4px; border-radius: 6px; background: var(--accent); }
+    .nav-item[aria-current="page"] .nav-icon { color: var(--fg); }
 
-    .setup-tab { color: #64748b; border: 1px solid transparent; border-bottom: 0; }
-    .setup-tab[aria-selected="true"] { color: #312e81; background: #eef2ff; border-color: #c7d2fe; }
+    /* Przyciski w stylu Primer – ujednolicone dla całej aplikacji */
+    button, a { -webkit-tap-highlight-color: transparent; }
+    .btn-default { background: rgb(var(--c-slate-50)); border: 1px solid rgb(var(--c-slate-300)); color: var(--fg); box-shadow: 0 1px 0 rgb(var(--shadow-color) / .04); }
+    .btn-default:hover { background: rgb(var(--c-slate-100)); }
+
+    .setup-tab { color: var(--fg-muted); border-bottom: 2px solid transparent; border-radius: 0 !important; margin-bottom: -1px; }
+    .setup-tab:hover { color: var(--fg); }
+    .setup-tab[aria-selected="true"] { color: var(--fg); font-weight: 600; border-bottom-color: #fd8c73; }
     .setup-steps { counter-reset: step; }
-    .setup-steps > li { counter-increment: step; position: relative; padding-left: 2.25rem; margin: .85rem 0; font-size: .875rem; line-height: 1.55; color: #334155; }
-    .setup-steps > li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 1.5rem; height: 1.5rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-weight: 600; font-size: .75rem; display: flex; align-items: center; justify-content: center; }
+    .setup-steps > li { counter-increment: step; position: relative; padding-left: 2.25rem; margin: .85rem 0; font-size: 14px; line-height: 1.55; color: rgb(var(--c-slate-700)); }
+    .setup-steps > li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 1.5rem; height: 1.5rem; border-radius: 999px; border: 1px solid var(--border); background: rgb(var(--c-slate-50)); color: var(--fg); font-weight: 600; font-size: 12px; display: flex; align-items: center; justify-content: center; }
     body[data-role="employee"] [data-tech-only] { display: none !important; }
     body[data-role="tech"] [data-employee-only] { display: none !important; }
     .reply-box { font-family: inherit; line-height: 1.6; }
     .mail-original { white-space: pre-wrap; word-break: break-word; }
+    .scroll-thin { scrollbar-width: thin; scrollbar-color: rgb(var(--c-slate-300)) transparent; }
     .scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
-    .scroll-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+    .scroll-thin::-webkit-scrollbar-thumb { background: rgb(var(--c-slate-300)); border-radius: 8px; }
     .scroll-thin::-webkit-scrollbar-track { background: transparent; }
+    kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   </style>
 </head>
 
@@ -97,59 +405,58 @@
   <div class="flex h-screen overflow-hidden">
 
     <!-- ============ SIDEBAR ============ -->
-    <div id="sidebarOverlay" class="fixed inset-0 z-30 bg-navy-950/50 hidden lg:hidden" aria-hidden="true"></div>
+    <div id="sidebarOverlay" class="fixed inset-0 z-30 bg-navy-950/40 hidden lg:hidden" aria-hidden="true"></div>
 
-    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-72 -translate-x-full transform bg-navy-900 text-slate-300 transition-transform duration-200 ease-out lg:static lg:translate-x-0 flex flex-col">
-      <div class="flex items-center justify-between px-6 h-16 border-b border-white/10 shrink-0">
-        <div class="flex items-center gap-3">
-          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 text-white shadow-lg shadow-indigo-900/40">
-            <svg data-icon="sparkles" class="h-5 w-5"></svg>
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 -translate-x-full transform border-r border-slate-300 bg-slate-50 transition-transform duration-200 ease-out lg:static lg:translate-x-0 flex flex-col">
+      <div class="flex items-center justify-between gap-2 px-4 h-14 shrink-0">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-canvas">
+            <svg data-icon="sparkles" class="h-[18px] w-[18px]"></svg>
           </div>
-          <div>
-            <div class="text-white font-bold tracking-tight leading-tight">OfficeFlow <span class="text-indigo-300">AI</span></div>
-            <div class="text-[11px] text-slate-400 leading-tight">Automatyzacja pracy biurowej</div>
+          <div class="min-w-0 leading-tight">
+            <div class="truncate text-[15px] font-semibold text-slate-900">OfficeFlow AI</div>
+            <div class="truncate text-xs text-slate-500">Automatyzacja pracy biurowej</div>
           </div>
         </div>
-        <button id="closeSidebarBtn" class="lg:hidden rounded-md p-1.5 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Zamknij menu">
+        <button id="closeSidebarBtn" class="lg:hidden rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Zamknij menu">
           <svg data-icon="x" class="h-5 w-5"></svg>
         </button>
       </div>
 
-      <nav class="flex-1 overflow-y-auto px-4 py-6 scroll-thin">
-        <div class="px-2 mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Narzędzia biurowe</div>
-        <ul id="toolMenu" class="space-y-1"></ul>
+      <nav class="flex-1 overflow-y-auto px-4 pb-4 pt-1 scroll-thin" aria-label="Menu główne">
+        <ul id="toolMenu" class="space-y-0.5"></ul>
 
-        <div data-employee-only class="mt-8 mx-2 rounded-xl border border-white/10 bg-white/5 p-4">
-          <div class="flex items-center gap-2 text-white text-sm font-semibold">
-            <svg data-icon="lock" class="h-4 w-4 text-indigo-300"></svg>
+        <div data-employee-only class="mt-6 rounded-lg border border-slate-200 bg-canvas p-3">
+          <div class="flex items-center gap-2 text-[13px] font-semibold text-slate-900">
+            <svg data-icon="lock" class="h-4 w-4 text-slate-500"></svg>
             Ty decydujesz
           </div>
-          <p class="mt-2 text-xs leading-relaxed text-slate-400">
+          <p class="mt-1.5 text-xs leading-relaxed text-slate-500">
             Asystent tylko przygotowuje propozycje. Żadna odpowiedź nie zostanie wysłana, dopóki nie klikniesz „Zatwierdź i wyślij”.
           </p>
         </div>
 
-        <div data-tech-only class="mt-8 mx-2 rounded-xl border border-white/10 bg-white/5 p-4">
-          <div class="flex items-center gap-2 text-white text-sm font-semibold">
-            <svg data-icon="lock" class="h-4 w-4 text-indigo-300"></svg>
+        <div data-tech-only class="mt-6 rounded-lg border border-slate-200 bg-canvas p-3">
+          <div class="flex items-center gap-2 text-[13px] font-semibold text-slate-900">
+            <svg data-icon="lock" class="h-4 w-4 text-slate-500"></svg>
             Model BYOK
           </div>
-          <p class="mt-2 text-xs leading-relaxed text-slate-400">
+          <p class="mt-1.5 text-xs leading-relaxed text-slate-500">
             Używasz własnego klucza Google Gemini. Klucz jest przechowywany wyłącznie w Twojej przeglądarce i wysyłany bezpośrednio do Google.
           </p>
         </div>
       </nav>
 
-      <div class="border-t border-white/10 p-4 shrink-0">
-        <button id="openAdminBtn" data-tech-only class="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/10 hover:text-white transition">
-          <svg data-icon="wrench" class="h-5 w-5 text-slate-400 group-hover:text-indigo-300"></svg>
+      <div class="border-t border-slate-300 px-4 py-3 shrink-0">
+        <button id="openAdminBtn" data-tech-only class="nav-item">
+          <svg data-icon="wrench" class="nav-icon h-4 w-4"></svg>
           <span class="flex-1 text-left">Panel technika</span>
-          <span id="sidebarKeyDot" class="h-2 w-2 rounded-full bg-red-400"></span>
+          <span id="sidebarKeyDot" class="h-2 w-2 rounded-full bg-red-500"></span>
         </button>
-        <div data-tech-only class="mt-2 px-3 text-[11px] text-slate-500">Model: <span id="sidebarModel" class="font-mono text-slate-400"></span></div>
-        <div data-employee-only class="px-3 py-1 text-[11px] leading-relaxed text-slate-500">
+        <div data-tech-only class="mt-1.5 px-2 text-xs text-slate-500">Model: <span id="sidebarModel" class="font-mono"></span></div>
+        <div data-employee-only class="px-2 py-1 text-xs leading-relaxed text-slate-500">
           Problem z aplikacją? Skontaktuj się z technikiem.
-          <button type="button" id="techModeBtn" class="mt-1 block text-slate-400 underline underline-offset-2 hover:text-white">Tryb technika</button>
+          <button type="button" id="techModeBtn" class="mt-1 block text-indigo-600 hover:underline">Tryb technika</button>
         </div>
       </div>
     </aside>
@@ -158,14 +465,17 @@
     <div class="flex flex-1 flex-col min-w-0">
 
       <!-- Górny pasek -->
-      <header class="h-16 shrink-0 border-b border-slate-200 bg-white/90 backdrop-blur flex items-center gap-3 px-4 sm:px-6">
+      <header class="h-14 shrink-0 border-b border-slate-300 bg-canvas flex items-center gap-3 px-4 sm:px-6">
         <button id="openSidebarBtn" class="lg:hidden rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Otwórz menu">
           <svg data-icon="bars" class="h-5 w-5"></svg>
         </button>
         <div class="min-w-0 flex-1">
-          <h1 id="toolTitle" class="truncate text-base sm:text-lg font-semibold text-navy-900"></h1>
+          <h1 id="toolTitle" class="truncate text-base font-semibold text-slate-900"></h1>
           <p id="toolSubtitle" class="hidden sm:block truncate text-xs text-slate-500"></p>
         </div>
+        <button type="button" id="themeToggle" class="btn-default rounded-lg p-1.5 text-slate-600" aria-label="Przełącz motyw jasny lub ciemny" title="Przełącz motyw jasny / ciemny">
+          <svg data-icon="moon" class="h-4 w-4"></svg>
+        </button>
         <div id="apiStatus" class="flex items-center gap-2"></div>
       </header>
 
@@ -176,12 +486,12 @@
         <div id="view-tools" class="grid grid-cols-1 xl:grid-cols-2 gap-6 p-4 sm:p-6 max-w-[1600px] mx-auto">
 
           <!-- ===== Kolumna: Formularz ===== -->
-          <section class="rounded-2xl bg-white shadow-card border border-slate-200/70 flex flex-col">
-            <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 sm:px-6 py-4">
+          <section class="rounded-2xl bg-canvas shadow-card border border-slate-300 flex flex-col">
+            <div class="flex items-center justify-between gap-3 rounded-t-2xl border-b border-slate-300 bg-slate-50 px-4 sm:px-5 py-3">
               <div class="flex items-center gap-3 min-w-0">
                 <div id="formIcon" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"></div>
                 <div class="min-w-0">
-                  <h2 class="font-semibold text-navy-900">Dane wejściowe</h2>
+                  <h2 class="font-semibold text-slate-900">Dane wejściowe</h2>
                   <p class="text-xs text-slate-500">Uzupełnij formularz i kliknij „Generuj”</p>
                 </div>
               </div>
@@ -282,20 +592,20 @@
           </section>
 
           <!-- ===== Kolumna: Wynik ===== -->
-          <section class="rounded-2xl bg-white shadow-card border border-slate-200/70 flex flex-col min-h-[480px]">
-            <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 sm:px-6 py-4">
+          <section class="rounded-2xl bg-canvas shadow-card border border-slate-300 flex flex-col min-h-[480px]">
+            <div class="flex items-center justify-between gap-3 rounded-t-2xl border-b border-slate-300 bg-slate-50 px-4 sm:px-5 py-3">
               <div class="min-w-0 flex-1">
-                <h2 class="font-semibold text-navy-900">Wynik</h2>
+                <h2 class="font-semibold text-slate-900">Wynik</h2>
                 <p id="resultMeta" class="truncate text-xs text-slate-500">Tu pojawi się wygenerowana treść</p>
               </div>
               <div class="flex shrink-0 items-center gap-2">
                 <button type="button" id="clearResultBtn" class="hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition" title="Wyczyść wynik" aria-label="Wyczyść wynik">
                   <svg data-icon="trash" class="h-4 w-4"></svg>
                 </button>
-                <button type="button" id="cancelBtn" class="hidden inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition">
+                <button type="button" id="cancelBtn" class="hidden inline-flex items-center gap-1.5 rounded-lg btn-default px-3 py-2 text-sm font-medium text-slate-700 hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition">
                   <svg data-icon="x" class="h-4 w-4"></svg><span>Zatrzymaj</span>
                 </button>
-                <button type="button" id="copyBtn" disabled class="inline-flex items-center gap-2 rounded-lg bg-navy-800 px-3.5 py-2 text-sm font-medium text-white shadow-sm hover:bg-navy-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none transition">
+                <button type="button" id="copyBtn" disabled class="btn-default inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 transition">
                   <svg data-icon="clipboard" class="h-4 w-4"></svg>
                   <span class="hidden sm:inline">Kopiuj do schowka</span><span class="sm:hidden">Kopiuj</span>
                 </button>
@@ -308,14 +618,14 @@
                 <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-500">
                   <svg data-icon="sparkles" class="h-7 w-7"></svg>
                 </div>
-                <h3 class="mt-4 font-semibold text-navy-900">Gotowy do pracy</h3>
+                <h3 class="mt-4 font-semibold text-slate-900">Gotowy do pracy</h3>
                 <p id="resultEmptyText" class="mt-1.5 max-w-sm text-sm text-slate-500"></p>
               </div>
 
               <!-- Ładowanie -->
-              <div id="resultLoading" class="hidden absolute inset-0 flex flex-col items-center justify-center px-8 text-center bg-white/95 fade-in">
+              <div id="resultLoading" class="hidden absolute inset-0 flex flex-col items-center justify-center px-8 text-center bg-canvas/95 fade-in">
                 <div class="spinner"></div>
-                <p class="mt-5 font-medium text-navy-900">Gemini analizuje dane…</p>
+                <p class="mt-5 font-medium text-slate-900">Gemini analizuje dane…</p>
                 <p id="loadingStep" class="mt-1 text-sm text-slate-500">Przygotowuję zapytanie</p>
                 <p id="loadingTimer" class="mt-3 font-mono text-xs text-slate-400">0,0 s</p>
                 <p id="loadingHint" class="hidden mt-4 max-w-xs text-xs leading-relaxed text-slate-400">Przy dużym obciążeniu serwerów Google odpowiedź może potrwać dłużej. W razie potrzeby aplikacja sama ponowi zapytanie.</p>
@@ -332,12 +642,12 @@
                       <ul id="errorHints" class="mt-3 space-y-1 text-sm text-red-700 list-disc pl-5"></ul>
                       <details id="errorDetailsWrap" class="mt-3 text-xs text-red-600">
                         <summary class="cursor-pointer select-none font-medium">Szczegóły techniczne</summary>
-                        <pre id="errorDetails" class="mt-2 whitespace-pre-wrap break-all rounded-md bg-white/70 p-2 font-mono text-[11px]"></pre>
+                        <pre id="errorDetails" class="mt-2 whitespace-pre-wrap break-all rounded-md bg-canvas/70 p-2 font-mono text-[11px]"></pre>
                       </details>
                       <div class="mt-4 flex flex-wrap gap-2">
                         <button type="button" id="errorRetryBtn" class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">Spróbuj ponownie</button>
-                        <button type="button" id="errorSettingsBtn" data-tech-only class="hidden rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100">Otwórz ustawienia API</button>
-                        <button type="button" id="errorModelBtn" data-tech-only class="hidden rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"></button>
+                        <button type="button" id="errorSettingsBtn" data-tech-only class="hidden rounded-lg border border-red-300 bg-canvas px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100">Otwórz ustawienia API</button>
+                        <button type="button" id="errorModelBtn" data-tech-only class="hidden rounded-lg border border-red-300 bg-canvas px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"></button>
                       </div>
                     </div>
                   </div>
@@ -355,10 +665,10 @@
 
         <!-- ===== Widok: Skrzynka AI ===== -->
         <div id="view-inbox" class="hidden p-4 sm:p-6 max-w-[1100px] mx-auto space-y-5">
-          <section class="rounded-2xl bg-white shadow-card border border-slate-200/70 p-5 sm:p-6">
+          <section class="rounded-2xl bg-canvas shadow-card border border-slate-300 p-5 sm:p-6">
             <div class="flex flex-col lg:flex-row lg:items-start gap-4 justify-between">
               <div class="min-w-0">
-                <h2 class="font-semibold text-navy-900 text-lg">Nowe maile → gotowe odpowiedzi</h2>
+                <h2 class="font-semibold text-slate-900 text-lg">Nowe maile → gotowe odpowiedzi</h2>
                 <p class="mt-1 text-sm text-slate-500 max-w-2xl">OfficeFlow czyta nieprzeczytane wiadomości, pomija newslettery i powiadomienia, a do pozostałych przygotowuje propozycję odpowiedzi. Nic nie zostanie wysłane bez Twojego zatwierdzenia.</p>
               </div>
               <div class="flex flex-wrap items-center gap-3 shrink-0">
@@ -366,7 +676,7 @@
                   <input id="inboxAuto" type="checkbox" class="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
                   Sprawdzaj co 3 min
                 </label>
-                <button type="button" id="inboxCheckBtn" class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-wait disabled:bg-indigo-400 transition"></button>
+                <button type="button" id="inboxCheckBtn" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-hover disabled:cursor-wait disabled:bg-primary-disabled transition"></button>
               </div>
             </div>
             <p id="inboxStatusLine" class="mt-3 text-xs text-slate-500"></p>
@@ -374,7 +684,7 @@
             <div id="inboxConnections" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4"></div>
 
             <details id="inboxPrefs" class="mt-5 rounded-xl border border-slate-200 bg-slate-50/60">
-              <summary class="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-navy-900">Moje ustawienia odpowiedzi – podpis i ton</summary>
+              <summary class="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-900">Moje ustawienia odpowiedzi – podpis i ton</summary>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 pb-4 pt-1">
                 <div>
                   <label for="inboxTone" class="field-label">Domyślny ton</label>
@@ -415,37 +725,37 @@
 
         <!-- ===== Widok: Panel technika ===== -->
         <div id="view-admin" class="hidden p-4 sm:p-6 max-w-[1100px] mx-auto space-y-5">
-          <section class="rounded-2xl bg-white shadow-card border border-slate-200/70 p-5 sm:p-6">
+          <section class="rounded-2xl bg-canvas shadow-card border border-slate-300 p-5 sm:p-6">
             <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div>
-                <h2 class="font-semibold text-navy-900 text-lg">Konfiguracja dla całej firmy</h2>
+                <h2 class="font-semibold text-slate-900 text-lg">Konfiguracja dla całej firmy</h2>
                 <p class="mt-1 max-w-2xl text-sm text-slate-500">Ta sekcja jest dla osoby, która wdraża OfficeFlow. Pracownicy jej nie widzą – dostają gotowy link i korzystają tylko ze Skrzynki AI oraz narzędzi biurowych.</p>
               </div>
-              <button type="button" id="previewEmployeeBtn" class="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Zobacz widok pracownika</button>
+              <button type="button" id="previewEmployeeBtn" class="shrink-0 rounded-lg btn-default px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Zobacz widok pracownika</button>
             </div>
             <div id="adminChecklist" class="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
           </section>
 
-          <section class="rounded-2xl bg-white shadow-card border border-slate-200/70 p-5 sm:p-6">
-            <h3 class="font-semibold text-navy-900"><span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">1</span>Klucz AI i model</h3>
+          <section class="rounded-2xl bg-canvas shadow-card border border-slate-300 p-5 sm:p-6">
+            <h3 class="font-semibold text-slate-900"><span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">1</span>Klucz AI i model</h3>
             <div id="adminAi" class="mt-4"></div>
           </section>
 
-          <section class="rounded-2xl bg-white shadow-card border border-slate-200/70 p-5 sm:p-6">
-            <h3 class="font-semibold text-navy-900"><span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">2</span>Skrzynki pocztowe</h3>
+          <section class="rounded-2xl bg-canvas shadow-card border border-slate-300 p-5 sm:p-6">
+            <h3 class="font-semibold text-slate-900"><span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">2</span>Skrzynki pocztowe</h3>
             <p class="mt-1 text-sm text-slate-500">Jednorazowa rejestracja aplikacji u Google i/lub Microsoftu. Wystarczy skonfigurować te skrzynki, z których korzysta firma.</p>
             <div id="adminMail" class="mt-4 space-y-3"></div>
           </section>
 
-          <section class="rounded-2xl bg-white shadow-card border border-slate-200/70 p-5 sm:p-6">
-            <h3 class="font-semibold text-navy-900"><span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">3</span>Informacje o firmie dla AI</h3>
+          <section class="rounded-2xl bg-canvas shadow-card border border-slate-300 p-5 sm:p-6">
+            <h3 class="font-semibold text-slate-900"><span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">3</span>Informacje o firmie dla AI</h3>
             <p class="mt-1 text-sm text-slate-500">Fakty, które AI może wykorzystywać w odpowiedziach wszystkich pracowników (trafiają do linku zaproszenia). Im konkretniej, tym mniej pól [do uzupełnienia] w odpowiedziach.</p>
             <textarea id="adminContext" rows="6" maxlength="3000" class="field-input mt-3" placeholder="np. Sprzedajemy meble biurowe. Krzesło ErgoPro: 590 zł netto. Dostawa do 14 dni roboczych. Przy płatności z góry rabat 3%. Reklamacje rozpatrujemy w 7 dni. Biuro czynne pn–pt 8–16."></textarea>
             <p class="mt-1.5 text-xs text-slate-400">Zapisuje się automatycznie. Po zmianie wyślij pracownikom nowy link, aby otrzymali aktualne informacje.</p>
           </section>
 
-          <section id="adminInviteSection" class="rounded-2xl bg-white shadow-card border border-slate-200/70 p-5 sm:p-6">
-            <h3 class="font-semibold text-navy-900"><span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">4</span>Zaproś pracowników</h3>
+          <section id="adminInviteSection" class="rounded-2xl bg-canvas shadow-card border border-slate-300 p-5 sm:p-6">
+            <h3 class="font-semibold text-slate-900"><span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">4</span>Zaproś pracowników</h3>
             <p class="mt-1 text-sm text-slate-500">Pracownik otwiera link, klika „Połącz” i loguje się do swojej poczty – bez żadnej konfiguracji.</p>
             <div id="adminInvite" class="mt-4"></div>
           </section>
@@ -458,14 +768,14 @@
   <div id="settingsModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
     <div id="settingsBackdrop" class="absolute inset-0 bg-navy-950/60 backdrop-blur-sm"></div>
     <div class="relative flex min-h-full items-center justify-center p-4">
-      <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl fade-in">
+      <div class="relative w-full max-w-lg rounded-2xl bg-canvas shadow-2xl fade-in">
         <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
           <div class="flex items-center gap-3">
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
               <svg data-icon="key" class="h-5 w-5"></svg>
             </div>
             <div>
-              <h2 id="settingsTitle" class="font-semibold text-navy-900">Ustawienia API Google Gemini</h2>
+              <h2 id="settingsTitle" class="font-semibold text-slate-900">Ustawienia API Google Gemini</h2>
               <p class="text-xs text-slate-500">Bring Your Own Key – korzystasz z własnego limitu Google</p>
             </div>
           </div>
@@ -513,19 +823,19 @@
           <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs leading-relaxed text-slate-600 space-y-2">
             <p><strong class="text-slate-800">Jak zdobyć klucz?</strong> Wejdź na
               <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="font-medium text-indigo-600 underline underline-offset-2">Google AI Studio → Get API key</a>,
-              utwórz klucz i wklej go powyżej. Klucze Gemini zaczynają się od <code class="rounded bg-white border border-slate-200 px-1 font-mono">AIza</code> lub <code class="rounded bg-white border border-slate-200 px-1 font-mono">AQ.</code></p>
-            <p><strong class="text-slate-800">Prywatność:</strong> klucz zapisujemy tylko w <code class="rounded bg-white border border-slate-200 px-1 font-mono">localStorage</code> tej przeglądarki. Zapytania trafiają bezpośrednio do <span class="font-mono">generativelanguage.googleapis.com</span> – bez żadnych serwerów pośredniczących.</p>
+              utwórz klucz i wklej go powyżej. Klucze Gemini zaczynają się od <code class="rounded bg-canvas border border-slate-200 px-1 font-mono">AIza</code> lub <code class="rounded bg-canvas border border-slate-200 px-1 font-mono">AQ.</code></p>
+            <p><strong class="text-slate-800">Prywatność:</strong> klucz zapisujemy tylko w <code class="rounded bg-canvas border border-slate-200 px-1 font-mono">localStorage</code> tej przeglądarki. Zapytania trafiają bezpośrednio do <span class="font-mono">generativelanguage.googleapis.com</span> – bez żadnych serwerów pośredniczących.</p>
           </div>
 
           <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
-            <button type="button" id="deleteKeyBtn" class="hidden inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
+            <button type="button" id="deleteKeyBtn" class="hidden inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50">
               <svg data-icon="trash" class="h-4 w-4"></svg> Usuń zapisany klucz
             </button>
             <div class="flex flex-col-reverse sm:flex-row gap-2 sm:ml-auto">
-              <button type="button" id="testKeyBtn" class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+              <button type="button" id="testKeyBtn" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg btn-default px-3 py-1.5 text-sm font-medium disabled:opacity-60">
                 Testuj połączenie
               </button>
-              <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700">
+              <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-hover whitespace-nowrap">
                 Zapisz klucz
               </button>
             </div>
@@ -540,10 +850,10 @@
   <div id="mailSetupModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="mailSetupTitle">
     <div data-close-mail-setup class="absolute inset-0 bg-navy-950/60 backdrop-blur-sm"></div>
     <div class="relative flex min-h-full items-center justify-center p-4">
-      <div class="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl fade-in">
+      <div class="relative w-full max-w-2xl rounded-2xl bg-canvas shadow-2xl fade-in">
         <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
           <div>
-            <h2 id="mailSetupTitle" class="font-semibold text-navy-900">Połączenie ze skrzynką</h2>
+            <h2 id="mailSetupTitle" class="font-semibold text-slate-900">Połączenie ze skrzynką</h2>
             <p class="text-xs text-slate-500">Jednorazowa konfiguracja – zajmuje ok. 5 minut</p>
           </div>
           <button type="button" data-close-mail-setup class="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Zamknij">
@@ -564,18 +874,18 @@
   <div id="orgSetupModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="orgSetupTitle">
     <div class="absolute inset-0 bg-navy-950/60 backdrop-blur-sm"></div>
     <div class="relative flex min-h-full items-center justify-center p-4">
-      <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl fade-in">
+      <div class="relative w-full max-w-lg rounded-2xl bg-canvas shadow-2xl fade-in">
         <div class="px-6 pt-6 text-center">
           <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
             <svg data-icon="sparkles" class="h-7 w-7"></svg>
           </div>
-          <h2 id="orgSetupTitle" class="mt-4 text-lg font-semibold text-navy-900"></h2>
+          <h2 id="orgSetupTitle" class="mt-4 text-lg font-semibold text-slate-900"></h2>
           <p class="mt-1 text-sm text-slate-500">Ten link przygotował technik Twojej firmy. Po kliknięciu „Zastosuj” wystarczy połączyć skrzynkę pocztową.</p>
         </div>
         <div id="orgSetupBody" class="px-6 py-5"></div>
         <div class="flex flex-col-reverse sm:flex-row gap-2 justify-end border-t border-slate-100 px-6 py-4">
           <button type="button" id="orgSetupReject" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Anuluj</button>
-          <button type="button" id="orgSetupAccept" class="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Zastosuj</button>
+          <button type="button" id="orgSetupAccept" class="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-hover">Zastosuj</button>
         </div>
       </div>
     </div>
@@ -627,6 +937,8 @@
       lock: 'M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z',
       bolt: 'm3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z',
       wrench: 'M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z',
+      sun: 'M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z',
+      moon: 'M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z',
       inbox: 'M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 0 0-2.15-1.588H6.911a2.25 2.25 0 0 0-2.15 1.588L2.35 13.177a2.25 2.25 0 0 0-.1.661Z',
       refresh: 'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99',
       send: 'M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5',
@@ -1458,17 +1770,17 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
             API Aktywne
             <span class="hidden md:inline font-mono text-[11px] text-emerald-600/80">${escapeHtml(maskKey(key))}</span>
           </button>`;
-        dot.className = 'h-2 w-2 rounded-full bg-emerald-400';
+        dot.className = 'h-2 w-2 rounded-full bg-emerald-500';
       } else {
         el.innerHTML = `
           <span class="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700">
             <span class="h-2.5 w-2.5 rounded-full bg-red-500"></span>
             Brak klucza API
           </span>
-          <button type="button" data-action="open-settings" class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition">
+          <button type="button" data-action="open-settings" class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-primary-hover transition">
             ${iconSvg('key', 'h-3.5 w-3.5')}<span class="hidden sm:inline">Konfiguruj</span>
           </button>`;
-        dot.className = 'h-2 w-2 rounded-full bg-red-400';
+        dot.className = 'h-2 w-2 rounded-full bg-red-500';
       }
 
       const warn = $('#storageWarning');
@@ -1486,31 +1798,34 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
     function renderMenu() {
       const menu = $('#toolMenu');
       const inboxActive = state.view === 'inbox';
+      const groupLabel = (text) => `<li class="px-2 pb-1 pt-4 text-xs font-semibold text-slate-500 first:pt-1">${text}</li>`;
       const inboxItem = `
-          <li class="mb-3 pb-3 border-b border-white/10">
-            <button type="button" data-tool-link="inbox" class="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${inboxActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40' : 'text-slate-300 hover:bg-white/10 hover:text-white'}" ${inboxActive ? 'aria-current="page"' : ''}>
-              <span class="${inboxActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-300'}">${iconSvg('inbox', 'h-5 w-5')}</span>
+          ${groupLabel('Poczta')}
+          <li>
+            <button type="button" data-tool-link="inbox" class="nav-item" ${inboxActive ? 'aria-current="page"' : ''}>
+              <span class="nav-icon">${iconSvg('inbox', 'h-4 w-4')}</span>
               <span class="flex-1 text-left">Skrzynka AI</span>
-              <span id="inboxMenuBadge" class="hidden min-w-[1.25rem] rounded-full bg-emerald-500 px-1.5 text-center text-[11px] font-bold leading-5 text-white"></span>
+              <span id="inboxMenuBadge" class="hidden min-w-[20px] rounded-full bg-slate-500/20 px-1.5 text-center text-xs font-semibold leading-5 text-slate-900"></span>
             </button>
-          </li>`;
+          </li>
+          ${groupLabel('Narzędzia')}`;
       menu.innerHTML = inboxItem + Object.entries(TOOLS).map(([id, t]) => {
         const active = state.view === 'tools' && id === state.activeTool;
         const busy = ['loading', 'streaming'].includes(state.results[id].status);
         return `
           <li>
-            <button type="button" data-tool-link="${id}" class="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${active ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40' : 'text-slate-300 hover:bg-white/10 hover:text-white'}" ${active ? 'aria-current="page"' : ''}>
-              <span class="${active ? 'text-white' : 'text-slate-400 group-hover:text-indigo-300'}">${iconSvg(t.icon, 'h-5 w-5')}</span>
+            <button type="button" data-tool-link="${id}" class="nav-item" ${active ? 'aria-current="page"' : ''}>
+              <span class="nav-icon">${iconSvg(t.icon, 'h-4 w-4')}</span>
               <span class="flex-1 text-left">${t.short}</span>
-              ${busy ? `<span class="h-3.5 w-3.5 rounded-full border-2 ${active ? 'border-white/40 border-t-white' : 'border-slate-500 border-t-indigo-300'}" style="animation: spin .8s linear infinite"></span>` : ''}
+              ${busy ? '<span class="h-3.5 w-3.5 rounded-full border-2 border-slate-300 border-t-indigo-600" style="animation: spin .8s linear infinite"></span>' : ''}
             </button>
           </li>`;
       }).join('');
       if (typeof updateInboxBadge === 'function') updateInboxBadge();
       const adminBtn = document.getElementById('openAdminBtn');
       if (adminBtn) {
-        adminBtn.classList.toggle('bg-white/10', state.view === 'admin');
-        adminBtn.classList.toggle('text-white', state.view === 'admin');
+        if (state.view === 'admin') adminBtn.setAttribute('aria-current', 'page');
+        else adminBtn.removeAttribute('aria-current');
       }
     }
 
@@ -1553,7 +1868,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       $$('.tool-form').forEach(form => {
         const t = TOOLS[form.dataset.tool];
         const btn = $('.submit-btn', form);
-        btn.className = 'submit-btn inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-200 disabled:cursor-wait disabled:bg-indigo-400 transition';
+        btn.className = 'submit-btn inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-hover disabled:cursor-wait disabled:bg-primary-disabled transition';
         btn.innerHTML = `${iconSvg('sparkles', 'h-5 w-5')}<span>${t.submitLabel}</span>`;
       });
     }
@@ -2659,6 +2974,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
         }
       } finally {
         inbox.working = false;
+        if (!inbox.queue.length && !$('#inboxList').contains(document.activeElement)) renderInboxList();
       }
     }
 
@@ -2790,7 +3106,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       let status, actions;
       if (!configured) {
         status = '<span class="text-slate-500">Nie skonfigurowano</span>';
-        actions = `<button type="button" data-mail-action="setup" data-provider="${provider}" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700">Skonfiguruj</button>`;
+        actions = `<button type="button" data-mail-action="setup" data-provider="${provider}" class="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-hover">Skonfiguruj</button>`;
       } else if (connected && !(err && err.auth)) {
         status = `<span class="inline-flex items-center gap-1.5 text-emerald-700"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>${escapeHtml(account || 'Połączono')}</span>`;
         actions = `<button type="button" data-mail-action="disconnect" data-provider="${provider}" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50">Rozłącz</button>`;
@@ -2798,13 +3114,13 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
         status = expired
           ? `<span class="inline-flex items-center gap-1.5 text-amber-700"><span class="h-2 w-2 rounded-full bg-amber-500"></span>Sesja wygasła · ${escapeHtml(account)}</span>`
           : '<span class="text-slate-500">Gotowe do połączenia</span>';
-        actions = `<button type="button" data-mail-action="connect" data-provider="${provider}" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700">${expired ? 'Połącz ponownie' : 'Połącz'}</button>`;
+        actions = `<button type="button" data-mail-action="connect" data-provider="${provider}" class="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-hover">${expired ? 'Połącz ponownie' : 'Połącz'}</button>`;
       }
       return `
         <div class="flex items-center gap-3 rounded-xl border border-slate-200 p-4">
           ${logo}
           <div class="min-w-0 flex-1">
-            <div class="text-sm font-semibold text-navy-900">${isGmail ? 'Gmail' : 'Outlook / Microsoft 365'}</div>
+            <div class="text-sm font-semibold text-slate-900">${isGmail ? 'Gmail' : 'Outlook / Microsoft 365'}</div>
             <div class="truncate text-xs">${status}</div>
           </div>
           <div class="flex shrink-0 items-center gap-2">
@@ -2821,8 +3137,8 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       } else if (isTech() && (gmailClientId() || msClientId())) {
         html += `
           <div class="md:col-span-2 flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 px-4 py-3">
-            <span class="flex-1 min-w-[14rem] text-sm text-slate-600"><strong class="font-medium text-navy-900">Pracownicy też mają korzystać?</strong> Wyślij im link – kliknią „Połącz” i od razu działa, bez konfiguracji.</span>
-            <button type="button" data-mail-action="invite" class="rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">Zaproś pracowników</button>
+            <span class="flex-1 min-w-[14rem] text-sm text-slate-600"><strong class="font-medium text-slate-900">Pracownicy też mają korzystać?</strong> Wyślij im link – kliknią „Połącz” i od razu działa, bez konfiguracji.</span>
+            <button type="button" data-mail-action="invite" class="rounded-lg border border-indigo-300 bg-canvas px-3 py-1.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">Zaproś pracowników</button>
           </div>`;
       }
       $('#inboxConnections').innerHTML = html;
@@ -2849,7 +3165,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
           <span>· ${escapeHtml(shortTime(item.date))}</span>
           <span class="ml-auto flex flex-wrap gap-1.5">${chips}</span>
         </div>
-        <h3 class="mt-2 font-semibold text-navy-900 break-words">${escapeHtml(item.subject || '(bez tematu)')}</h3>
+        <h3 class="mt-2 font-semibold text-slate-900 break-words">${escapeHtml(item.subject || '(bez tematu)')}</h3>
         ${a && a.summary ? `<p class="mt-1 text-sm text-slate-600">${escapeHtml(a.summary)}</p>` : `<p class="mt-1 text-sm text-slate-500 line-clamp-2">${escapeHtml(item.snippet)}</p>`}
         <details class="mt-2 text-sm" ${item.showOriginal ? 'open' : ''} data-original>
           <summary class="cursor-pointer select-none text-xs font-medium text-indigo-600 hover:underline underline-offset-2">Pokaż oryginalną wiadomość</summary>
@@ -2871,7 +3187,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
             <div class="mt-0.5">${escapeHtml(e.message || String(e))}</div>
             <div class="mt-3 flex flex-wrap gap-2">
               <button type="button" data-mail-action="retry" class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Spróbuj ponownie</button>
-              ${e.isKeyProblem && isTech() ? '<button type="button" data-action="open-settings" class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100">Ustawienia API</button>' : ''}
+              ${e.isKeyProblem && isTech() ? '<button type="button" data-action="open-settings" class="rounded-lg border border-red-300 bg-canvas px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100">Ustawienia API</button>' : ''}
               <button type="button" data-mail-action="skip" class="rounded-lg px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100">Pomiń</button>
             </div>
           </div>`;
@@ -2879,7 +3195,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
         bodyHtml = `
           <div class="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
             <span class="flex-1 min-w-[12rem]">AI uznało, że ta wiadomość nie wymaga odpowiedzi.</span>
-            <button type="button" data-mail-action="force-reply" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100">Przygotuj odpowiedź mimo to</button>
+            <button type="button" data-mail-action="force-reply" class="rounded-lg btn-default px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100">Przygotuj odpowiedź mimo to</button>
             <button type="button" data-mail-action="skip" class="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200">Ukryj</button>
           </div>`;
       } else if (st === 'sent' || st === 'drafted') {
@@ -2895,12 +3211,12 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
         const pending = st === 'pending-send';
         const locked = busy || pending;
         bodyHtml = `
-          <div class="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 sm:p-4">
+          <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
             <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
               <span>Do: <strong class="font-medium text-slate-800">${escapeHtml(item.replyToName ? `${item.replyToName} <${item.replyToEmail}>` : item.replyToEmail)}</strong></span>
               <span>Temat: <strong class="font-medium text-slate-800">${escapeHtml(replySubject(item.subject))}</strong></span>
             </div>
-            <textarea data-reply rows="${Math.min(18, Math.max(8, (item.draft.match(/\n/g) || []).length + 3))}" class="reply-box field-input mt-2 bg-white" ${locked ? 'disabled' : ''}>${escapeHtml(item.draft)}</textarea>
+            <textarea data-reply rows="${Math.min(18, Math.max(8, (item.draft.match(/\n/g) || []).length + 3))}" class="reply-box field-input mt-2 bg-canvas" ${locked ? 'disabled' : ''}>${escapeHtml(item.draft)}</textarea>
             ${item.actionError ? `<p class="mt-2 text-xs text-red-600">Ostatnia próba nie powiodła się: ${escapeHtml(item.actionError.message)}</p>` : ''}
             ${pending ? `
               <div class="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-navy-800 px-4 py-2.5 text-sm text-white">
@@ -2911,21 +3227,21 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
                 <button type="button" data-mail-action="send" ${busy ? 'disabled' : ''} class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60">
                   ${st === 'sending' ? '<span class="h-4 w-4 rounded-full border-2 border-white/40 border-t-white" style="animation: spin .8s linear infinite"></span>Wysyłanie…' : `${iconSvg('send', 'h-4 w-4')}Zatwierdź i wyślij`}
                 </button>
-                <button type="button" data-mail-action="draft" ${busy ? 'disabled' : ''} class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+                <button type="button" data-mail-action="draft" ${busy ? 'disabled' : ''} class="inline-flex items-center gap-2 rounded-lg btn-default px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60">
                   ${st === 'drafting' ? 'Zapisywanie…' : `${iconSvg('pencil', 'h-4 w-4')}Zapisz jako szkic`}
                 </button>
                 <button type="button" data-mail-action="skip" ${busy ? 'disabled' : ''} class="ml-auto rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">Pomiń</button>
               </div>
               <div class="mt-3 flex flex-col sm:flex-row gap-2">
                 <input type="text" data-instruction maxlength="500" ${busy ? 'disabled' : ''} class="field-input !py-2 text-sm" placeholder="Popraw odpowiedź, np. „krócej”, „zaproponuj spotkanie w czwartek o 10”, „bardziej formalnie”" />
-                <button type="button" data-mail-action="regenerate" ${busy ? 'disabled' : ''} class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60">
+                <button type="button" data-mail-action="regenerate" ${busy ? 'disabled' : ''} class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-canvas px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60">
                   ${iconSvg('refresh', 'h-4 w-4')}Wygeneruj ponownie
                 </button>
               </div>`}
           </div>`;
       }
       const dim = st === 'noreply' || st === 'sent' || st === 'drafted';
-      return `<article id="${item.domId}" data-key="${escapeHtml(item.key)}" class="rounded-2xl border border-slate-200/70 bg-white p-4 sm:p-5 shadow-card fade-in ${dim ? 'opacity-80' : ''}">${head}${bodyHtml}</article>`;
+      return `<article id="${item.domId}" data-key="${escapeHtml(item.key)}" class="rounded-2xl btn-default p-4 sm:p-5 shadow-card fade-in ${dim ? 'opacity-80' : ''}">${head}${bodyHtml}</article>`;
     }
 
     function renderInboxCard(item) {
@@ -2946,9 +3262,9 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       if (!items.length) {
         const any = gmailConnected() || outlookConnected();
         list.innerHTML = `
-          <div class="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center">
+          <div class="rounded-2xl border border-dashed border-slate-300 bg-canvas/60 px-6 py-12 text-center">
             <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-500">${iconSvg('inbox', 'h-7 w-7')}</div>
-            <h3 class="mt-4 font-semibold text-navy-900">${any ? 'Wszystko obsłużone' : 'Połącz swoją skrzynkę'}</h3>
+            <h3 class="mt-4 font-semibold text-slate-900">${any ? 'Wszystko obsłużone' : 'Połącz swoją skrzynkę'}</h3>
             <p class="mx-auto mt-1.5 max-w-md text-sm text-slate-500">${any
               ? 'Brak nowych wiadomości wymagających uwagi. Kliknij „Sprawdź teraz” lub włącz automatyczne sprawdzanie.'
               : 'Skonfiguruj i połącz Gmail lub Outlook powyżej. Potem OfficeFlow będzie przygotowywać propozycje odpowiedzi na nowe maile.'}</p>
@@ -3022,7 +3338,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
           <p class="mt-2 text-xs text-slate-500">Przy pierwszym logowaniu Google pokaże ostrzeżenie „Aplikacja nie została zweryfikowana” – to normalne dla prywatnej aplikacji w trybie testowym: kliknij <em>Kontynuuj</em>. Dostęp do Gmaila wygasa po godzinie – wtedy wystarczy kliknąć „Połącz ponownie”.</p>
           <div class="mt-5 flex justify-end gap-2">
             <button type="button" data-close-mail-setup class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Anuluj</button>
-            <button type="button" data-save-setup="gmail" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Zapisz</button>
+            <button type="button" data-save-setup="gmail" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover">Zapisz</button>
           </div>`;
       } else {
         $('#mailSetupBody').innerHTML = `${warn}
@@ -3037,7 +3353,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
           <input id="msClientIdInput" type="text" spellcheck="false" class="field-input font-mono text-sm" placeholder="00000000-0000-0000-0000-000000000000" value="${escapeHtml(msClientId())}" />
           <div class="mt-5 flex justify-end gap-2">
             <button type="button" data-close-mail-setup class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Anuluj</button>
-            <button type="button" data-save-setup="outlook" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Zapisz</button>
+            <button type="button" data-save-setup="outlook" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover">Zapisz</button>
           </div>`;
       }
     }
@@ -3218,12 +3534,12 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
           <textarea id="inviteLinkOut" readonly rows="3" class="field-input mt-1.5 !min-h-0 font-mono text-[11px] text-slate-600 break-all"></textarea>
         </div>
         <div class="mt-4">
-          <div class="flex items-center justify-between"><span class="field-label !mb-0">Gotowa wiadomość do wysłania (mail, Teams, Slack)</span><button type="button" data-copy-invite="message" class="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-indigo-700">Kopiuj wiadomość</button></div>
+          <div class="flex items-center justify-between"><span class="field-label !mb-0">Gotowa wiadomość do wysłania (mail, Teams, Slack)</span><button type="button" data-copy-invite="message" class="rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-white hover:bg-primary-hover">Kopiuj wiadomość</button></div>
           <textarea id="inviteMsgOut" readonly rows="10" class="field-input mt-1.5 text-[13px]"></textarea>
         </div>
 
         <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <h3 class="text-sm font-semibold text-navy-900">Zanim wyślesz link – sprawdź:</h3>
+          <h3 class="text-sm font-semibold text-slate-900">Zanim wyślesz link – sprawdź:</h3>
           <ul class="mt-2 list-disc space-y-2 pl-5 text-[13px] leading-relaxed text-slate-700">${checklist.join('')}</ul>
         </div>
         <p class="mt-3 text-xs text-slate-500">Link zawiera ustawienia (i ewentualnie klucz Gemini) – wysyłaj go tylko pracownikom. Dane z linku nie trafiają na serwer strony: są zapisywane tylko w przeglądarce pracownika.</p>`;
@@ -3269,21 +3585,21 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
         <li class="flex gap-3">
           <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${done ? 'bg-emerald-500 text-white' : 'bg-indigo-100 text-indigo-700'} text-sm font-semibold">${done ? iconSvg('check', 'h-4 w-4') : stepNo}</span>
           <div class="min-w-0 flex-1">
-            <div class="font-medium ${done ? 'text-slate-400 line-through' : 'text-navy-900'}">${title}</div>
+            <div class="font-medium ${done ? 'text-slate-400 line-through' : 'text-slate-900'}">${title}</div>
             ${done ? '' : `<div class="mt-0.5 text-sm text-slate-600">${text}</div>${action || ''}`}
           </div>
         </li>`; };
       const steps = [];
       if (!hasKey) steps.push(isTech()
-        ? step(false, 'Dodaj klucz AI', 'Brakuje klucza Gemini – dodaj go w Panelu technika.', '<button type="button" data-tool-link="admin" class="mt-2 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">Panel technika</button>')
+        ? step(false, 'Dodaj klucz AI', 'Brakuje klucza Gemini – dodaj go w Panelu technika.', '<button type="button" data-tool-link="admin" class="mt-2 rounded-lg border border-indigo-200 bg-canvas px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">Panel technika</button>')
         : step(false, 'Brakuje klucza AI', 'Poproś technika o nowy link konfiguracyjny.'));
       steps.push(step(connected, 'Połącz swoją skrzynkę', 'Kliknij niebieski przycisk „Połącz” powyżej i zaloguj się tym samym kontem, którego używasz do poczty. Jeśli Google pokaże „Aplikacja nie została zweryfikowana”, kliknij „Kontynuuj”.'));
       steps.push(step(hasSignature, 'Wpisz swój podpis', 'Podpis pojawi się na końcu każdej odpowiedzi.',
-        '<button type="button" data-onboarding="signature" class="mt-2 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">Uzupełnij podpis</button>'));
+        '<button type="button" data-onboarding="signature" class="mt-2 rounded-lg border border-indigo-200 bg-canvas px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">Uzupełnij podpis</button>'));
       steps.push(step(false, 'Gotowe – sprawdzaj pocztę', 'Kliknij „Sprawdź teraz”. Propozycje odpowiedzi pojawią się poniżej. Nic nie zostanie wysłane, dopóki nie klikniesz „Zatwierdź i wyślij”.'));
       el.innerHTML = `
-        <section class="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-5 sm:p-6">
-          <h2 class="font-semibold text-navy-900">${org && org.name ? `Witaj w OfficeFlow AI – ${escapeHtml(org.name)}` : 'Pierwsze kroki'}</h2>
+        <section class="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-5 sm:p-6">
+          <h2 class="font-semibold text-slate-900">${org && org.name ? `Witaj w OfficeFlow AI – ${escapeHtml(org.name)}` : 'Pierwsze kroki'}</h2>
           <p class="mt-1 text-sm text-slate-600">Asystent przeczyta Twoje nowe maile i przygotuje propozycje odpowiedzi. Ty je tylko sprawdzasz i zatwierdzasz.</p>
           <ol class="mt-4 space-y-4">${steps.join('')}</ol>
         </section>`;
@@ -3372,7 +3688,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
           <div class="rounded-lg bg-slate-50 px-3 py-2.5"><dt class="text-xs text-slate-500">Poziom rozumowania</dt><dd class="mt-0.5 text-slate-900">${levelNames[getThinkingLevel()]}</dd></div>
         </dl>
         <div class="mt-4 flex flex-wrap items-center gap-3">
-          <button type="button" data-action="open-settings" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">${key ? 'Zmień klucz lub model' : 'Dodaj klucz Gemini'}</button>
+          <button type="button" data-action="open-settings" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover">${key ? 'Zmień klucz lub model' : 'Dodaj klucz Gemini'}</button>
           <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-sm font-medium text-indigo-600 underline underline-offset-2">Google AI Studio</a>
         </div>
         <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900">
@@ -3384,10 +3700,10 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
         <div class="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 p-4">
           <span class="flex h-9 w-9 items-center justify-center rounded-lg ${provider === 'gmail' ? 'bg-red-50 text-red-600' : 'bg-sky-50 text-sky-700'} font-bold">${provider === 'gmail' ? 'G' : 'O'}</span>
           <div class="min-w-0 flex-1">
-            <div class="text-sm font-semibold text-navy-900">${name}</div>
+            <div class="text-sm font-semibold text-slate-900">${name}</div>
             <div class="truncate text-xs ${id ? 'text-emerald-700' : 'text-slate-500'}">${id ? `Skonfigurowano · ${escapeHtml(id.slice(0, 18))}…` : help}</div>
           </div>
-          <button type="button" data-admin-setup="${provider}" class="rounded-lg ${id ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50' : 'bg-indigo-600 text-white hover:bg-indigo-700'} px-3 py-1.5 text-sm font-semibold">${id ? 'Zmień' : 'Skonfiguruj'}</button>
+          <button type="button" data-admin-setup="${provider}" class="rounded-lg ${id ? 'btn-default text-slate-700 hover:bg-slate-50' : 'bg-primary text-white hover:bg-primary-hover'} px-3 py-1.5 text-sm font-semibold">${id ? 'Zmień' : 'Skonfiguruj'}</button>
         </div>`;
       $('#adminMail').innerHTML =
         mailRow('gmail', 'Gmail', g, 'Konta @gmail.com i Google Workspace · ok. 5 min w Google Cloud') +
@@ -3523,6 +3839,17 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       $('#resetModelBtn').addEventListener('click', () => { $('#modelInput').value = DEFAULT_MODEL; });
 
       $('#openAdminBtn').addEventListener('click', () => showAdmin());
+      $('#themeToggle').addEventListener('click', () => {
+        const next = currentTheme() === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        storageSet('officeflow_theme', next);
+        renderThemeToggle();
+      });
+      if (window.matchMedia) {
+        const mq = window.matchMedia('(prefers-color-scheme: dark)');
+        const onChange = () => renderThemeToggle();
+        if (mq.addEventListener) mq.addEventListener('change', onChange); else if (mq.addListener) mq.addListener(onChange);
+      }
       $('#closeSettingsBtn').addEventListener('click', closeSettings);
       $('#settingsBackdrop').addEventListener('click', closeSettings);
       $('#settingsForm').addEventListener('submit', handleSaveKey);
@@ -3557,11 +3884,24 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       window.addEventListener('online', () => toast('Połączenie z internetem przywrócone', 'success'));
     }
 
+    function currentTheme() {
+      const t = document.documentElement.dataset.theme;
+      if (t === 'light' || t === 'dark') return t;
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    function renderThemeToggle() {
+      const dark = currentTheme() === 'dark';
+      const btn = $('#themeToggle');
+      btn.innerHTML = iconSvg(dark ? 'sun' : 'moon', 'h-4 w-4');
+      btn.title = dark ? 'Włącz jasny motyw' : 'Włącz ciemny motyw';
+    }
+
     function init() {
       if (window.marked && typeof window.marked.setOptions === 'function') {
         window.marked.setOptions({ gfm: true, breaks: true });
       }
       hydrateIcons();
+      renderThemeToggle();
       initSubmitButtons();
       bindEvents();
       updateAnalyzerHint();
