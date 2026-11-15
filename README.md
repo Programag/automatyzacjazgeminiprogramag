@@ -1,6 +1,6 @@
 # OfficeFlow AI
 
-Jednoplikowa aplikacja webowa (SaaS, model **BYOK – Bring Your Own Key**) do automatyzacji pracy biurowej z wykorzystaniem Google Gemini API (`gemini-2.5-flash`).
+Jednoplikowa aplikacja webowa (SaaS, model **BYOK – Bring Your Own Key**) do automatyzacji pracy biurowej z wykorzystaniem Google Gemini API (domyślnie `gemini-3.8-flash`; model można zmienić w Ustawieniach API).
 
 ## Uruchomienie
 

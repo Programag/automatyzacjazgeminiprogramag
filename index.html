@@ -126,7 +126,7 @@
           <span class="flex-1 text-left">Ustawienia API</span>
           <span id="sidebarKeyDot" class="h-2 w-2 rounded-full bg-red-400"></span>
         </button>
-        <div class="mt-2 px-3 text-[11px] text-slate-500">Model: <span class="font-mono text-slate-400">gemini-2.5-flash</span></div>
+        <div class="mt-2 px-3 text-[11px] text-slate-500">Model: <span id="sidebarModel" class="font-mono text-slate-400"></span></div>
       </div>
     </aside>
 
@@ -309,6 +309,7 @@
                       <div class="mt-4 flex flex-wrap gap-2">
                         <button type="button" id="errorRetryBtn" class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">Spróbuj ponownie</button>
                         <button type="button" id="errorSettingsBtn" class="hidden rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100">Otwórz ustawienia API</button>
+                        <button type="button" id="errorModelBtn" class="hidden rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"></button>
                       </div>
                     </div>
                   </div>
@@ -363,6 +364,16 @@
             <p id="apiKeyTestResult" class="mt-1.5 hidden text-xs"></p>
           </div>
 
+          <div>
+            <div class="flex items-center justify-between">
+              <label for="modelInput" class="field-label">Model Gemini</label>
+              <button type="button" id="resetModelBtn" class="mb-1.5 text-xs font-medium text-indigo-600 hover:underline underline-offset-2">Przywróć domyślny</button>
+            </div>
+            <input id="modelInput" type="text" list="modelSuggestions" autocomplete="off" spellcheck="false" class="field-input font-mono text-sm" />
+            <datalist id="modelSuggestions"></datalist>
+            <p class="mt-1.5 text-xs text-slate-500">Gdy Google wycofa model, wpisz tu nazwę nowego (bez prefiksu „models/”).</p>
+          </div>
+
           <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs leading-relaxed text-slate-600 space-y-2">
             <p><strong class="text-slate-800">Jak zdobyć klucz?</strong> Wejdź na
               <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="font-medium text-indigo-600 underline underline-offset-2">Google AI Studio → Get API key</a>,
@@ -398,7 +409,9 @@
     /* =====================================================================
        KONFIGURACJA
        ===================================================================== */
-    const MODEL = 'gemini-2.5-flash';
+    const DEFAULT_MODEL = 'gemini-3.8-flash';
+    const MODEL_SUGGESTIONS = ['gemini-3.8-flash'];
+    const STORAGE_MODEL = 'officeflow_gemini_model';
     const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
     const STORAGE_KEY = 'officeflow_gemini_api_key';
     const STORAGE_TOOL = 'officeflow_active_tool';
@@ -695,6 +708,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
     const state = {
       activeTool: 'email',
       memoryKey: null,           // gdy localStorage jest niedostępny
+      memoryModel: null,
       storageAvailable: true,
       results: {
         email:    { status: 'empty', markdown: '', meta: '', notice: '', error: null, startedAt: 0 },
@@ -731,6 +745,29 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       storageRemove(STORAGE_KEY);
       state.memoryKey = null;
     }
+    function normalizeModel(value) {
+      const v = String(value || '').trim().replace(/^models\//, '');
+      return /^[A-Za-z0-9.\-_]+$/.test(v) ? v : DEFAULT_MODEL;
+    }
+    function getModel() {
+      return normalizeModel(storageGet(STORAGE_MODEL) || state.memoryModel || DEFAULT_MODEL);
+    }
+    function saveModel(value) {
+      const model = normalizeModel(value);
+      if (model === DEFAULT_MODEL) storageRemove(STORAGE_MODEL);
+      else if (!storageSet(STORAGE_MODEL, model)) state.memoryModel = model;
+      if (model === DEFAULT_MODEL) state.memoryModel = null;
+      renderModelLabel();
+      return model;
+    }
+    function renderModelLabel() {
+      const el = document.getElementById('sidebarModel');
+      if (el) el.textContent = getModel();
+    }
+    function isGemini3Plus(model) {
+      const m = /^gemini-(\d+)/.exec(model);
+      return !!m && parseInt(m[1], 10) >= 3;
+    }
     function maskKey(key) {
       if (!key) return '';
       if (key.length <= 10) return '••••';
@@ -741,13 +778,14 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
        KOMUNIKACJA Z GEMINI API
        ===================================================================== */
     class GeminiError extends Error {
-      constructor({ title, message, hints = [], details = '', isKeyProblem = false, retryable = true }) {
+      constructor({ title, message, hints = [], details = '', isKeyProblem = false, retryable = true, suggestedModel = '' }) {
         super(message);
         this.title = title;
         this.hints = hints;
         this.details = details;
         this.isKeyProblem = isKeyProblem;
         this.retryable = retryable;
+        this.suggestedModel = suggestedModel;
       }
     }
 
@@ -802,13 +840,22 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
             hints: ['Upewnij się, że w projekcie Google Cloud włączono „Generative Language API”.', 'Jeśli klucz ma ograniczenia (HTTP referrer / IP / API), dodaj tę stronę lub zdejmij ograniczenia.', 'Wygeneruj nowy klucz w Google AI Studio.'],
             details, isKeyProblem: true, retryable: false
           });
-        case 404:
+        case 404: {
+          const model = getModel();
+          // Google zwykle podaje następcę wycofanego modelu: „…use models/gemini-x-y…”
+          const m = apiMsg.match(/use\s+(?:models\/)?(gemini-[a-z0-9.\-]+[a-z0-9])/i);
+          const suggested = m && m[1] !== model ? m[1] : '';
           return new GeminiError({
             title: 'Model niedostępny',
-            message: `Model „${MODEL}” nie jest dostępny dla tego klucza lub endpointu.`,
-            hints: ['Sprawdź w Google AI Studio, czy model jest dostępny na Twoim koncie.'],
-            details, retryable: false
+            message: suggested
+              ? `Google wycofał model „${model}” dla Twojego konta i zaleca „${suggested}”.`
+              : `Model „${model}” nie jest dostępny dla tego klucza lub endpointu.`,
+            hints: suggested
+              ? ['Kliknij przycisk poniżej, aby przełączyć model i od razu ponowić zapytanie.']
+              : ['Sprawdź w Google AI Studio, jakie modele są dostępne na Twoim koncie.', 'Wpisz nazwę dostępnego modelu w Ustawieniach API (pole „Model Gemini”).'],
+            details, retryable: false, suggestedModel: suggested, isKeyProblem: !suggested
           });
+        }
         case 429: {
           const wait = parseRetryDelay(err);
           return new GeminiError({
@@ -881,16 +928,15 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       return { res, body, raw };
     }
 
-    async function callGemini({ apiKey, systemInstruction, userText, temperature }) {
-      const url = `${API_BASE}/${MODEL}:generateContent`;
+    async function callGemini({ apiKey, model, systemInstruction, userText, temperature }) {
+      const url = `${API_BASE}/${encodeURIComponent(model)}:generateContent`;
+      const generationConfig = { topP: 0.95, maxOutputTokens: 16384 };
+      // Google zaleca domyślną temperaturę (1.0) dla modeli Gemini 3+; niższa może pogarszać jakość
+      if (!isGemini3Plus(model)) generationConfig.temperature = temperature;
       const payload = {
         systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: [{ role: 'user', parts: [{ text: userText }] }],
-        generationConfig: {
-          temperature,
-          topP: 0.95,
-          maxOutputTokens: 8192
-        }
+        generationConfig
       };
 
       let attempt = 0;
@@ -950,8 +996,8 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       return { text, notice, usage };
     }
 
-    async function testApiKey(apiKey) {
-      const url = `${API_BASE}/${MODEL}`;
+    async function testApiKey(apiKey, model) {
+      const url = `${API_BASE}/${encodeURIComponent(model)}`;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 15000);
       let res;
@@ -1142,6 +1188,10 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
         $('#errorDetails').textContent = e.details || '';
         $('#errorDetailsWrap').classList.toggle('hidden', !e.details);
         $('#errorSettingsBtn').classList.toggle('hidden', !e.isKeyProblem);
+        const modelBtn = $('#errorModelBtn');
+        modelBtn.textContent = e.suggestedModel ? `Przełącz na ${e.suggestedModel} i spróbuj ponownie` : '';
+        modelBtn.classList.toggle('hidden', !e.suggestedModel);
+        $('#errorRetryBtn').classList.toggle('hidden', !!e.suggestedModel);
         return;
       }
 
@@ -1253,6 +1303,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       try {
         const out = await callGemini({
           apiKey,
+          model: getModel(),
           systemInstruction: tool.systemInstruction,
           userText: tool.buildPrompt(data),
           temperature: tool.temperature
@@ -1345,6 +1396,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       setKeyMsg('#apiKeyWarning', '');
       setKeyMsg('#apiKeyTestResult', '');
       $('#deleteKeyBtn').classList.toggle('hidden', !key);
+      $('#modelInput').value = getModel();
       const reasonEl = $('#settingsReason');
       reasonEl.textContent = reason || '';
       reasonEl.classList.toggle('hidden', !reason);
@@ -1386,6 +1438,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       const value = validateKeyInput();
       if (!value) return;
       const persisted = saveApiKey(value);
+      saveModel($('#modelInput').value);
       renderApiStatus();
       closeSettings();
       toast(persisted ? 'Klucz API zapisany w przeglądarce' : 'Klucz zapisany tymczasowo (localStorage niedostępny)', persisted ? 'success' : 'info');
@@ -1399,9 +1452,11 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       btn.disabled = true;
       btn.innerHTML = `<span class="h-4 w-4 rounded-full border-2 border-slate-300 border-t-indigo-600" style="animation: spin .8s linear infinite"></span>Testowanie…`;
       try {
-        const info = await testApiKey(value);
+        const model = normalizeModel($('#modelInput').value);
+        $('#modelInput').value = model;
+        const info = await testApiKey(value, model);
         res.className = 'mt-1.5 text-xs text-emerald-700 font-medium';
-        res.textContent = `✓ Połączenie poprawne – model ${info && info.displayName ? info.displayName : MODEL} jest dostępny dla tego klucza.`;
+        res.textContent = `✓ Połączenie poprawne – model ${info && info.displayName ? info.displayName : model} jest dostępny dla tego klucza.`;
       } catch (e) {
         res.className = 'mt-1.5 text-xs text-red-600';
         res.textContent = `✗ ${e.title || 'Błąd'}: ${e.message || e}`;
@@ -1481,6 +1536,14 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       });
       $('#errorRetryBtn').addEventListener('click', () => runTool(state.activeTool));
       $('#errorSettingsBtn').addEventListener('click', () => openSettings());
+      $('#errorModelBtn').addEventListener('click', () => {
+        const e = state.results[state.activeTool].error;
+        if (!e || !e.suggestedModel) return;
+        saveModel(e.suggestedModel);
+        toast(`Model zmieniony na ${e.suggestedModel}`, 'success');
+        runTool(state.activeTool);
+      });
+      $('#resetModelBtn').addEventListener('click', () => { $('#modelInput').value = DEFAULT_MODEL; });
 
       $('#openSettingsBtn').addEventListener('click', () => { closeSidebar(); openSettings(); });
       $('#closeSettingsBtn').addEventListener('click', closeSettings);
@@ -1526,6 +1589,8 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       updateAnalyzerHint();
       const savedTool = storageGet(STORAGE_TOOL);
       setActiveTool(TOOLS[savedTool] ? savedTool : 'email');
+      $('#modelSuggestions').innerHTML = MODEL_SUGGESTIONS.map(m => `<option value="${m}"></option>`).join('');
+      renderModelLabel();
       renderApiStatus();
       if (!getApiKey()) {
         setTimeout(() => openSettings('Witaj w OfficeFlow AI! Aby rozpocząć, wklej swój klucz API Google Gemini. Klucz zostanie zapisany wyłącznie w tej przeglądarce.'), 400);
