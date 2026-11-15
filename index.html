@@ -353,7 +353,7 @@
           <div>
             <label for="apiKeyInput" class="field-label">Klucz API Gemini</label>
             <div class="relative">
-              <input id="apiKeyInput" type="password" autocomplete="off" spellcheck="false" class="field-input pr-11 font-mono text-sm" placeholder="AIza…" />
+              <input id="apiKeyInput" type="password" autocomplete="off" spellcheck="false" class="field-input pr-11 font-mono text-sm" placeholder="AIza… lub AQ.…" />
               <button type="button" id="toggleKeyVisibility" class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600" aria-label="Pokaż lub ukryj klucz">
                 <svg data-icon="eye" class="h-5 w-5"></svg>
               </button>
@@ -366,7 +366,7 @@
           <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs leading-relaxed text-slate-600 space-y-2">
             <p><strong class="text-slate-800">Jak zdobyć klucz?</strong> Wejdź na
               <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="font-medium text-indigo-600 underline underline-offset-2">Google AI Studio → Get API key</a>,
-              utwórz klucz i wklej go powyżej. Klucze Gemini zaczynają się od <code class="rounded bg-white border border-slate-200 px-1 font-mono">AIza</code>.</p>
+              utwórz klucz i wklej go powyżej. Klucze Gemini zaczynają się od <code class="rounded bg-white border border-slate-200 px-1 font-mono">AIza</code> lub <code class="rounded bg-white border border-slate-200 px-1 font-mono">AQ.</code></p>
             <p><strong class="text-slate-800">Prywatność:</strong> klucz zapisujemy tylko w <code class="rounded bg-white border border-slate-200 px-1 font-mono">localStorage</code> tej przeglądarki. Zapytania trafiają bezpośrednio do <span class="font-mono">generativelanguage.googleapis.com</span> – bez żadnych serwerów pośredniczących.</p>
           </div>
 
@@ -774,7 +774,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
         return new GeminiError({
           title: 'Nieprawidłowy klucz API',
           message: 'Google odrzucił podany klucz. Klucz jest błędny, został usunięty lub skopiowano go niekompletnie.',
-          hints: ['Skopiuj klucz ponownie z Google AI Studio (bez spacji na początku i końcu).', 'Upewnij się, że to klucz Gemini API, zaczynający się od „AIza”.', 'Zaktualizuj klucz w Ustawieniach API.'],
+          hints: ['Skopiuj klucz ponownie z Google AI Studio (bez spacji na początku i końcu).', 'Upewnij się, że to klucz Gemini API, zaczynający się od „AIza” lub „AQ.”.', 'Zaktualizuj klucz w Ustawieniach API.'],
           details, isKeyProblem: true, retryable: false
         });
       }
@@ -854,14 +854,19 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       });
     }
 
-    async function postJson(url, payload) {
+    // Klucz przesyłany w nagłówku HTTP (obsługuje klucze „AIza…” i „AQ.…”), nie w adresie URL
+    function authHeaders(apiKey, extra = {}) {
+      return Object.assign({ 'x-goog-api-key': apiKey }, extra);
+    }
+
+    async function postJson(url, payload, apiKey) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
       let res;
       try {
         res = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders(apiKey, { 'Content-Type': 'application/json' }),
           body: JSON.stringify(payload),
           signal: controller.signal
         });
@@ -877,7 +882,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
     }
 
     async function callGemini({ apiKey, systemInstruction, userText, temperature }) {
-      const url = `${API_BASE}/${MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const url = `${API_BASE}/${MODEL}:generateContent`;
       const payload = {
         systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: [{ role: 'user', parts: [{ text: userText }] }],
@@ -892,7 +897,7 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       let lastError = null;
       while (attempt < 2) {
         attempt++;
-        const { res, body, raw } = await postJson(url, payload);
+        const { res, body, raw } = await postJson(url, payload, apiKey);
         if (res.ok) return parseGeminiResponse(body, raw);
         lastError = mapApiError(res.status, body, raw);
         // Jedna automatyczna ponowna próba przy chwilowym przeciążeniu
@@ -946,12 +951,12 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
     }
 
     async function testApiKey(apiKey) {
-      const url = `${API_BASE}/${MODEL}?key=${encodeURIComponent(apiKey)}`;
+      const url = `${API_BASE}/${MODEL}`;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 15000);
       let res;
       try {
-        res = await fetch(url, { method: 'GET', signal: controller.signal });
+        res = await fetch(url, { method: 'GET', headers: authHeaders(apiKey), signal: controller.signal });
       } catch (e) {
         throw networkError(e);
       } finally {
@@ -1368,8 +1373,8 @@ obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
       }
       input.classList.remove('invalid');
       setKeyMsg('#apiKeyError', '');
-      if (!/^AIza[0-9A-Za-z_\-]{20,}$/.test(value)) {
-        setKeyMsg('#apiKeyWarning', 'Uwaga: klucz nie wygląda na standardowy klucz Gemini (zwykle zaczyna się od „AIza” i ma 39 znaków). Sprawdź go przyciskiem „Testuj połączenie”.');
+      if (!/^(AIza[0-9A-Za-z_\-]{20,}|AQ\.[0-9A-Za-z_\-.]{10,})$/.test(value)) {
+        setKeyMsg('#apiKeyWarning', 'Uwaga: klucz nie wygląda na standardowy klucz Gemini (zwykle zaczyna się od „AIza” lub „AQ.”). Sprawdź go przyciskiem „Testuj połączenie”.');
       } else {
         setKeyMsg('#apiKeyWarning', '');
       }
