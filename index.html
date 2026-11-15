@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OfficeFlow AI</title>
+  <meta name="description" content="OfficeFlow AI – automatyzacja pracy biurowej z Google Gemini w modelu BYOK (Bring Your Own Key)." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+          colors: {
+            navy: { 50: '#f0f3fa', 100: '#dde4f3', 600: '#2a3f7a', 700: '#1f2f5e', 800: '#172449', 900: '#101a36', 950: '#0a1124' }
+          },
+          boxShadow: {
+            card: '0 1px 2px rgba(16,26,54,.04), 0 4px 16px rgba(16,26,54,.06)'
+          }
+        }
+      }
+    };
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+
+  <style>
+    body { background: #f5f7fb; }
+    [x-cloak] { display: none !important; }
+
+    /* Formatowanie wyniku Markdown */
+    .md-output { color: #1e293b; font-size: 0.95rem; line-height: 1.7; word-wrap: break-word; }
+    .md-output > *:first-child { margin-top: 0; }
+    .md-output h1 { font-size: 1.35rem; font-weight: 700; color: #101a36; margin: 1.4em 0 .6em; }
+    .md-output h2 { font-size: 1.15rem; font-weight: 700; color: #172449; margin: 1.4em 0 .5em; padding-bottom: .3em; border-bottom: 1px solid #e2e8f0; }
+    .md-output h3 { font-size: 1.02rem; font-weight: 600; color: #1f2f5e; margin: 1.2em 0 .4em; }
+    .md-output h4 { font-size: .95rem; font-weight: 600; color: #334155; margin: 1em 0 .3em; }
+    .md-output p { margin: .7em 0; }
+    .md-output strong { color: #0f172a; font-weight: 600; }
+    .md-output em { color: #334155; }
+    .md-output ul, .md-output ol { margin: .6em 0 .9em; padding-left: 1.4em; }
+    .md-output ul { list-style: disc; }
+    .md-output ol { list-style: decimal; }
+    .md-output li { margin: .3em 0; }
+    .md-output li::marker { color: #4f46e5; }
+    .md-output li > ul, .md-output li > ol { margin: .2em 0; }
+    .md-output a { color: #4338ca; text-decoration: underline; text-underline-offset: 2px; }
+    .md-output hr { border: 0; border-top: 1px solid #e2e8f0; margin: 1.4em 0; }
+    .md-output blockquote { border-left: 3px solid #6366f1; background: #eef2ff; color: #312e81; padding: .6em 1em; margin: 1em 0; border-radius: 0 .5rem .5rem 0; }
+    .md-output blockquote p { margin: .3em 0; }
+    .md-output code { background: #f1f5f9; padding: .1em .35em; border-radius: .25rem; font-size: .88em; }
+    .md-output pre { background: #0f172a; color: #e2e8f0; padding: 1em; border-radius: .5rem; overflow-x: auto; }
+    .md-output pre code { background: transparent; padding: 0; color: inherit; }
+    .md-output table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: .9rem; display: block; overflow-x: auto; }
+    .md-output th, .md-output td { border: 1px solid #e2e8f0; padding: .5em .75em; text-align: left; vertical-align: top; }
+    .md-output th { background: #f1f5f9; font-weight: 600; color: #172449; }
+    .md-output tr:nth-child(even) td { background: #fafbfd; }
+    .md-output input[type="checkbox"] { margin-right: .4em; accent-color: #4f46e5; }
+
+    .spinner { width: 44px; height: 44px; border-radius: 50%; border: 4px solid #e0e7ff; border-top-color: #4f46e5; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pulse-dot { animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+    .fade-in { animation: fadeIn .25s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    .field-label { display: block; font-size: .8125rem; font-weight: 600; color: #1e293b; margin-bottom: .375rem; }
+    .field-input { width: 100%; border: 1px solid #cbd5e1; border-radius: .5rem; background: #fff; padding: .6rem .8rem; font-size: .9rem; color: #0f172a; transition: border-color .15s, box-shadow .15s; }
+    .field-input::placeholder { color: #94a3b8; }
+    .field-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.18); }
+    .field-input.invalid { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.12); }
+    select.field-input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m19.5 8.25-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .7rem center; background-size: 1rem; padding-right: 2.25rem; }
+    textarea.field-input { resize: vertical; min-height: 7rem; line-height: 1.55; }
+
+    .scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+    .scroll-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+    .scroll-thin::-webkit-scrollbar-track { background: transparent; }
+  </style>
+</head>
+
+<body class="font-sans text-slate-800 antialiased">
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- ============ SIDEBAR ============ -->
+    <div id="sidebarOverlay" class="fixed inset-0 z-30 bg-navy-950/50 hidden lg:hidden" aria-hidden="true"></div>
+
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-72 -translate-x-full transform bg-navy-900 text-slate-300 transition-transform duration-200 ease-out lg:static lg:translate-x-0 flex flex-col">
+      <div class="flex items-center justify-between px-6 h-16 border-b border-white/10 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 text-white shadow-lg shadow-indigo-900/40">
+            <svg data-icon="sparkles" class="h-5 w-5"></svg>
+          </div>
+          <div>
+            <div class="text-white font-bold tracking-tight leading-tight">OfficeFlow <span class="text-indigo-300">AI</span></div>
+            <div class="text-[11px] text-slate-400 leading-tight">Automatyzacja pracy biurowej</div>
+          </div>
+        </div>
+        <button id="closeSidebarBtn" class="lg:hidden rounded-md p-1.5 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Zamknij menu">
+          <svg data-icon="x" class="h-5 w-5"></svg>
+        </button>
+      </div>
+
+      <nav class="flex-1 overflow-y-auto px-4 py-6 scroll-thin">
+        <div class="px-2 mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Narzędzia biurowe</div>
+        <ul id="toolMenu" class="space-y-1"></ul>
+
+        <div class="mt-8 mx-2 rounded-xl border border-white/10 bg-white/5 p-4">
+          <div class="flex items-center gap-2 text-white text-sm font-semibold">
+            <svg data-icon="lock" class="h-4 w-4 text-indigo-300"></svg>
+            Model BYOK
+          </div>
+          <p class="mt-2 text-xs leading-relaxed text-slate-400">
+            Używasz własnego klucza Google Gemini. Klucz jest przechowywany wyłącznie w Twojej przeglądarce i wysyłany bezpośrednio do Google.
+          </p>
+        </div>
+      </nav>
+
+      <div class="border-t border-white/10 p-4 shrink-0">
+        <button id="openSettingsBtn" class="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/10 hover:text-white transition">
+          <svg data-icon="key" class="h-5 w-5 text-slate-400 group-hover:text-indigo-300"></svg>
+          <span class="flex-1 text-left">Ustawienia API</span>
+          <span id="sidebarKeyDot" class="h-2 w-2 rounded-full bg-red-400"></span>
+        </button>
+        <div class="mt-2 px-3 text-[11px] text-slate-500">Model: <span class="font-mono text-slate-400">gemini-2.5-flash</span></div>
+      </div>
+    </aside>
+
+    <!-- ============ MAIN ============ -->
+    <div class="flex flex-1 flex-col min-w-0">
+
+      <!-- Górny pasek -->
+      <header class="h-16 shrink-0 border-b border-slate-200 bg-white/90 backdrop-blur flex items-center gap-3 px-4 sm:px-6">
+        <button id="openSidebarBtn" class="lg:hidden rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Otwórz menu">
+          <svg data-icon="bars" class="h-5 w-5"></svg>
+        </button>
+        <div class="min-w-0 flex-1">
+          <h1 id="toolTitle" class="truncate text-base sm:text-lg font-semibold text-navy-900"></h1>
+          <p id="toolSubtitle" class="hidden sm:block truncate text-xs text-slate-500"></p>
+        </div>
+        <div id="apiStatus" class="flex items-center gap-2"></div>
+      </header>
+
+      <!-- Obszar roboczy -->
+      <main class="flex-1 overflow-y-auto scroll-thin">
+        <div id="storageWarning" class="hidden mx-4 sm:mx-6 mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"></div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 p-4 sm:p-6 max-w-[1600px] mx-auto">
+
+          <!-- ===== Kolumna: Formularz ===== -->
+          <section class="rounded-2xl bg-white shadow-card border border-slate-200/70 flex flex-col">
+            <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 sm:px-6 py-4">
+              <div class="flex items-center gap-3 min-w-0">
+                <div id="formIcon" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"></div>
+                <div class="min-w-0">
+                  <h2 class="font-semibold text-navy-900">Dane wejściowe</h2>
+                  <p class="text-xs text-slate-500">Uzupełnij formularz i kliknij „Generuj”</p>
+                </div>
+              </div>
+              <button type="button" id="fillExampleBtn" class="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-700 hover:bg-indigo-50 transition">
+                Wstaw przykład
+              </button>
+            </div>
+
+            <!-- Formularz 1: Korespondencja B2B -->
+            <form id="form-email" data-tool="email" class="tool-form hidden p-5 sm:p-6 space-y-5" novalidate>
+              <div>
+                <label for="email-content" class="field-label">Treść maila od klienta <span class="text-red-500">*</span></label>
+                <textarea id="email-content" name="content" rows="9" maxlength="20000" class="field-input" placeholder="Wklej tutaj pełną treść wiadomości otrzymanej od klienta lub kontrahenta…" required></textarea>
+                <div class="mt-1 flex justify-between text-[11px] text-slate-400"><span class="field-error text-red-600"></span><span data-counter-for="email-content"></span></div>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label for="email-goal" class="field-label">Cel odpowiedzi</label>
+                  <select id="email-goal" name="goal" class="field-input">
+                    <option value="Odpowiedź na zapytanie ofertowe">Odpowiedź na zapytanie ofertowe</option>
+                    <option value="Obsługa reklamacji / łagodzenie konfliktu">Obsługa reklamacji / łagodzenie konfliktu</option>
+                    <option value="Przypomnienie o płatności">Przypomnienie o płatności</option>
+                    <option value="Odmowa współpracy">Odmowa współpracy</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="email-tone" class="field-label">Ton wypowiedzi</label>
+                  <select id="email-tone" name="tone" class="field-input">
+                    <option value="Formalny i korporacyjny">Formalny i korporacyjny</option>
+                    <option value="Uprzejmy i partnerski" selected>Uprzejmy i partnerski</option>
+                    <option value="Stanowczy i konkretny">Stanowczy i konkretny</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label for="email-facts" class="field-label">Dodatkowe wytyczne / fakty do uwzględnienia</label>
+                <input id="email-facts" name="facts" type="text" maxlength="2000" class="field-input" placeholder="np. rabat 5% przy zamówieniu do końca miesiąca, termin realizacji 14 dni, podpis: Anna Nowak, Kierownik Sprzedaży" />
+              </div>
+              <div class="pt-1">
+                <button type="submit" class="submit-btn"></button>
+              </div>
+            </form>
+
+            <!-- Formularz 2: Analizator dokumentów -->
+            <form id="form-analyzer" data-tool="analyzer" class="tool-form hidden p-5 sm:p-6 space-y-5" novalidate>
+              <div>
+                <label for="analyzer-mode" class="field-label">Tryb analizy</label>
+                <select id="analyzer-mode" name="mode" class="field-input">
+                  <option value="summary">Podsumowanie + Lista zadań [Action Items]</option>
+                  <option value="extract">Wyciągnięcie kluczowych danych i terminów</option>
+                  <option value="risk">Ocena ryzyka i brakujących informacji</option>
+                </select>
+                <p id="analyzer-mode-hint" class="mt-1.5 text-xs text-slate-500"></p>
+              </div>
+              <div>
+                <label for="analyzer-content" class="field-label">Tekst do analizy <span class="text-red-500">*</span></label>
+                <textarea id="analyzer-content" name="content" rows="14" maxlength="60000" class="field-input" placeholder="Wklej treść umowy, notatkę ze spotkania, opis faktury, CV lub dowolny inny dokument…" required></textarea>
+                <div class="mt-1 flex justify-between text-[11px] text-slate-400"><span class="field-error text-red-600"></span><span data-counter-for="analyzer-content"></span></div>
+              </div>
+              <div class="pt-1">
+                <button type="submit" class="submit-btn"></button>
+              </div>
+            </form>
+
+            <!-- Formularz 3: Generator ofert -->
+            <form id="form-offer" data-tool="offer" class="tool-form hidden p-5 sm:p-6 space-y-5" novalidate>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label for="offer-company" class="field-label">Nazwa firmy klienta <span class="text-red-500">*</span></label>
+                  <input id="offer-company" name="company" type="text" maxlength="200" class="field-input" placeholder="np. Logistyka Północ Sp. z o.o." required />
+                  <div class="mt-1 text-[11px] field-error text-red-600"></div>
+                </div>
+                <div>
+                  <label for="offer-industry" class="field-label">Branża klienta <span class="text-red-500">*</span></label>
+                  <input id="offer-industry" name="industry" type="text" maxlength="200" class="field-input" placeholder="np. transport i spedycja" required />
+                  <div class="mt-1 text-[11px] field-error text-red-600"></div>
+                </div>
+              </div>
+              <div>
+                <label for="offer-product" class="field-label">Nasz produkt / usługa <span class="text-red-500">*</span></label>
+                <textarea id="offer-product" name="product" rows="4" maxlength="4000" class="field-input" placeholder="Krótki opis tego, co oferujesz: kluczowe funkcje, model rozliczeń, wyróżniki…" required></textarea>
+                <div class="mt-1 flex justify-between text-[11px] text-slate-400"><span class="field-error text-red-600"></span><span data-counter-for="offer-product"></span></div>
+              </div>
+              <div>
+                <label for="offer-problem" class="field-label">Główny problem / potrzeba klienta <span class="text-red-500">*</span></label>
+                <textarea id="offer-problem" name="problem" rows="4" maxlength="4000" class="field-input" placeholder="Z czym klient się mierzy? Co go boli, co chce osiągnąć?" required></textarea>
+                <div class="mt-1 flex justify-between text-[11px] text-slate-400"><span class="field-error text-red-600"></span><span data-counter-for="offer-problem"></span></div>
+              </div>
+              <div class="pt-1">
+                <button type="submit" class="submit-btn"></button>
+              </div>
+            </form>
+
+            <div class="mt-auto border-t border-slate-100 px-5 sm:px-6 py-3 text-[11px] text-slate-400 flex items-center justify-between gap-2">
+              <span>Skrót: <kbd class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">Ctrl</kbd> + <kbd class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">Enter</kbd> – generuj</span>
+              <button type="button" id="resetFormBtn" class="hover:text-slate-600 underline-offset-2 hover:underline">Wyczyść formularz</button>
+            </div>
+          </section>
+
+          <!-- ===== Kolumna: Wynik ===== -->
+          <section class="rounded-2xl bg-white shadow-card border border-slate-200/70 flex flex-col min-h-[480px]">
+            <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 sm:px-6 py-4">
+              <div class="min-w-0 flex-1">
+                <h2 class="font-semibold text-navy-900">Wynik</h2>
+                <p id="resultMeta" class="truncate text-xs text-slate-500">Tu pojawi się wygenerowana treść</p>
+              </div>
+              <div class="flex shrink-0 items-center gap-2">
+                <button type="button" id="clearResultBtn" class="hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition" title="Wyczyść wynik" aria-label="Wyczyść wynik">
+                  <svg data-icon="trash" class="h-4 w-4"></svg>
+                </button>
+                <button type="button" id="copyBtn" disabled class="inline-flex items-center gap-2 rounded-lg bg-navy-800 px-3.5 py-2 text-sm font-medium text-white shadow-sm hover:bg-navy-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none transition">
+                  <svg data-icon="clipboard" class="h-4 w-4"></svg>
+                  <span class="hidden sm:inline">Kopiuj do schowka</span><span class="sm:hidden">Kopiuj</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="relative flex-1 overflow-hidden">
+              <!-- Stan pusty -->
+              <div id="resultEmpty" class="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
+                <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-500">
+                  <svg data-icon="sparkles" class="h-7 w-7"></svg>
+                </div>
+                <h3 class="mt-4 font-semibold text-navy-900">Gotowy do pracy</h3>
+                <p id="resultEmptyText" class="mt-1.5 max-w-sm text-sm text-slate-500"></p>
+              </div>
+
+              <!-- Ładowanie -->
+              <div id="resultLoading" class="hidden absolute inset-0 flex flex-col items-center justify-center px-8 text-center bg-white/95 fade-in">
+                <div class="spinner"></div>
+                <p class="mt-5 font-medium text-navy-900">Gemini analizuje dane…</p>
+                <p id="loadingStep" class="mt-1 text-sm text-slate-500">Przygotowuję zapytanie</p>
+                <p id="loadingTimer" class="mt-3 font-mono text-xs text-slate-400">0,0 s</p>
+              </div>
+
+              <!-- Błąd -->
+              <div id="resultError" class="hidden absolute inset-0 overflow-y-auto p-5 sm:p-6 fade-in">
+                <div class="rounded-xl border border-red-200 bg-red-50 p-5">
+                  <div class="flex gap-3">
+                    <svg data-icon="warning" class="h-6 w-6 shrink-0 text-red-500"></svg>
+                    <div class="min-w-0">
+                      <h3 id="errorTitle" class="font-semibold text-red-800"></h3>
+                      <p id="errorMessage" class="mt-1 text-sm text-red-700"></p>
+                      <ul id="errorHints" class="mt-3 space-y-1 text-sm text-red-700 list-disc pl-5"></ul>
+                      <details id="errorDetailsWrap" class="mt-3 text-xs text-red-600">
+                        <summary class="cursor-pointer select-none font-medium">Szczegóły techniczne</summary>
+                        <pre id="errorDetails" class="mt-2 whitespace-pre-wrap break-all rounded-md bg-white/70 p-2 font-mono text-[11px]"></pre>
+                      </details>
+                      <div class="mt-4 flex flex-wrap gap-2">
+                        <button type="button" id="errorRetryBtn" class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">Spróbuj ponownie</button>
+                        <button type="button" id="errorSettingsBtn" class="hidden rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100">Otwórz ustawienia API</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Wynik -->
+              <div id="resultContent" class="hidden absolute inset-0 overflow-y-auto scroll-thin p-5 sm:p-7">
+                <div id="resultNotice" class="hidden mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"></div>
+                <article id="resultBody" class="md-output fade-in"></article>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: USTAWIENIA API ============ -->
+  <div id="settingsModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div id="settingsBackdrop" class="absolute inset-0 bg-navy-950/60 backdrop-blur-sm"></div>
+    <div class="relative flex min-h-full items-center justify-center p-4">
+      <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl fade-in">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+          <div class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+              <svg data-icon="key" class="h-5 w-5"></svg>
+            </div>
+            <div>
+              <h2 id="settingsTitle" class="font-semibold text-navy-900">Ustawienia API Google Gemini</h2>
+              <p class="text-xs text-slate-500">Bring Your Own Key – korzystasz z własnego limitu Google</p>
+            </div>
+          </div>
+          <button type="button" id="closeSettingsBtn" class="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Zamknij">
+            <svg data-icon="x" class="h-5 w-5"></svg>
+          </button>
+        </div>
+
+        <form id="settingsForm" class="px-6 py-5 space-y-4" novalidate>
+          <div id="settingsReason" class="hidden rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-800"></div>
+
+          <div>
+            <label for="apiKeyInput" class="field-label">Klucz API Gemini</label>
+            <div class="relative">
+              <input id="apiKeyInput" type="password" autocomplete="off" spellcheck="false" class="field-input pr-11 font-mono text-sm" placeholder="AIza…" />
+              <button type="button" id="toggleKeyVisibility" class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600" aria-label="Pokaż lub ukryj klucz">
+                <svg data-icon="eye" class="h-5 w-5"></svg>
+              </button>
+            </div>
+            <p id="apiKeyError" class="mt-1.5 hidden text-xs text-red-600"></p>
+            <p id="apiKeyWarning" class="mt-1.5 hidden text-xs text-amber-700"></p>
+            <p id="apiKeyTestResult" class="mt-1.5 hidden text-xs"></p>
+          </div>
+
+          <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs leading-relaxed text-slate-600 space-y-2">
+            <p><strong class="text-slate-800">Jak zdobyć klucz?</strong> Wejdź na
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="font-medium text-indigo-600 underline underline-offset-2">Google AI Studio → Get API key</a>,
+              utwórz klucz i wklej go powyżej. Klucze Gemini zaczynają się od <code class="rounded bg-white border border-slate-200 px-1 font-mono">AIza</code>.</p>
+            <p><strong class="text-slate-800">Prywatność:</strong> klucz zapisujemy tylko w <code class="rounded bg-white border border-slate-200 px-1 font-mono">localStorage</code> tej przeglądarki. Zapytania trafiają bezpośrednio do <span class="font-mono">generativelanguage.googleapis.com</span> – bez żadnych serwerów pośredniczących.</p>
+          </div>
+
+          <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+            <button type="button" id="deleteKeyBtn" class="hidden inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
+              <svg data-icon="trash" class="h-4 w-4"></svg> Usuń zapisany klucz
+            </button>
+            <div class="flex flex-col-reverse sm:flex-row gap-2 sm:ml-auto">
+              <button type="button" id="testKeyBtn" class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+                Testuj połączenie
+              </button>
+              <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700">
+                Zapisz klucz
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toasty -->
+  <div id="toastContainer" class="pointer-events-none fixed bottom-4 right-4 z-[60] flex flex-col gap-2 items-end"></div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    /* =====================================================================
+       KONFIGURACJA
+       ===================================================================== */
+    const MODEL = 'gemini-2.5-flash';
+    const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+    const STORAGE_KEY = 'officeflow_gemini_api_key';
+    const STORAGE_TOOL = 'officeflow_active_tool';
+    const REQUEST_TIMEOUT_MS = 120000;
+
+    /* =====================================================================
+       IKONY (Heroicons, outline)
+       ===================================================================== */
+    const ICONS = {
+      mail: 'M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75',
+      document: 'M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z',
+      briefcase: 'M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0M12 12.75h.008v.008H12v-.008Z',
+      key: 'M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z',
+      clipboard: 'M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184',
+      check: 'm4.5 12.75 6 6 9-13.5',
+      sparkles: 'M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z',
+      x: 'M6 18 18 6M6 6l12 12',
+      bars: 'M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5',
+      eye: 'M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+      eyeSlash: 'M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88',
+      trash: 'm14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.94-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0',
+      warning: 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z',
+      lock: 'M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z',
+      bolt: 'm3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z'
+    };
+
+    function iconSvg(name, cls = 'h-5 w-5') {
+      return `<svg class="${cls}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="${ICONS[name]}"/></svg>`;
+    }
+
+    function hydrateIcons(root = document) {
+      root.querySelectorAll('svg[data-icon]').forEach(el => {
+        const name = el.getAttribute('data-icon');
+        if (!ICONS[name]) return;
+        const tpl = document.createElement('template');
+        tpl.innerHTML = iconSvg(name, el.getAttribute('class') || 'h-5 w-5');
+        el.replaceWith(tpl.content.firstChild);
+      });
+    }
+
+    /* =====================================================================
+       PROMPTY SYSTEMOWE (ukryte instrukcje biznesowe)
+       ===================================================================== */
+    const SYSTEM_EMAIL = `Jesteś Starszym Specjalistą ds. Komunikacji Biznesowej B2B z 15-letnim doświadczeniem w polskich i międzynarodowych firmach (sprzedaż, obsługa klienta kluczowego, windykacja polubowna, zarządzanie relacjami z partnerami). Piszesz wzorcową, poprawną polszczyznę biznesową.
+
+TWOJE ZADANIE
+Na podstawie wiadomości otrzymanej od klienta/kontrahenta, wskazanego celu, tonu i dodatkowych wytycznych przygotuj JEDNĄ, kompletną odpowiedź e-mail gotową do wysłania.
+
+ZASADY MERYTORYCZNE
+1. Uważnie przeanalizuj wiadomość klienta: zidentyfikuj nadawcę (imię, nazwisko, płeć gramatyczną, stanowisko, firmę), wszystkie pytania, prośby, zarzuty, terminy, kwoty i numery dokumentów. Odpowiedź musi odnieść się do KAŻDEGO istotnego punktu.
+2. Dodatkowe wytyczne/fakty od użytkownika mają najwyższy priorytet – wpleć je naturalnie w treść. Jeśli zawierają dane nadawcy (imię, nazwisko, stanowisko, firma, telefon) – użyj ich w podpisie.
+3. NIGDY nie wymyślaj faktów: cen, rabatów, terminów, numerów faktur, nazw produktów, zobowiązań ani danych kontaktowych, których nie ma w wiadomości klienta ani w wytycznych. Jeśli dana informacja jest niezbędna, a jej brakuje, wstaw czytelne pole do uzupełnienia w nawiasach kwadratowych, np. [termin realizacji], [Imię i Nazwisko]. Używaj takich pól oszczędnie – tylko tam, gdzie to konieczne.
+4. Nie składaj obietnic prawnie wiążących ponad to, co wynika z wytycznych.
+
+STRATEGIE WEDŁUG CELU
+• Odpowiedź na zapytanie ofertowe: podziękuj za zainteresowanie, potwierdź zrozumienie potrzeb, odpowiedz rzeczowo na pytania, zaprezentuj wartość (język korzyści, nie cech), wskaż warunki/kolejne kroki i zaproponuj konkretną formę kontaktu (rozmowa, spotkanie, termin przesłania oferty).
+• Obsługa reklamacji / łagodzenie konfliktu: zastosuj model empatia → odpowiedzialność → rozwiązanie → zapobieganie. Uznaj emocje klienta bez przyznawania winy ponad fakty, przeproś za niedogodność, przedstaw konkretny plan działania z krokami i terminami, zakończ zapewnieniem o wartości relacji. Unikaj tłumaczenia się i przerzucania winy.
+• Przypomnienie o płatności: uprzejmie, lecz jednoznacznie wskaż zaległość (numer dokumentu, kwota, termin – jeśli są znane), poproś o uregulowanie w konkretnym terminie, zaproponuj kontakt w razie wątpliwości lub już dokonanej wpłaty („Jeżeli płatność została już zrealizowana, prosimy potraktować tę wiadomość jako nieaktualną”). Przy tonie stanowczym możesz wspomnieć o dalszych krokach przewidzianych w umowie – bez gróźb.
+• Odmowa współpracy: podziękuj za zaufanie, przekaż decyzję jasno już w pierwszych zdaniach, podaj krótkie, neutralne uzasadnienie (bez szczegółów mogących zaszkodzić), jeśli to możliwe – zaproponuj alternatywę lub pozostaw otwartą furtkę na przyszłość. Zachowaj klasę i szacunek.
+
+TON
+• Formalny i korporacyjny: forma „Państwo/Pan/Pani”, pełne zdania, oficjalne słownictwo, brak potocyzmów i emocjonalnych wykrzyknień.
+• Uprzejmy i partnerski: ciepło, życzliwie, z naciskiem na współpracę i wspólny cel; nadal profesjonalnie, forma „Pan/Pani”, chyba że klient sam pisze na „Ty”.
+• Stanowczy i konkretny: krótkie zdania, jasne oczekiwania, terminy i konsekwencje, zero zbędnych uprzejmości – ale zawsze kulturalnie.
+
+FORMA E-MAILA
+• Zwrot grzecznościowy dopasowany do odbiorcy z poprawnym wołaczem (np. „Szanowny Panie Marku,”, „Szanowna Pani Dyrektor,”, „Dzień dobry Pani Anno,”); gdy nadawca jest nieznany – „Szanowni Państwo,”. Po zwrocie przecinek, a treść zaczyna się od nowego akapitu małą literą wyłącznie gdy wymaga tego polska norma (standardowo wielką literą w nowym akapicie).
+• Treść: 2–5 zwięzłych akapitów, logiczny porządek, jedno zagadnienie na akapit. Listy punktowane tylko, gdy porządkują wiele elementów (np. kroki procesu).
+• Zakończenie: zdanie domykające z wezwaniem do działania lub deklaracją dostępności, następnie formuła pożegnalna dopasowana do tonu („Z wyrazami szacunku,”, „Z poważaniem,”, „Pozdrawiam serdecznie,”) i podpis.
+• Polskie zasady pisowni: zaimki grzecznościowe wielką literą w bezpośrednich zwrotach („Pana”, „Państwa”), poprawne cudzysłowy „…”, daty w formacie DD.MM.RRRR.
+
+FORMAT WYJŚCIA (Markdown – bezwzględnie przestrzegaj)
+**Temat:** <zwięzły, konkretny temat wiadomości, ew. z prefiksem „Re:” jeśli to odpowiedź>
+
+---
+
+<zwrot grzecznościowy>
+
+<treść maila>
+
+<formuła pożegnalna>
+<podpis – każda linia osobno>
+
+Nie dodawaj żadnych komentarzy, wariantów, wyjaśnień ani wstępów przed tematem i po podpisie. Zwróć wyłącznie gotowy e-mail.`;
+
+    const SYSTEM_ANALYZER = `Jesteś Starszym Analitykiem Biznesowym i Asystentem Zarządu z doświadczeniem w analizie umów, dokumentacji projektowej, notatek ze spotkań, dokumentów finansowych i rekrutacyjnych. Pracujesz precyzyjnie, rzeczowo i w języku polskim.
+
+TWOJE ZADANIE
+Przekształć dostarczony, często chaotyczny tekst w przejrzystą, ustrukturyzowaną notatkę biznesową zgodną z wybranym TRYBEM ANALIZY.
+
+ZASADY OGÓLNE
+1. Najpierw rozpoznaj typ dokumentu (np. umowa, notatka ze spotkania, faktura, CV, oferta, e-mail, regulamin, protokół) i zaznacz go w pierwszej linii.
+2. Opieraj się WYŁĄCZNIE na treści dokumentu. Niczego nie dopowiadaj. Jeśli informacji brakuje, napisz wprost „brak w dokumencie”. Wnioski i interpretacje wyraźnie oznaczaj jako „(wniosek)”.
+3. Zachowuj dokładność: kwoty z walutą, daty w formacie DD.MM.RRRR (jeśli podano tylko dzień tygodnia lub termin względny, przepisz go dosłownie i dodaj adnotację), nazwy własne, numery dokumentów, nazwiska – bez zmian.
+4. Pisz zwięźle: krótkie punkty zamiast długich akapitów, kluczowe informacje **pogrubione**.
+5. Używaj Markdown: nagłówki ##, listy punktowane, tabele (gdy porządkują dane), checklisty „- [ ]” dla zadań.
+6. Jeśli tekst jest zbyt krótki lub nie nadaje się do analizy w danym trybie, krótko to wyjaśnij i zrób to, co jest możliwe.
+
+TRYB A – „Podsumowanie + Lista zadań [Action Items]”
+Struktura:
+**Typ dokumentu:** …
+## 📌 Podsumowanie (TL;DR)
+2–4 zdania: o co chodzi, co ustalono, jaki jest stan.
+## 🔑 Najważniejsze ustalenia
+Lista punktowana kluczowych faktów, decyzji i liczb.
+## ✅ Lista zadań (Action Items)
+Tabela: | # | Zadanie | Odpowiedzialny | Termin | Priorytet |
+Odpowiedzialny i termin – tylko jeśli wynikają z tekstu, inaczej „do ustalenia”. Priorytet (Wysoki/Średni/Niski) oceń na podstawie kontekstu.
+## ❓ Otwarte kwestie
+Sprawy nierozstrzygnięte, wymagające decyzji lub doprecyzowania.
+
+TRYB B – „Wyciągnięcie kluczowych danych i terminów”
+Struktura:
+**Typ dokumentu:** …
+## 🧾 Strony i osoby
+Podmioty, osoby, role, dane identyfikacyjne (NIP, KRS, adresy, kontakty) – tylko jeśli występują.
+## 📅 Terminy i daty
+Tabela: | Data / termin | Czego dotyczy | Uwagi | – w porządku chronologicznym.
+## 💰 Kwoty i warunki finansowe
+Kwoty, stawki, waluty, VAT, warunki płatności, kary, rabaty.
+## 📋 Pozostałe kluczowe dane
+Przedmiot, parametry, ilości, numery dokumentów, lokalizacje, wymagania, kompetencje (dla CV: doświadczenie, umiejętności, wykształcenie, języki).
+Na końcu: **Dane do weryfikacji:** – wartości niejednoznaczne, sprzeczne lub nieczytelne.
+
+TRYB C – „Ocena ryzyka i brakujących informacji”
+Struktura:
+**Typ dokumentu:** …   **Ogólny poziom ryzyka:** 🔴 Wysoki / 🟠 Średni / 🟢 Niski – z jednozdaniowym uzasadnieniem.
+## ⚠️ Zidentyfikowane ryzyka
+Dla każdego ryzyka: **nazwa** – opis, poziom (🔴/🟠/🟢), fragment/podstawa w tekście, rekomendacja. Rozważ ryzyka prawne, finansowe, operacyjne, terminowe, reputacyjne i dotyczące danych osobowych (RODO).
+## 🧩 Brakujące lub niejasne informacje
+Czego brakuje, a powinno się znaleźć w dokumencie tego typu (np. kary umowne, warunki rozwiązania, odpowiedzialność, SLA, właściwość sądu, terminy płatności, osoby odpowiedzialne).
+## 🛠️ Rekomendowane działania
+Lista priorytetowych kroków przed podpisaniem / akceptacją / wdrożeniem.
+Na końcu dodaj krótką adnotację kursywą: *Analiza ma charakter pomocniczy i nie stanowi porady prawnej.*
+
+Zwracaj wyłącznie gotową notatkę w Markdown, bez wstępów typu „Oto analiza”.`;
+
+    const SYSTEM_OFFER = `Jesteś Ekspertem ds. Sprzedaży B2B i Copywriterem Sprzedażowym, specjalizującym się w spersonalizowanych propozycjach współpracy (cold outreach, oferty po pierwszym kontakcie). Łączysz metodologie SPIN Selling, Challenger Sale i język korzyści (FAB: cecha → zaleta → korzyść). Piszesz poprawną, naturalną i angażującą polszczyzną biznesową.
+
+TWOJE ZADANIE
+Na podstawie nazwy firmy klienta, jego branży, opisu naszego produktu/usługi oraz głównego problemu klienta przygotuj spersonalizowaną, perswazyjną propozycję współpracy, którą można wysłać jako e-mail lub dołączyć jako krótki dokument ofertowy.
+
+ZASADY
+1. Personalizacja: odwołuj się do nazwy firmy klienta i specyfiki jego branży (typowe procesy, wyzwania, sezonowość, regulacje, KPI). Klient ma poczuć, że oferta powstała dla niego, a nie z szablonu.
+2. Język korzyści: każda cecha produktu musi zostać przełożona na mierzalny lub odczuwalny efekt dla klienta (oszczędność czasu, pieniędzy, redukcja ryzyka, wzrost przychodów, spokój, przewaga konkurencyjna). Używaj formy „Państwo zyskują…”, „dzięki temu…”.
+3. Uczciwość: NIE wymyślaj konkretnych statystyk, referencji, nazw klientów, certyfikatów, cen ani gwarancji, których nie podano w opisie produktu. Jeśli chcesz zobrazować skalę korzyści, użyj sformułowań warunkowych („może skrócić…”, „pozwala ograniczyć…”) lub zaproponuj wspólne policzenie potencjału na spotkaniu.
+4. Styl: konkretnie, energicznie, bez korpomowy i pustych frazesów („kompleksowe rozwiązania”, „lider rynku”, „synergia”). Krótkie akapity, aktywna strona czasownika, zwracanie się do klienta per „Państwo”.
+5. Długość: zwięźle – całość do przeczytania w ok. 2 minuty (ok. 250–400 słów).
+
+OBOWIĄZKOWA STRUKTURA (Markdown)
+**Temat wiadomości:** <chwytliwy, spersonalizowany temat z nazwą firmy klienta, maks. ok. 60 znaków>
+
+---
+
+## 🎯 <Hak przyciągający uwagę – nagłówek>
+1–3 zdania otwarcia: trafna obserwacja branżowa, prowokujące pytanie lub nazwanie kosztu status quo. Bez przedstawiania się na początku.
+
+## 🔍 Rozumiemy Państwa wyzwanie
+Pokaż empatię i zrozumienie problemu klienta w kontekście jego branży: konsekwencje biznesowe, „ukryte koszty”, wpływ na zespół i klientów końcowych.
+
+## 💡 Nasze rozwiązanie
+Przedstaw produkt/usługę jako odpowiedź na opisany problem. Następnie lista 3–5 punktów w formacie: **Korzyść dla klienta** – jak ją osiągamy (cecha produktu).
+
+## 🚀 Kolejny krok
+Jasne, niskoprogowe wezwanie do działania (CTA): np. 20-minutowa rozmowa, bezpłatna analiza, demo – z propozycją 2 konkretnych opcji terminu w formie pól do uzupełnienia [dzień, godzina] lub pytaniem o dogodny termin. Dodaj krótkie zdanie zdejmujące ryzyko (np. brak zobowiązań).
+
+Zakończ uprzejmą formułą pożegnalną i podpisem w postaci pól do uzupełnienia: [Imię i Nazwisko], [Stanowisko], [Nazwa firmy], [Telefon].
+
+Zwróć wyłącznie gotową propozycję w Markdown, bez komentarzy i wariantów.`;
+
+    /* =====================================================================
+       DEFINICJE NARZĘDZI
+       ===================================================================== */
+    const ANALYZER_MODES = {
+      summary: { label: 'Podsumowanie + Lista zadań [Action Items]', code: 'TRYB A', hint: 'Krótkie podsumowanie, kluczowe ustalenia, tabela zadań z osobami i terminami oraz otwarte kwestie.' },
+      extract: { label: 'Wyciągnięcie kluczowych danych i terminów', code: 'TRYB B', hint: 'Strony, daty, kwoty, warunki i inne twarde dane w uporządkowanej formie – idealne do umów, faktur i CV.' },
+      risk:    { label: 'Ocena ryzyka i brakujących informacji', code: 'TRYB C', hint: 'Identyfikacja ryzyk prawnych, finansowych i operacyjnych oraz luk w dokumencie wraz z rekomendacjami.' }
+    };
+
+    const TOOLS = {
+      email: {
+        name: 'Asystent Korespondencji B2B',
+        short: 'Korespondencja B2B',
+        subtitle: 'Profesjonalne odpowiedzi na maile od klientów i kontrahentów',
+        icon: 'mail',
+        submitLabel: 'Generuj odpowiedź e-mail',
+        emptyText: 'Wklej treść maila od klienta, wybierz cel i ton, a Gemini przygotuje gotową do wysłania odpowiedź.',
+        resultLabel: 'Odpowiedź e-mail',
+        systemInstruction: SYSTEM_EMAIL,
+        temperature: 0.6,
+        required: ['content'],
+        buildPrompt: (d) => [
+          '### WIADOMOŚĆ OD KLIENTA',
+          '"""', d.content.trim(), '"""',
+          '',
+          `### CEL ODPOWIEDZI\n${d.goal}`,
+          '',
+          `### TON WYPOWIEDZI\n${d.tone}`,
+          '',
+          `### DODATKOWE WYTYCZNE / FAKTY\n${d.facts.trim() || 'Brak dodatkowych wytycznych.'}`,
+          '',
+          'Przygotuj kompletną odpowiedź e-mail zgodnie z instrukcjami.'
+        ].join('\n'),
+        example: {
+          content: `Dzień dobry,
+
+piszę w imieniu firmy Budmax Sp. z o.o. W zeszłym tygodniu (zamówienie nr ZAM/2026/0412) otrzymaliśmy dostawę 40 palet kleju do płytek, z czego 6 palet dotarło uszkodzonych – worki porozrywane, część towaru nie nadaje się do sprzedaży. To już druga taka sytuacja w tym kwartale i szczerze mówiąc, zaczynamy się zastanawiać nad zmianą dostawcy.
+
+Oczekujemy wymiany uszkodzonego towaru najpóźniej do piątku, bo mamy zaplanowane realizacje u naszych klientów. Proszę też o informację, co zamierzacie Państwo zrobić, żeby to się więcej nie powtórzyło.
+
+Z poważaniem,
+Marek Kowalczyk
+Kierownik Zakupów, Budmax Sp. z o.o.`,
+          goal: 'Obsługa reklamacji / łagodzenie konfliktu',
+          tone: 'Uprzejmy i partnerski',
+          facts: 'Wymiana 6 palet możliwa w czwartek; od przyszłego miesiąca wprowadzamy dodatkowe foliowanie palet; podpis: Anna Nowak, Opiekun Klienta Kluczowego, tel. 600 100 200'
+        }
+      },
+
+      analyzer: {
+        name: 'Analizator Dokumentów i Notatek',
+        short: 'Analizator Dokumentów',
+        subtitle: 'Ekstrakcja danych, podsumowania i ocena ryzyka z dowolnego tekstu',
+        icon: 'document',
+        submitLabel: 'Analizuj dokument',
+        emptyText: 'Wklej umowę, notatkę ze spotkania, fakturę lub CV, a otrzymasz przejrzystą, ustrukturyzowaną notatkę.',
+        resultLabel: 'Analiza dokumentu',
+        systemInstruction: SYSTEM_ANALYZER,
+        temperature: 0.2,
+        required: ['content'],
+        buildPrompt: (d) => {
+          const m = ANALYZER_MODES[d.mode] || ANALYZER_MODES.summary;
+          return [
+            `### WYBRANY TRYB ANALIZY\n${m.code} – „${m.label}”`,
+            '',
+            '### TEKST DO ANALIZY',
+            '"""', d.content.trim(), '"""',
+            '',
+            `Przeanalizuj powyższy tekst ściśle według struktury dla ${m.code}.`
+          ].join('\n');
+        },
+        example: {
+          mode: 'summary',
+          content: `notatka spotkanie projekt wdrożenia CRM – 12.11
+obecni: Kasia (PM), Tomek IT, p. Wiśniewski (zarząd), Ola marketing
+
+- Wiśniewski chce żeby CRM ruszył przed Q1, budżet max 85 tys netto, nie więcej
+- Tomek: migracja danych ze starego excela + systemu fakturowego, ok 12 tys rekordów, dużo duplikatów!! trzeba czyścić
+- dostawca (SalesNet) czeka na akceptację umowy, Kasia ma ją przejrzeć do środy
+- Ola chce integracji z newsletterem, nie wiadomo czy w budżecie – do sprawdzenia
+- szkolenia dla handlowców – 2 tury, termin nieustalony
+- ryzyko: urlopy w grudniu, Tomek nieobecny 20.12-03.01
+- następne spotkanie za tydzień, ta sama godzina
+- Tomek przygotuje plan migracji do piątku`
+        }
+      },
+
+      offer: {
+        name: 'Generator Ofert Handlowych',
+        short: 'Generator Ofert',
+        subtitle: 'Spersonalizowane, perswazyjne propozycje współpracy w języku korzyści',
+        icon: 'briefcase',
+        submitLabel: 'Generuj ofertę handlową',
+        emptyText: 'Opisz klienta, jego problem i swój produkt – Gemini przygotuje spersonalizowaną propozycję współpracy.',
+        resultLabel: 'Propozycja współpracy',
+        systemInstruction: SYSTEM_OFFER,
+        temperature: 0.8,
+        required: ['company', 'industry', 'product', 'problem'],
+        buildPrompt: (d) => [
+          `### NAZWA FIRMY KLIENTA\n${d.company.trim()}`,
+          '',
+          `### BRANŻA KLIENTA\n${d.industry.trim()}`,
+          '',
+          '### NASZ PRODUKT / USŁUGA',
+          d.product.trim(),
+          '',
+          '### GŁÓWNY PROBLEM / POTRZEBA KLIENTA',
+          d.problem.trim(),
+          '',
+          'Przygotuj spersonalizowaną propozycję współpracy zgodnie z obowiązkową strukturą: Hak → Zrozumienie problemu → Nasze rozwiązanie → Wezwanie do działania (CTA).'
+        ].join('\n'),
+        example: {
+          company: 'TransLog Polska Sp. z o.o.',
+          industry: 'Transport i spedycja drogowa (flota ok. 60 ciągników)',
+          product: 'FleetSense – system telematyczny SaaS: monitoring GPS w czasie rzeczywistym, analiza stylu jazdy kierowców, automatyczne raporty spalania, alerty serwisowe i integracja z popularnymi systemami TMS. Wdrożenie w 2 tygodnie, abonament miesięczny za pojazd, bez opłat wdrożeniowych.',
+          problem: 'Rosnące koszty paliwa i serwisu, brak wiedzy, którzy kierowcy jeżdżą nieekonomicznie, dyspozytorzy tracą czas na telefony do kierowców, żeby ustalić lokalizację i ETA dla klientów.'
+        }
+      }
+    };
+
+    /* =====================================================================
+       STAN APLIKACJI
+       ===================================================================== */
+    const state = {
+      activeTool: 'email',
+      memoryKey: null,           // gdy localStorage jest niedostępny
+      storageAvailable: true,
+      results: {
+        email:    { status: 'empty', markdown: '', meta: '', notice: '', error: null, startedAt: 0 },
+        analyzer: { status: 'empty', markdown: '', meta: '', notice: '', error: null, startedAt: 0 },
+        offer:    { status: 'empty', markdown: '', meta: '', notice: '', error: null, startedAt: 0 }
+      }
+    };
+
+    const $ = (sel, root = document) => root.querySelector(sel);
+    const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+    /* =====================================================================
+       PRZECHOWYWANIE KLUCZA (localStorage z bezpiecznym fallbackiem)
+       ===================================================================== */
+    function storageGet(key) {
+      try { return window.localStorage.getItem(key); } catch (e) { state.storageAvailable = false; return null; }
+    }
+    function storageSet(key, value) {
+      try { window.localStorage.setItem(key, value); return true; } catch (e) { state.storageAvailable = false; return false; }
+    }
+    function storageRemove(key) {
+      try { window.localStorage.removeItem(key); } catch (e) { state.storageAvailable = false; }
+    }
+
+    function getApiKey() {
+      return storageGet(STORAGE_KEY) || state.memoryKey || '';
+    }
+    function saveApiKey(key) {
+      const ok = storageSet(STORAGE_KEY, key);
+      state.memoryKey = ok ? null : key;
+      return ok;
+    }
+    function deleteApiKey() {
+      storageRemove(STORAGE_KEY);
+      state.memoryKey = null;
+    }
+    function maskKey(key) {
+      if (!key) return '';
+      if (key.length <= 10) return '••••';
+      return key.slice(0, 4) + '…' + key.slice(-4);
+    }
+
+    /* =====================================================================
+       KOMUNIKACJA Z GEMINI API
+       ===================================================================== */
+    class GeminiError extends Error {
+      constructor({ title, message, hints = [], details = '', isKeyProblem = false, retryable = true }) {
+        super(message);
+        this.title = title;
+        this.hints = hints;
+        this.details = details;
+        this.isKeyProblem = isKeyProblem;
+        this.retryable = retryable;
+      }
+    }
+
+    function parseRetryDelay(errObj) {
+      const details = (errObj && errObj.details) || [];
+      for (const d of details) {
+        if (d && typeof d.retryDelay === 'string') {
+          const s = parseFloat(d.retryDelay);
+          if (!isNaN(s)) return Math.ceil(s);
+        }
+      }
+      return null;
+    }
+
+    function mapApiError(httpStatus, body, rawText) {
+      const err = (body && body.error) || {};
+      const apiMsg = err.message || '';
+      const apiStatus = err.status || '';
+      const reasons = (err.details || []).map(d => d && d.reason).filter(Boolean);
+      const details = `HTTP ${httpStatus}${apiStatus ? ' · ' + apiStatus : ''}${reasons.length ? ' · ' + reasons.join(', ') : ''}\n${apiMsg || rawText || ''}`.trim();
+
+      const keyInvalid = reasons.includes('API_KEY_INVALID') || /api key not valid|api_key_invalid|invalid api key/i.test(apiMsg);
+      if (keyInvalid) {
+        return new GeminiError({
+          title: 'Nieprawidłowy klucz API',
+          message: 'Google odrzucił podany klucz. Klucz jest błędny, został usunięty lub skopiowano go niekompletnie.',
+          hints: ['Skopiuj klucz ponownie z Google AI Studio (bez spacji na początku i końcu).', 'Upewnij się, że to klucz Gemini API, zaczynający się od „AIza”.', 'Zaktualizuj klucz w Ustawieniach API.'],
+          details, isKeyProblem: true, retryable: false
+        });
+      }
+      if (/location is not supported|user location/i.test(apiMsg)) {
+        return new GeminiError({
+          title: 'Region nieobsługiwany',
+          message: 'Gemini API nie jest dostępne w lokalizacji, z której wysyłane jest zapytanie.',
+          hints: ['Sprawdź, czy nie korzystasz z VPN lub proxy ustawionego na nieobsługiwany kraj.'],
+          details, retryable: false
+        });
+      }
+      switch (httpStatus) {
+        case 400:
+          return new GeminiError({
+            title: 'Nieprawidłowe zapytanie',
+            message: 'Serwer Gemini nie mógł przetworzyć zapytania.',
+            hints: ['Spróbuj skrócić wklejony tekst lub usunąć nietypowe znaki.', 'Jeśli problem się powtarza, sprawdź szczegóły techniczne poniżej.'],
+            details
+          });
+        case 401:
+        case 403:
+          return new GeminiError({
+            title: 'Brak uprawnień do Gemini API',
+            message: 'Klucz został rozpoznany, ale nie ma dostępu do tego modelu lub usługi.',
+            hints: ['Upewnij się, że w projekcie Google Cloud włączono „Generative Language API”.', 'Jeśli klucz ma ograniczenia (HTTP referrer / IP / API), dodaj tę stronę lub zdejmij ograniczenia.', 'Wygeneruj nowy klucz w Google AI Studio.'],
+            details, isKeyProblem: true, retryable: false
+          });
+        case 404:
+          return new GeminiError({
+            title: 'Model niedostępny',
+            message: `Model „${MODEL}” nie jest dostępny dla tego klucza lub endpointu.`,
+            hints: ['Sprawdź w Google AI Studio, czy model jest dostępny na Twoim koncie.'],
+            details, retryable: false
+          });
+        case 429: {
+          const wait = parseRetryDelay(err);
+          return new GeminiError({
+            title: 'Przekroczono limit zapytań',
+            message: wait ? `Osiągnięto limit zapytań dla Twojego klucza. Spróbuj ponownie za ok. ${wait} s.` : 'Osiągnięto limit zapytań (na minutę lub dzienny) dla Twojego klucza API.',
+            hints: ['Odczekaj chwilę i ponów próbę.', 'W planie darmowym obowiązują limity zapytań na minutę i na dzień – szczegóły w Google AI Studio.', 'Rozważ włączenie płatnego planu w Google AI Studio, aby zwiększyć limity.'],
+            details
+          });
+        }
+        case 500:
+          return new GeminiError({ title: 'Błąd serwera Google', message: 'Wystąpił wewnętrzny błąd po stronie Gemini API.', hints: ['Spróbuj ponownie za kilka sekund.', 'Przy bardzo długich tekstach spróbuj je skrócić.'], details });
+        case 503:
+          return new GeminiError({ title: 'Model jest przeciążony', message: 'Gemini jest chwilowo przeciążony dużą liczbą zapytań.', hints: ['Spróbuj ponownie za kilkanaście sekund.'], details });
+        case 504:
+          return new GeminiError({ title: 'Przekroczono czas odpowiedzi', message: 'Serwer Gemini nie zdążył przetworzyć zapytania.', hints: ['Spróbuj ponownie lub skróć tekst wejściowy.'], details });
+        default:
+          return new GeminiError({ title: `Nieoczekiwany błąd (HTTP ${httpStatus})`, message: apiMsg || 'Gemini API zwróciło nieoczekiwaną odpowiedź.', hints: ['Spróbuj ponownie za chwilę.'], details });
+      }
+    }
+
+    function networkError(e) {
+      if (e && e.name === 'AbortError') {
+        return new GeminiError({
+          title: 'Przekroczono czas oczekiwania',
+          message: `Brak odpowiedzi od Gemini w ciągu ${Math.round(REQUEST_TIMEOUT_MS / 1000)} sekund.`,
+          hints: ['Sprawdź połączenie z internetem.', 'Spróbuj ponownie lub skróć tekst wejściowy.'],
+          details: String(e && e.message || e)
+        });
+      }
+      if (!navigator.onLine) {
+        return new GeminiError({
+          title: 'Brak połączenia z internetem',
+          message: 'Twoje urządzenie jest offline. Zapytanie nie mogło zostać wysłane.',
+          hints: ['Sprawdź połączenie Wi-Fi lub kabel sieciowy.', 'Po przywróceniu połączenia kliknij „Spróbuj ponownie”.'],
+          details: String(e && e.message || e)
+        });
+      }
+      return new GeminiError({
+        title: 'Nie udało się połączyć z Gemini API',
+        message: 'Połączenie z serwerem Google zostało przerwane lub zablokowane.',
+        hints: ['Sprawdź połączenie z internetem.', 'Zapora sieciowa, VPN, proxy firmowe lub rozszerzenie przeglądarki (np. blokujące reklamy) mogą blokować adres generativelanguage.googleapis.com.', 'Jeśli uruchamiasz aplikację w środowisku z ograniczonym dostępem do sieci (np. podgląd w piaskownicy), otwórz plik bezpośrednio w przeglądarce.'],
+        details: String(e && e.message || e)
+      });
+    }
+
+    async function postJson(url, payload) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      let res;
+      try {
+        res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+      } catch (e) {
+        throw networkError(e);
+      } finally {
+        clearTimeout(timer);
+      }
+      const raw = await res.text();
+      let body = null;
+      try { body = raw ? JSON.parse(raw) : null; } catch (e) { body = null; }
+      return { res, body, raw };
+    }
+
+    async function callGemini({ apiKey, systemInstruction, userText, temperature }) {
+      const url = `${API_BASE}/${MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const payload = {
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        contents: [{ role: 'user', parts: [{ text: userText }] }],
+        generationConfig: {
+          temperature,
+          topP: 0.95,
+          maxOutputTokens: 8192
+        }
+      };
+
+      let attempt = 0;
+      let lastError = null;
+      while (attempt < 2) {
+        attempt++;
+        const { res, body, raw } = await postJson(url, payload);
+        if (res.ok) return parseGeminiResponse(body, raw);
+        lastError = mapApiError(res.status, body, raw);
+        // Jedna automatyczna ponowna próba przy chwilowym przeciążeniu
+        if ((res.status === 503 || res.status === 500) && attempt < 2) {
+          setLoadingStep('Serwer przeciążony – ponawiam próbę…');
+          await new Promise(r => setTimeout(r, 2000));
+          continue;
+        }
+        break;
+      }
+      throw lastError;
+    }
+
+    function parseGeminiResponse(body, raw) {
+      if (!body) {
+        throw new GeminiError({ title: 'Nieczytelna odpowiedź', message: 'Serwer zwrócił odpowiedź w nieoczekiwanym formacie.', details: (raw || '').slice(0, 1000) });
+      }
+      const feedback = body.promptFeedback;
+      if (feedback && feedback.blockReason) {
+        throw new GeminiError({
+          title: 'Zapytanie zablokowane przez filtry bezpieczeństwa',
+          message: 'Gemini odmówił przetworzenia treści ze względu na zasady bezpieczeństwa.',
+          hints: ['Usuń z tekstu treści, które mogą zostać uznane za wrażliwe, i spróbuj ponownie.'],
+          details: `blockReason: ${feedback.blockReason}`
+        });
+      }
+      const cand = (body.candidates || [])[0];
+      if (!cand) {
+        throw new GeminiError({ title: 'Pusta odpowiedź', message: 'Model nie zwrócił żadnej treści.', hints: ['Spróbuj ponownie.'], details: JSON.stringify(body).slice(0, 1000) });
+      }
+      const parts = (cand.content && cand.content.parts) || [];
+      const text = parts.filter(p => typeof p.text === 'string' && !p.thought).map(p => p.text).join('').trim();
+      const finish = cand.finishReason || '';
+
+      if (!text) {
+        if (finish === 'SAFETY' || finish === 'PROHIBITED_CONTENT' || finish === 'BLOCKLIST' || finish === 'SPII') {
+          throw new GeminiError({ title: 'Odpowiedź zablokowana', message: 'Wygenerowana treść została zablokowana przez filtry bezpieczeństwa Google.', hints: ['Przeformułuj dane wejściowe i spróbuj ponownie.'], details: `finishReason: ${finish}` });
+        }
+        if (finish === 'MAX_TOKENS') {
+          throw new GeminiError({ title: 'Przekroczono limit długości', message: 'Model wyczerpał limit tokenów, zanim zdążył wygenerować odpowiedź.', hints: ['Skróć tekst wejściowy i spróbuj ponownie.'], details: `finishReason: ${finish}` });
+        }
+        throw new GeminiError({ title: 'Pusta odpowiedź', message: 'Model nie zwrócił treści.', hints: ['Spróbuj ponownie.'], details: `finishReason: ${finish || 'brak'}` });
+      }
+
+      let notice = '';
+      if (finish === 'MAX_TOKENS') notice = 'Odpowiedź została ucięta, ponieważ osiągnęła maksymalną długość. Rozważ skrócenie tekstu wejściowego.';
+      else if (finish && finish !== 'STOP') notice = `Generowanie zakończyło się nietypowo (${finish}). Zweryfikuj kompletność wyniku.`;
+
+      const usage = body.usageMetadata || {};
+      return { text, notice, usage };
+    }
+
+    async function testApiKey(apiKey) {
+      const url = `${API_BASE}/${MODEL}?key=${encodeURIComponent(apiKey)}`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      let res;
+      try {
+        res = await fetch(url, { method: 'GET', signal: controller.signal });
+      } catch (e) {
+        throw networkError(e);
+      } finally {
+        clearTimeout(timer);
+      }
+      const raw = await res.text();
+      let body = null;
+      try { body = raw ? JSON.parse(raw) : null; } catch (e) { body = null; }
+      if (!res.ok) throw mapApiError(res.status, body, raw);
+      return body;
+    }
+
+    /* =====================================================================
+       RENDEROWANIE MARKDOWN
+       ===================================================================== */
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function renderMarkdown(md) {
+      let html;
+      if (window.marked && typeof window.marked.parse === 'function') {
+        html = window.marked.parse(md, { gfm: true, breaks: true });
+      } else {
+        // Awaryjny renderer, gdy CDN marked.js jest niedostępny
+        html = escapeHtml(md)
+          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+          .replace(/^### (.*)$/gm, '<h3>$1</h3>')
+          .replace(/^## (.*)$/gm, '<h2>$1</h2>')
+          .replace(/^# (.*)$/gm, '<h1>$1</h1>')
+          .replace(/\n/g, '<br>');
+      }
+      if (window.DOMPurify) {
+        html = window.DOMPurify.sanitize(html, { ADD_ATTR: ['target'] });
+      } else if (window.marked) {
+        // Minimalne zabezpieczenie, gdy DOMPurify nie został wczytany
+        html = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/\son\w+="[^"]*"/gi, '');
+      }
+      return html;
+    }
+
+    /* =====================================================================
+       UI: STATUS API
+       ===================================================================== */
+    function renderApiStatus() {
+      const key = getApiKey();
+      const el = $('#apiStatus');
+      const dot = $('#sidebarKeyDot');
+      if (key) {
+        el.innerHTML = `
+          <button type="button" data-action="open-settings" class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition" title="Klucz: ${escapeHtml(maskKey(key))} – kliknij, aby zarządzać">
+            <span class="relative flex h-2.5 w-2.5"><span class="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 pulse-dot"></span><span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span></span>
+            API Aktywne
+            <span class="hidden md:inline font-mono text-[11px] text-emerald-600/80">${escapeHtml(maskKey(key))}</span>
+          </button>`;
+        dot.className = 'h-2 w-2 rounded-full bg-emerald-400';
+      } else {
+        el.innerHTML = `
+          <span class="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700">
+            <span class="h-2.5 w-2.5 rounded-full bg-red-500"></span>
+            Brak klucza API
+          </span>
+          <button type="button" data-action="open-settings" class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition">
+            ${iconSvg('key', 'h-3.5 w-3.5')}<span class="hidden sm:inline">Konfiguruj</span>
+          </button>`;
+        dot.className = 'h-2 w-2 rounded-full bg-red-400';
+      }
+
+      const warn = $('#storageWarning');
+      if (!state.storageAvailable && key) {
+        warn.textContent = 'Przeglądarka blokuje localStorage w tym kontekście – klucz jest przechowywany tylko do czasu odświeżenia strony.';
+        warn.classList.remove('hidden');
+      } else {
+        warn.classList.add('hidden');
+      }
+    }
+
+    /* =====================================================================
+       UI: MENU I NARZĘDZIA
+       ===================================================================== */
+    function renderMenu() {
+      const menu = $('#toolMenu');
+      menu.innerHTML = Object.entries(TOOLS).map(([id, t]) => {
+        const active = id === state.activeTool;
+        const busy = state.results[id].status === 'loading';
+        return `
+          <li>
+            <button type="button" data-tool-link="${id}" class="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${active ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40' : 'text-slate-300 hover:bg-white/10 hover:text-white'}" ${active ? 'aria-current="page"' : ''}>
+              <span class="${active ? 'text-white' : 'text-slate-400 group-hover:text-indigo-300'}">${iconSvg(t.icon, 'h-5 w-5')}</span>
+              <span class="flex-1 text-left">${t.short}</span>
+              ${busy ? `<span class="h-3.5 w-3.5 rounded-full border-2 ${active ? 'border-white/40 border-t-white' : 'border-slate-500 border-t-indigo-300'}" style="animation: spin .8s linear infinite"></span>` : ''}
+            </button>
+          </li>`;
+      }).join('');
+    }
+
+    function setActiveTool(id) {
+      if (!TOOLS[id]) id = 'email';
+      state.activeTool = id;
+      storageSet(STORAGE_TOOL, id);
+      const t = TOOLS[id];
+
+      $('#toolTitle').textContent = t.name;
+      $('#toolSubtitle').textContent = t.subtitle;
+      $('#formIcon').innerHTML = iconSvg(t.icon, 'h-5 w-5');
+      $('#resultEmptyText').textContent = t.emptyText;
+      document.title = `${t.short} · OfficeFlow AI`;
+
+      $$('.tool-form').forEach(f => f.classList.toggle('hidden', f.dataset.tool !== id));
+      renderMenu();
+      renderResult();
+      closeSidebar();
+    }
+
+    function initSubmitButtons() {
+      $$('.tool-form').forEach(form => {
+        const t = TOOLS[form.dataset.tool];
+        const btn = $('.submit-btn', form);
+        btn.className = 'submit-btn inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-200 disabled:cursor-wait disabled:bg-indigo-400 transition';
+        btn.innerHTML = `${iconSvg('sparkles', 'h-5 w-5')}<span>${t.submitLabel}</span>`;
+      });
+    }
+
+    function setFormBusy(toolId, busy) {
+      const form = $(`#form-${toolId}`);
+      const btn = $('.submit-btn', form);
+      btn.disabled = busy;
+      btn.innerHTML = busy
+        ? `<span class="h-4 w-4 rounded-full border-2 border-white/40 border-t-white" style="animation: spin .8s linear infinite"></span><span>Generowanie…</span>`
+        : `${iconSvg('sparkles', 'h-5 w-5')}<span>${TOOLS[toolId].submitLabel}</span>`;
+    }
+
+    /* =====================================================================
+       UI: PANEL WYNIKU
+       ===================================================================== */
+    let loadingTimerId = null;
+    let loadingStepId = null;
+    const LOADING_STEPS = ['Wysyłam dane do Gemini', 'Model analizuje kontekst', 'Stosuję wytyczne biznesowe', 'Redaguję treść', 'Formatuję wynik'];
+
+    function setLoadingStep(text) { $('#loadingStep').textContent = text; }
+
+    function startLoadingAnimation(startedAt) {
+      stopLoadingAnimation();
+      const timerEl = $('#loadingTimer');
+      const tick = () => { timerEl.textContent = ((Date.now() - startedAt) / 1000).toFixed(1).replace('.', ',') + ' s'; };
+      tick();
+      loadingTimerId = setInterval(tick, 100);
+      let i = Math.min(LOADING_STEPS.length - 1, Math.floor((Date.now() - startedAt) / 2500));
+      setLoadingStep(LOADING_STEPS[i]);
+      loadingStepId = setInterval(() => {
+        if (i < LOADING_STEPS.length - 1) { i++; setLoadingStep(LOADING_STEPS[i]); }
+      }, 2500);
+    }
+    function stopLoadingAnimation() {
+      clearInterval(loadingTimerId); clearInterval(loadingStepId);
+      loadingTimerId = loadingStepId = null;
+    }
+
+    function renderResult() {
+      const r = state.results[state.activeTool];
+      const t = TOOLS[state.activeTool];
+      const show = (id) => ['#resultEmpty', '#resultLoading', '#resultError', '#resultContent'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+
+      $('#copyBtn').disabled = r.status !== 'done';
+      $('#clearResultBtn').classList.toggle('hidden', r.status !== 'done' && r.status !== 'error');
+
+      if (r.status === 'loading') {
+        show('#resultLoading');
+        $('#resultMeta').textContent = 'Generowanie w toku…';
+        startLoadingAnimation(r.startedAt);
+        return;
+      }
+      stopLoadingAnimation();
+
+      if (r.status === 'error') {
+        show('#resultError');
+        $('#resultMeta').textContent = 'Wystąpił błąd';
+        const e = r.error;
+        $('#errorTitle').textContent = e.title;
+        $('#errorMessage').textContent = e.message;
+        $('#errorHints').innerHTML = (e.hints || []).map(h => `<li>${escapeHtml(h)}</li>`).join('');
+        $('#errorHints').classList.toggle('hidden', !(e.hints && e.hints.length));
+        $('#errorDetails').textContent = e.details || '';
+        $('#errorDetailsWrap').classList.toggle('hidden', !e.details);
+        $('#errorSettingsBtn').classList.toggle('hidden', !e.isKeyProblem);
+        return;
+      }
+
+      if (r.status === 'done') {
+        show('#resultContent');
+        $('#resultMeta').textContent = `${t.resultLabel} · ${r.meta}`;
+        $('#resultBody').innerHTML = renderMarkdown(r.markdown);
+        $$('#resultBody a').forEach(a => { a.target = '_blank'; a.rel = 'noopener noreferrer'; });
+        const notice = $('#resultNotice');
+        notice.textContent = r.notice || '';
+        notice.classList.toggle('hidden', !r.notice);
+        $('#resultContent').scrollTop = 0;
+        return;
+      }
+
+      show('#resultEmpty');
+      $('#resultMeta').textContent = 'Tu pojawi się wygenerowana treść';
+    }
+
+    /* =====================================================================
+       FORMULARZE: WALIDACJA, LICZNIKI, PRZYKŁADY
+       ===================================================================== */
+    function getFormData(form) {
+      const data = {};
+      $$('input[name], textarea[name], select[name]', form).forEach(el => { data[el.name] = el.value; });
+      return data;
+    }
+
+    function clearFieldError(el) {
+      el.classList.remove('invalid');
+      const errEl = el.parentElement && el.parentElement.querySelector('.field-error');
+      if (errEl) errEl.textContent = '';
+    }
+
+    function validateForm(form, toolId) {
+      const t = TOOLS[toolId];
+      let firstInvalid = null;
+      t.required.forEach(name => {
+        const el = form.elements[name];
+        const empty = !el.value.trim();
+        el.classList.toggle('invalid', empty);
+        const errEl = el.parentElement.querySelector('.field-error');
+        if (errEl) errEl.textContent = empty ? 'To pole jest wymagane.' : '';
+        if (empty && !firstInvalid) firstInvalid = el;
+      });
+      if (firstInvalid) firstInvalid.focus();
+      return !firstInvalid;
+    }
+
+    function updateCounter(el) {
+      const c = $(`[data-counter-for="${el.id}"]`);
+      if (!c) return;
+      const max = parseInt(el.getAttribute('maxlength'), 10);
+      const len = el.value.length;
+      c.textContent = `${len.toLocaleString('pl-PL')} / ${max.toLocaleString('pl-PL')}`;
+      c.classList.toggle('text-amber-600', len > max * 0.9);
+    }
+
+    function updateAnalyzerHint() {
+      const mode = $('#analyzer-mode').value;
+      $('#analyzer-mode-hint').textContent = ANALYZER_MODES[mode].hint;
+    }
+
+    function fillExample() {
+      const id = state.activeTool;
+      const form = $(`#form-${id}`);
+      const ex = TOOLS[id].example;
+      Object.entries(ex).forEach(([name, value]) => {
+        const el = form.elements[name];
+        if (el) { el.value = value; clearFieldError(el); updateCounter(el); }
+      });
+      if (id === 'analyzer') updateAnalyzerHint();
+      toast('Wstawiono przykładowe dane', 'info');
+    }
+
+    function resetForm() {
+      const form = $(`#form-${state.activeTool}`);
+      form.reset();
+      $$('input, textarea, select', form).forEach(el => { clearFieldError(el); updateCounter(el); });
+      if (state.activeTool === 'analyzer') updateAnalyzerHint();
+    }
+
+    /* =====================================================================
+       GŁÓWNA AKCJA: GENEROWANIE
+       ===================================================================== */
+    async function runTool(toolId) {
+      const form = $(`#form-${toolId}`);
+      const tool = TOOLS[toolId];
+      const r = state.results[toolId];
+      if (r.status === 'loading') return;
+
+      if (!validateForm(form, toolId)) {
+        toast('Uzupełnij wymagane pola formularza', 'error');
+        return;
+      }
+
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        openSettings('Aby korzystać z narzędzi, najpierw dodaj swój klucz API Google Gemini.');
+        return;
+      }
+
+      const data = getFormData(form);
+      Object.assign(r, { status: 'loading', error: null, notice: '', startedAt: Date.now() });
+      setFormBusy(toolId, true);
+      renderMenu();
+      if (state.activeTool === toolId) renderResult();
+
+      try {
+        const out = await callGemini({
+          apiKey,
+          systemInstruction: tool.systemInstruction,
+          userText: tool.buildPrompt(data),
+          temperature: tool.temperature
+        });
+        const secs = ((Date.now() - r.startedAt) / 1000).toFixed(1).replace('.', ',');
+        const tokens = out.usage && out.usage.totalTokenCount ? ` · ${out.usage.totalTokenCount.toLocaleString('pl-PL')} tokenów` : '';
+        const time = new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+        Object.assign(r, { status: 'done', markdown: out.text, notice: out.notice, meta: `${time} · ${secs} s${tokens}` });
+        if (state.activeTool !== toolId) toast(`Gotowe: ${tool.short}`, 'success');
+      } catch (e) {
+        const err = e instanceof GeminiError ? e : new GeminiError({ title: 'Nieoczekiwany błąd', message: 'Wystąpił nieoczekiwany błąd aplikacji.', details: String(e && e.stack || e) });
+        Object.assign(r, { status: 'error', error: err });
+        if (state.activeTool !== toolId) toast(`Błąd: ${tool.short} – ${err.title}`, 'error');
+      } finally {
+        setFormBusy(toolId, false);
+        renderMenu();
+        if (state.activeTool === toolId) renderResult();
+      }
+    }
+
+    /* =====================================================================
+       KOPIOWANIE DO SCHOWKA
+       ===================================================================== */
+    async function copyResult() {
+      const r = state.results[state.activeTool];
+      if (r.status !== 'done') return;
+      const body = $('#resultBody');
+      const html = body.innerHTML;
+      const plain = body.innerText.replace(/\n{3,}/g, '\n\n').trim();
+      let ok = false;
+      try {
+        if (navigator.clipboard && window.ClipboardItem && window.isSecureContext) {
+          await navigator.clipboard.write([new ClipboardItem({
+            'text/html': new Blob([html], { type: 'text/html' }),
+            'text/plain': new Blob([plain], { type: 'text/plain' })
+          })]);
+          ok = true;
+        }
+      } catch (e) { ok = false; }
+      if (!ok) {
+        try {
+          if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(plain); ok = true; }
+        } catch (e) { ok = false; }
+      }
+      if (!ok) {
+        const ta = document.createElement('textarea');
+        ta.value = plain;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        ta.remove();
+      }
+      const btn = $('#copyBtn');
+      if (ok) {
+        if (!btn.dataset.original) btn.dataset.original = btn.innerHTML;
+        btn.innerHTML = `${iconSvg('check', 'h-4 w-4')}<span>Skopiowano!</span>`;
+        btn.classList.add('!bg-emerald-600');
+        clearTimeout(btn._resetTimer);
+        btn._resetTimer = setTimeout(() => {
+          btn.innerHTML = btn.dataset.original;
+          btn.classList.remove('!bg-emerald-600');
+        }, 1800);
+      } else {
+        toast('Nie udało się skopiować – zaznacz tekst i użyj Ctrl+C', 'error');
+      }
+    }
+
+    /* =====================================================================
+       MODAL USTAWIEŃ
+       ===================================================================== */
+    let lastFocused = null;
+
+    function setKeyMsg(id, text) {
+      const el = $(id);
+      el.textContent = text || '';
+      el.classList.toggle('hidden', !text);
+    }
+
+    function openSettings(reason) {
+      lastFocused = document.activeElement;
+      const key = getApiKey();
+      const input = $('#apiKeyInput');
+      input.value = key;
+      input.type = 'password';
+      $('#toggleKeyVisibility').innerHTML = iconSvg('eye', 'h-5 w-5');
+      input.classList.remove('invalid');
+      setKeyMsg('#apiKeyError', '');
+      setKeyMsg('#apiKeyWarning', '');
+      setKeyMsg('#apiKeyTestResult', '');
+      $('#deleteKeyBtn').classList.toggle('hidden', !key);
+      const reasonEl = $('#settingsReason');
+      reasonEl.textContent = reason || '';
+      reasonEl.classList.toggle('hidden', !reason);
+      $('#settingsModal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => input.focus(), 30);
+    }
+
+    function closeSettings() {
+      $('#settingsModal').classList.add('hidden');
+      document.body.style.overflow = '';
+      if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+    }
+
+    function validateKeyInput() {
+      const input = $('#apiKeyInput');
+      const value = input.value.trim().replace(/\s+/g, '');
+      input.value = value;
+      setKeyMsg('#apiKeyTestResult', '');
+      if (!value) {
+        input.classList.add('invalid');
+        setKeyMsg('#apiKeyError', 'Pole nie może być puste. Wklej klucz API z Google AI Studio.');
+        setKeyMsg('#apiKeyWarning', '');
+        input.focus();
+        return null;
+      }
+      input.classList.remove('invalid');
+      setKeyMsg('#apiKeyError', '');
+      if (!/^AIza[0-9A-Za-z_\-]{20,}$/.test(value)) {
+        setKeyMsg('#apiKeyWarning', 'Uwaga: klucz nie wygląda na standardowy klucz Gemini (zwykle zaczyna się od „AIza” i ma 39 znaków). Sprawdź go przyciskiem „Testuj połączenie”.');
+      } else {
+        setKeyMsg('#apiKeyWarning', '');
+      }
+      return value;
+    }
+
+    function handleSaveKey(ev) {
+      ev.preventDefault();
+      const value = validateKeyInput();
+      if (!value) return;
+      const persisted = saveApiKey(value);
+      renderApiStatus();
+      closeSettings();
+      toast(persisted ? 'Klucz API zapisany w przeglądarce' : 'Klucz zapisany tymczasowo (localStorage niedostępny)', persisted ? 'success' : 'info');
+    }
+
+    async function handleTestKey() {
+      const value = validateKeyInput();
+      if (!value) return;
+      const btn = $('#testKeyBtn');
+      const res = $('#apiKeyTestResult');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="h-4 w-4 rounded-full border-2 border-slate-300 border-t-indigo-600" style="animation: spin .8s linear infinite"></span>Testowanie…`;
+      try {
+        const info = await testApiKey(value);
+        res.className = 'mt-1.5 text-xs text-emerald-700 font-medium';
+        res.textContent = `✓ Połączenie poprawne – model ${info && info.displayName ? info.displayName : MODEL} jest dostępny dla tego klucza.`;
+      } catch (e) {
+        res.className = 'mt-1.5 text-xs text-red-600';
+        res.textContent = `✗ ${e.title || 'Błąd'}: ${e.message || e}`;
+      } finally {
+        res.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Testuj połączenie';
+      }
+    }
+
+    function handleDeleteKey() {
+      if (!confirm('Czy na pewno usunąć zapisany klucz API z tej przeglądarki?')) return;
+      deleteApiKey();
+      renderApiStatus();
+      $('#apiKeyInput').value = '';
+      $('#deleteKeyBtn').classList.add('hidden');
+      toast('Klucz API został usunięty', 'info');
+    }
+
+    /* =====================================================================
+       SIDEBAR MOBILNY
+       ===================================================================== */
+    function openSidebar() {
+      $('#sidebar').classList.remove('-translate-x-full');
+      $('#sidebarOverlay').classList.remove('hidden');
+    }
+    function closeSidebar() {
+      $('#sidebar').classList.add('-translate-x-full');
+      $('#sidebarOverlay').classList.add('hidden');
+    }
+
+    /* =====================================================================
+       TOASTY
+       ===================================================================== */
+    function toast(message, type = 'info') {
+      const colors = {
+        success: 'bg-emerald-600 text-white',
+        error: 'bg-red-600 text-white',
+        info: 'bg-navy-800 text-white'
+      };
+      const el = document.createElement('div');
+      el.className = `pointer-events-auto fade-in max-w-sm rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg ${colors[type] || colors.info}`;
+      el.setAttribute('role', 'status');
+      el.textContent = message;
+      $('#toastContainer').appendChild(el);
+      setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3200);
+    }
+
+    /* =====================================================================
+       INICJALIZACJA
+       ===================================================================== */
+    function bindEvents() {
+      document.addEventListener('click', (e) => {
+        const toolLink = e.target.closest('[data-tool-link]');
+        if (toolLink) { setActiveTool(toolLink.dataset.toolLink); return; }
+        if (e.target.closest('[data-action="open-settings"]')) { openSettings(); }
+      });
+
+      $$('.tool-form').forEach(form => {
+        form.addEventListener('submit', (e) => { e.preventDefault(); runTool(form.dataset.tool); });
+        form.addEventListener('keydown', (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runTool(form.dataset.tool); }
+        });
+        $$('input, textarea', form).forEach(el => {
+          el.addEventListener('input', () => { clearFieldError(el); updateCounter(el); });
+          updateCounter(el);
+        });
+      });
+
+      $('#analyzer-mode').addEventListener('change', updateAnalyzerHint);
+      $('#fillExampleBtn').addEventListener('click', fillExample);
+      $('#resetFormBtn').addEventListener('click', resetForm);
+      $('#copyBtn').addEventListener('click', copyResult);
+      $('#clearResultBtn').addEventListener('click', () => {
+        Object.assign(state.results[state.activeTool], { status: 'empty', markdown: '', error: null, notice: '', meta: '' });
+        renderResult();
+      });
+      $('#errorRetryBtn').addEventListener('click', () => runTool(state.activeTool));
+      $('#errorSettingsBtn').addEventListener('click', () => openSettings());
+
+      $('#openSettingsBtn').addEventListener('click', () => { closeSidebar(); openSettings(); });
+      $('#closeSettingsBtn').addEventListener('click', closeSettings);
+      $('#settingsBackdrop').addEventListener('click', closeSettings);
+      $('#settingsForm').addEventListener('submit', handleSaveKey);
+      $('#testKeyBtn').addEventListener('click', handleTestKey);
+      $('#deleteKeyBtn').addEventListener('click', handleDeleteKey);
+      $('#apiKeyInput').addEventListener('input', () => {
+        $('#apiKeyInput').classList.remove('invalid');
+        setKeyMsg('#apiKeyError', '');
+        setKeyMsg('#apiKeyTestResult', '');
+      });
+      $('#toggleKeyVisibility').addEventListener('click', () => {
+        const input = $('#apiKeyInput');
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        $('#toggleKeyVisibility').innerHTML = iconSvg(show ? 'eyeSlash' : 'eye', 'h-5 w-5');
+      });
+
+      $('#openSidebarBtn').addEventListener('click', openSidebar);
+      $('#closeSidebarBtn').addEventListener('click', closeSidebar);
+      $('#sidebarOverlay').addEventListener('click', closeSidebar);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (!$('#settingsModal').classList.contains('hidden')) closeSettings();
+          else closeSidebar();
+        }
+      });
+
+      window.addEventListener('storage', (e) => { if (e.key === STORAGE_KEY) renderApiStatus(); });
+      window.addEventListener('offline', () => toast('Utracono połączenie z internetem', 'error'));
+      window.addEventListener('online', () => toast('Połączenie z internetem przywrócone', 'success'));
+    }
+
+    function init() {
+      if (window.marked && typeof window.marked.setOptions === 'function') {
+        window.marked.setOptions({ gfm: true, breaks: true });
+      }
+      hydrateIcons();
+      initSubmitButtons();
+      bindEvents();
+      updateAnalyzerHint();
+      const savedTool = storageGet(STORAGE_TOOL);
+      setActiveTool(TOOLS[savedTool] ? savedTool : 'email');
+      renderApiStatus();
+      if (!getApiKey()) {
+        setTimeout(() => openSettings('Witaj w OfficeFlow AI! Aby rozpocząć, wklej swój klucz API Google Gemini. Klucz zostanie zapisany wyłącznie w tej przeglądarce.'), 400);
+      }
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+  })();
+  </script>
+</body>
+</html>
