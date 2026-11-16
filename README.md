@@ -1,4 +1,4 @@
-# OfficeFlow AI
+# PaperlyAI
 
 Jednoplikowa aplikacja webowa (SaaS, model **BYOK – Bring Your Own Key**) do automatyzacji pracy biurowej z wykorzystaniem Google Gemini API (domyślnie `gemini-3.8-flash`, z automatycznym przełączeniem na `gemini-3.6-flash` przy przeciążeniu; model można zmienić w Ustawieniach API).
 
@@ -27,7 +27,7 @@ Wdróż `index.html` jako Static Site (np. na Render) albo otwórz go w przeglą
 - **Ty decydujesz, co trafia do AI** – „Sprawdź teraz” tylko pobiera listę nowych maili (bez zużywania limitu Gemini). Zaznaczasz, dla których maili przygotować odpowiedź („Przygotuj odpowiedzi” albo „Przygotuj odpowiedź” na karcie) – każdy mail to 1 zapytanie. Lista i przygotowane odpowiedzi zostają po odświeżeniu strony i nie są analizowane ponownie.
 Czyta nieprzeczytane maile, pomija newslettery, powiadomienia i podejrzane wiadomości, a do pozostałych przygotowuje propozycję odpowiedzi. Każdą możesz edytować, poprawić poleceniem („krócej”, „zaproponuj czwartek”), zapisać jako szkic albo zatwierdzić i wysłać w tym samym wątku (z 5 s na cofnięcie).
 - **Załączniki** – PDF-y, zdjęcia oraz pliki Word (.docx) i Excel (.xlsx) z maila (do 4 plików, 7 MB każdy) są analizowane razem z treścią; pozostałe formaty (np. stare .doc/.xls) są oznaczone jako nieprzeanalizowane.
-- **Automatyczne etykiety** – kategoria AI trafia do skrzynki jako etykieta Gmail `OfficeFlow/…` lub kategoria Outlook `OfficeFlow: …`.
+- **Automatyczne etykiety** – kategoria AI trafia do skrzynki jako etykieta Gmail `OfficeFlow/…` (nazwa etykiet pozostała z dawnej nazwy aplikacji, żeby nie dublować istniejących) lub kategoria Outlook `Paperly: …`.
 - **Terminy z kalendarza** – przy prośbie o spotkanie AI proponuje wolne terminy z Kalendarza Google lub Outlooka (w Twoich godzinach pracy), a przycisk „Dodaj do kalendarza” tworzy wydarzenie, opcjonalnie z zaproszeniem dla nadawcy.
 - **Przypomnienia o braku odpowiedzi** – gdy wysłana oferta lub pytanie zostaną bez reakcji przez 2–7 dni, w skrzynce pojawia się karta z gotowym przypomnieniem (maks. dwa przypomnienia na sprawę).
 - **Poranne podsumowanie** (domyślnie wyłączone, 1 zapytanie dziennie po włączeniu w Moich ustawieniach) – przy pierwszym sprawdzeniu poczty po 6:00: najważniejsze sprawy, kto czeka na odpowiedź, kalendarz na dziś.
@@ -152,7 +152,7 @@ Darmowy plan Gemini ma niski limit (np. 20 zapytań dziennie i 5 na minutę na m
 
 Wszystko dzieje się w przeglądarce: klucz Gemini, identyfikatory aplikacji i tokeny logowania są przechowywane lokalnie, a treść maili (wraz z analizowanymi załącznikami), nagrania i dołączone pliki trafiają wyłącznie do Gmail/Microsoft Graph, Kalendarza oraz Gemini API – bez serwera pośredniczącego. Biała lista VAT (Ministerstwo Finansów) dostaje tylko numery NIP sprzedawców, a NBP – zapytanie o kurs EUR. Na darmowym planie Gemini Google może wykorzystywać przesłane treści do ulepszania swoich usług – do danych firmowych i osobowych używaj płatnego planu.
 
-Historia wyników, wersje robocze, baza wiedzy, rejestr umów i papier firmowy również zostają tylko w tej przeglądarce. Nagrania z symulatora rozmowy trafiają do Gemini dopiero przy ocenie, a większe nagrania przesłane przez Files API są usuwane z serwerów Google zaraz po niej. Pracownik usuwa je z menu **Historia**, a technik w **Panelu technika → Dane w tej przeglądarce** może jednym przyciskiem usunąć wszystkie dane OfficeFlow (np. na wspólnym komputerze).
+Historia wyników, wersje robocze, baza wiedzy, rejestr umów i papier firmowy również zostają tylko w tej przeglądarce. Nagrania z symulatora rozmowy trafiają do Gemini dopiero przy ocenie, a większe nagrania przesłane przez Files API są usuwane z serwerów Google zaraz po niej. Pracownik usuwa je z menu **Historia**, a technik w **Panelu technika → Dane w tej przeglądarce** może jednym przyciskiem usunąć wszystkie dane Paperly (np. na wspólnym komputerze).
 
 ## Technologie
 
