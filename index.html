@@ -12197,8 +12197,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     const GOOGLE_REDIRECT_KEY = 'officeflow_google_redirect';
     const googleRedirect = { done: null };
     function googleRedirectUri() { return location.origin + location.pathname; }
-    // Telefony i Safari: okienko Google często nie wraca do strony – od razu przekierowanie
-    function preferGoogleRedirect() { return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (/Safari/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.test(navigator.userAgent)); }
+    // Domyślnie przekierowanie (działa w każdej przeglądarce); okienko tylko po włączeniu officeflow_google_popup=1
+    function preferGoogleRedirect() { return storageGet('officeflow_google_popup') !== '1'; }
     function startGoogleRedirect(purpose, scope, opts = {}) {
       const cid = gmailClientId();
       if (!cid) { toast('Najpierw ustaw identyfikator klienta Google.', 'error'); return; }
