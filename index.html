@@ -9057,7 +9057,7 @@ ZASADY
     };
     const INBOX_DEFAULT_PREFS = {
       tone: 'Uprzejmy i partnerski', maxCount: 10, days: 3, signature: '', context: '', auto: false,
-      autoLabels: true, digest: true, notify: false, useKb: true, followUpDays: 3, workStart: '09:00', workEnd: '17:00', meetingMinutes: 60
+      autoLabels: true, digest: false, notify: false, useKb: true, followUpDays: 3, workStart: '09:00', workEnd: '17:00', meetingMinutes: 60
     };
 
     const SYSTEM_INBOX = `Jesteś asystentem skrzynki pocztowej działającym w imieniu użytkownika – doświadczonego profesjonalisty w polskiej firmie. Łączysz kompetencje specjalisty ds. komunikacji B2B, obsługi klienta i sprzedaży. Piszesz wzorcową, naturalną polszczyzną biznesową (lub w języku wiadomości przychodzącej).
@@ -10073,7 +10073,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       }
     }
     function maybeAutoDigest() {
-      if (!getInboxPrefs().digest || inbox.digestBusy || inbox.queue.length || inbox.working) return;
+      if (!getInboxPrefs().digest || !getInboxPrefs().digestOptIn || inbox.digestBusy || inbox.queue.length || inbox.working) return;
       const d = loadJson(DIGEST_KEY, null);
       if (d && d.date === dayKey()) return;
       if (new Date().getHours() < 6) return;
@@ -10171,7 +10171,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       renderConnections();
       renderInboxList();
       if (!inbox.queue.length) maybeAutoDigest();
-      if (manual) toast(added ? `Nowe wiadomości: ${added}` : 'Brak nowych wiadomości do obsłużenia', added ? 'success' : 'info');
+      saveInboxItems();
+      if (manual || added) toast(added ? `Nowe wiadomości: ${added} – zaznacz, które przeanalizować (nic nie zostało wysłane do AI)` : 'Brak nowych wiadomości do obsłużenia', added ? 'success' : 'info', added ? 6000 : 3200);
       processInboxQueue();
     }
 
@@ -10179,8 +10180,39 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       const item = Object.assign(m, { domId: 'mail-' + (++inbox.domSeq), state: 'queued', analysis: null, draft: '', error: null, showOriginal: false });
       const cached = loadJson(INBOX_KEYS.cache, {})[m.key];
       if (cached && cached.analysis) applyAnalysis(item, cached.analysis);
-      else inbox.queue.push(m.key);
+      else { item.state = 'new'; item.selected = false; }   // nic nie idzie do Gemini bez wyboru użytkownika
       inbox.items.set(m.key, item);
+    }
+    /* ---------- lista maili zapamiętana w przeglądarce (nie znika po odświeżeniu) ---------- */
+    const INBOX_ITEMS_KEY = 'officeflow_inbox_items';
+    const INBOX_VOLATILE = new Set(['domId', 'state', 'analysis', 'draft', 'error', 'showOriginal', 'selected', 'pendingInstruction', 'meeting', 'sendTimer', 'sendAt', 'actionError', 'countdownTimer']);
+    let inboxSaveTimer = 0;
+    function saveInboxItems() {
+      clearTimeout(inboxSaveTimer);
+      inboxSaveTimer = setTimeout(() => {
+        const list = Array.from(inbox.items.values()).filter(it => it.kind !== 'followup' && !['sent', 'drafted'].includes(it.state)).slice(0, 40)
+          .map(it => { const o = {}; Object.keys(it).forEach(k => { if (!INBOX_VOLATILE.has(k) && typeof it[k] !== 'function') o[k] = k === 'body' ? String(it[k] || '').slice(0, 20000) : it[k]; }); return o; });
+        try { localStorage.setItem(INBOX_ITEMS_KEY, JSON.stringify(list)); } catch (e) { /* za mało miejsca – lista wróci po sprawdzeniu poczty */ }
+      }, 300);
+    }
+    function restoreInboxItems() {
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem(INBOX_ITEMS_KEY) || '[]'); } catch (e) { list = []; }
+      const done = getDone();
+      (Array.isArray(list) ? list : []).forEach(m => {
+        if (!m || !m.key || done[m.key] || inbox.items.has(m.key)) return;
+        if (m.date) m.date = new Date(m.date);
+        addInboxItem(m);
+      });
+    }
+    function selectedNewItems() { return Array.from(inbox.items.values()).filter(it => it.state === 'new' && it.selected); }
+    function analyzeSelected(items) {
+      if (!items.length) { toast('Zaznacz maile, dla których przygotować odpowiedź.', 'info'); return; }
+      if (!getApiKey()) { openSettings('Przygotowanie odpowiedzi wymaga klucza Gemini.'); return; }
+      items.forEach(it => { it.state = 'queued'; it.selected = false; it.error = null; inbox.queue.push(it.key); });
+      renderInboxList();
+      renderInboxToolbar();
+      processInboxQueue();
     }
 
     function applyAnalysis(item, a) {
@@ -10429,11 +10461,12 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
 
     /* ---------- render ---------- */
     function inboxCounts() {
-      const c = { ready: 0, queued: 0, noreply: 0, done: 0, followup: 0 };
+      const c = { ready: 0, queued: 0, noreply: 0, done: 0, followup: 0, fresh: 0 };
       for (const it of inbox.items.values()) {
         if (it.state === 'ready' || it.state === 'pending-send') c.ready++;
         else if (it.state === 'queued' || it.state === 'analyzing') c.queued++;
         else if (it.state === 'noreply') c.noreply++;
+        else if (it.state === 'new') c.fresh++;
         else if (it.state === 'followup') c.followup++;
         else if (it.state === 'sent' || it.state === 'drafted') c.done++;
       }
@@ -10459,6 +10492,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       const parts = [];
       if (inbox.lastCheck) parts.push(`Ostatnie sprawdzenie: ${inbox.lastCheck.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}`);
       if (c.ready) parts.push(`gotowe do zatwierdzenia: ${c.ready}`);
+      if (c.fresh) parts.push(`nowe, czekają na Twój wybór: ${c.fresh}`);
       if (c.queued) parts.push(`przygotowuję: ${c.queued}`);
       if (c.followup) parts.push(`brak odpowiedzi od rozmówców: ${c.followup}`);
       if (c.noreply) parts.push(`bez potrzeby odpowiedzi: ${c.noreply}`);
@@ -10466,6 +10500,13 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       if (dBtn) dBtn.disabled = inbox.digestBusy;
       if (getInboxPrefs().auto) parts.push(gmailConnected() || outlookConnected() ? 'automatyczne sprawdzanie włączone (gdy ta karta jest otwarta)' : 'automatyczne sprawdzanie czeka na połączenie skrzynki');
       $('#inboxStatusLine').textContent = parts.join(' · ');
+      let bar = document.getElementById('inboxSelectBar');
+      if (!bar) { bar = document.createElement('div'); bar.id = 'inboxSelectBar'; $('#inboxList').before(bar); }
+      const sel = selectedNewItems().length;
+      bar.className = c.fresh ? 'flex flex-wrap items-center gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-slate-700' : 'hidden';
+      bar.innerHTML = c.fresh ? `<span class="min-w-0 flex-1"><strong class="font-semibold text-slate-900">Nowe maile: ${c.fresh}.</strong> Nic nie zostało wysłane do AI – zaznacz, dla których przygotować odpowiedź. Każdy mail to 1 zapytanie do Gemini.</span>
+        <button type="button" data-inbox-select="all" class="btn-default px-3 py-1.5 text-sm font-medium">${sel === c.fresh ? 'Odznacz wszystkie' : 'Zaznacz wszystkie'}</button>
+        <button type="button" data-inbox-select="run" ${sel ? '' : 'disabled'} class="bg-primary inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white">${iconSvg('sparkles', 'h-4 w-4')}Przygotuj odpowiedzi (${sel})</button>` : '';
       const pause = $('#inboxPause');
       const paused = inbox.pausedUntil > Date.now() && inbox.queue.length && inbox.pauseError;
       pause.classList.toggle('hidden', !paused);
@@ -10627,7 +10668,14 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
 
       let bodyHtml = '';
       const st = item.state;
-      if (st === 'followup') {
+      if (st === 'new') {
+        bodyHtml = `
+          <div class="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2">
+            <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-700"><input type="checkbox" data-mail-select ${item.selected ? 'checked' : ''} />Zaznacz do analizy</label>
+            <span class="text-xs text-slate-500">Nie wysłano do AI</span>
+            <button type="button" data-mail-action="analyze" class="btn-default ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium">${iconSvg('sparkles', 'h-4 w-4')}Przygotuj odpowiedź</button>
+          </div>`;
+      } else if (st === 'followup') {
         bodyHtml = `
           <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <div class="flex items-center gap-2 font-medium">${iconSvg('clock', 'h-4 w-4 shrink-0')}Brak odpowiedzi od ${item.followDays} ${item.followDays === 1 ? 'dnia' : 'dni'}${item.reminders ? ` – wysłano już ${item.reminders} przypomnienie` : ''}.</div>
@@ -10734,9 +10782,10 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       el.replaceWith(next);
     }
 
-    const STATE_ORDER = { 'pending-send': 0, sending: 0, drafting: 0, ready: 1, followup: 2, error: 3, analyzing: 4, queued: 5, noreply: 6, sent: 7, drafted: 7 };
+    const STATE_ORDER = { 'pending-send': 0, sending: 0, drafting: 0, ready: 1, new: 1.5, followup: 2, error: 3, analyzing: 4, queued: 5, noreply: 6, sent: 7, drafted: 7 };
     const INBOX_FILTERS = [
       ['all', 'Wszystkie', () => true],
+      ['new', 'Nowe – do wyboru', i => i.state === 'new'],
       ['ready', 'Do zatwierdzenia', i => ['ready', 'pending-send', 'sending', 'drafting'].includes(i.state)],
       ['followup', 'Przypomnienia', i => i.kind === 'followup' && !['sent', 'drafted'].includes(i.state)],
       ['pending', 'W trakcie', i => ['queued', 'analyzing', 'error'].includes(i.state)],
@@ -10792,6 +10841,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       }
       list.innerHTML = items.map(inboxCardHtml).join('');
       updateInboxBadge();
+      saveInboxItems();
     }
 
     function bindInboxList() {
@@ -10843,6 +10893,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         const action = btn.dataset.mailAction;
         if (action === 'add-event') { createCalendarEvent(item); return; }
         if (action === 'todo') { addMailTodo(item); return; }
+        if (action === 'analyze') { analyzeSelected([item]); return; }
         if (action === 'followup-draft') { regenerate(item, ''); return; }
         if (action === 'followup-snooze') { snoozeFollowUp(item.origKey, 3); removeInboxItem(item); toast('Przypomnę o tej sprawie za 3 dni', 'info'); return; }
         if (action === 'followup-done') { removeFollowUp(item.origKey); removeInboxItem(item); toast('Oznaczono sprawę jako zamkniętą', 'info'); return; }
@@ -11338,6 +11389,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
 
     function initInbox() {
       restoreGmailSession();
+      restoreInboxItems();
       const prefs = getInboxPrefs();
       $('#inboxTone').value = prefs.tone;
       $('#inboxMax').value = String(prefs.maxCount);
@@ -11346,7 +11398,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       $('#adminContext').value = prefs.context;
       $('#inboxAuto').checked = !!prefs.auto;
       $('#prefLabels').checked = !!prefs.autoLabels;
-      $('#prefDigest').checked = !!prefs.digest;
+      $('#prefDigest').checked = !!prefs.digest && !!prefs.digestOptIn;
       $('#prefNotify').checked = !!prefs.notify && 'Notification' in window && Notification.permission === 'granted';
       $('#prefFollowUp').value = String(prefs.followUpDays);
       $('#prefWorkStart').value = prefs.workStart;
@@ -11354,7 +11406,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       $('#prefMeeting').value = String(prefs.meetingMinutes);
       const recomputeSlots = () => Object.values(inbox.calendar).forEach(c => { if (c && c.ok) c.slots = computeSlots(c.events, getInboxPrefs()); });
       $('#prefLabels').addEventListener('change', e => saveInboxPrefs({ autoLabels: e.target.checked }));
-      $('#prefDigest').addEventListener('change', e => saveInboxPrefs({ digest: e.target.checked }));
+      $('#prefDigest').addEventListener('change', e => saveInboxPrefs({ digest: e.target.checked, digestOptIn: e.target.checked }));
       $('#prefFollowUp').addEventListener('change', e => saveInboxPrefs({ followUpDays: parseInt(e.target.value, 10) }));
       $('#prefWorkStart').addEventListener('change', e => { saveInboxPrefs({ workStart: e.target.value || '09:00' }); recomputeSlots(); });
       $('#prefWorkEnd').addEventListener('change', e => { saveInboxPrefs({ workEnd: e.target.value || '17:00' }); recomputeSlots(); });
@@ -11383,6 +11435,20 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         renderInboxList();
       };
       $('#inboxFilters').addEventListener('click', onFilter);
+      $('#inboxList').addEventListener('change', (e) => {
+        if (!e.target.matches('[data-mail-select]')) return;
+        const it = inbox.items.get(e.target.closest('article').dataset.key);
+        if (it) { it.selected = e.target.checked; renderInboxToolbar(); }
+      });
+      document.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-inbox-select]');
+        if (!b) return;
+        if (b.dataset.inboxSelect === 'run') { analyzeSelected(selectedNewItems()); return; }
+        const fresh = Array.from(inbox.items.values()).filter(it => it.state === 'new');
+        const all = fresh.every(it => it.selected);
+        fresh.forEach(it => { it.selected = !all; });
+        renderInboxList(); renderInboxToolbar();
+      });
       $('#inboxList').addEventListener('click', onFilter);
       let searchTimer = null;
       $('#inboxSearch').addEventListener('input', (e) => {

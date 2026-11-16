@@ -24,12 +24,13 @@ Wdróż `index.html` jako Static Site (np. na Render) albo otwórz go w przeglą
 - **Wyszukiwarka Ctrl+K** (⌘K na Macu) – z każdego miejsca: narzędzia i akcje (motyw, Panel technika, klucz Gemini), obsługa strzałkami i Enterem.
 
 ### Skrzynka AI (Gmail, Outlook, Microsoft 365)
+- **Ty decydujesz, co trafia do AI** – „Sprawdź teraz” tylko pobiera listę nowych maili (bez zużywania limitu Gemini). Zaznaczasz, dla których maili przygotować odpowiedź („Przygotuj odpowiedzi” albo „Przygotuj odpowiedź” na karcie) – każdy mail to 1 zapytanie. Lista i przygotowane odpowiedzi zostają po odświeżeniu strony i nie są analizowane ponownie.
 Czyta nieprzeczytane maile, pomija newslettery, powiadomienia i podejrzane wiadomości, a do pozostałych przygotowuje propozycję odpowiedzi. Każdą możesz edytować, poprawić poleceniem („krócej”, „zaproponuj czwartek”), zapisać jako szkic albo zatwierdzić i wysłać w tym samym wątku (z 5 s na cofnięcie).
 - **Załączniki** – PDF-y, zdjęcia oraz pliki Word (.docx) i Excel (.xlsx) z maila (do 4 plików, 7 MB każdy) są analizowane razem z treścią; pozostałe formaty (np. stare .doc/.xls) są oznaczone jako nieprzeanalizowane.
 - **Automatyczne etykiety** – kategoria AI trafia do skrzynki jako etykieta Gmail `OfficeFlow/…` lub kategoria Outlook `OfficeFlow: …`.
 - **Terminy z kalendarza** – przy prośbie o spotkanie AI proponuje wolne terminy z Kalendarza Google lub Outlooka (w Twoich godzinach pracy), a przycisk „Dodaj do kalendarza” tworzy wydarzenie, opcjonalnie z zaproszeniem dla nadawcy.
 - **Przypomnienia o braku odpowiedzi** – gdy wysłana oferta lub pytanie zostaną bez reakcji przez 2–7 dni, w skrzynce pojawia się karta z gotowym przypomnieniem (maks. dwa przypomnienia na sprawę).
-- **Poranne podsumowanie** – przy pierwszym sprawdzeniu poczty po 6:00: najważniejsze sprawy, kto czeka na odpowiedź, kalendarz na dziś.
+- **Poranne podsumowanie** (domyślnie wyłączone, 1 zapytanie dziennie po włączeniu w Moich ustawieniach) – przy pierwszym sprawdzeniu poczty po 6:00: najważniejsze sprawy, kto czeka na odpowiedź, kalendarz na dziś.
 - **Biblioteka gotowych odpowiedzi** – fragmenty firmowe (z Panelu technika, trafiają do linku zaproszenia) i osobiste; AI je wykorzystuje, a do odpowiedzi wstawisz je jednym kliknięciem.
 - **Powiadomienia przeglądarki** – o nowych propozycjach, braku odpowiedzi i podsumowaniu dnia, gdy karta jest w tle.
 - **Filtry i wyszukiwarka** – widoki *Do zatwierdzenia*, *Przypomnienia*, *W trakcie*, *Bez odpowiedzi*, *Obsłużone* z licznikami oraz wyszukiwanie po nadawcy, temacie i streszczeniu (bez względu na polskie znaki).
