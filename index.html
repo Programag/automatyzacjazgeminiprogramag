@@ -817,6 +817,27 @@
     .ob-type-mini { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 12px; border-radius: 999px; font-size: 14px; font-weight: 500; color: var(--fg); box-shadow: inset 0 0 0 1px rgb(var(--c-slate-300)); }
     .ob-type-mini[aria-pressed="true"] { box-shadow: inset 0 0 0 2px rgb(var(--btn-pri)); background: rgb(var(--btn-pri) / .07); }
     @media (max-width: 520px) { .ob-types { grid-template-columns: 1fr; } .ob-panel { padding: 28px 18px 20px; } }
+    /* ===== Własne pola wyboru i suwaki (zamiast systemowych) ===== */
+    input[type="checkbox"] { -webkit-appearance: none; appearance: none; display: inline-grid; place-content: center; flex: none; width: 18px; height: 18px; margin: 0; border-radius: 6px; border: 1.5px solid rgb(var(--c-slate-400)); background: rgb(var(--c-canvas)); cursor: pointer; vertical-align: middle; transition: background-color .15s, border-color .15s, box-shadow .2s; }
+    input[type="checkbox"]::before { content: ""; width: 10px; height: 10px; background: #fff; transform: scale(0); transition: transform .2s var(--ease-spring); clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0, 43% 62%); }
+    input[type="checkbox"]:checked { background: rgb(var(--btn-pri)); border-color: rgb(var(--btn-pri)); }
+    input[type="checkbox"]:checked::before { transform: scale(1); }
+    input[type="checkbox"]:indeterminate { background: rgb(var(--btn-pri)); border-color: rgb(var(--btn-pri)); }
+    input[type="checkbox"]:indeterminate::before { transform: scale(1); height: 2px; clip-path: none; border-radius: 2px; }
+    input[type="checkbox"]:not(:disabled):hover { border-color: rgb(var(--btn-pri)); box-shadow: 0 0 0 4px rgb(var(--btn-pri) / .12); }
+    input[type="checkbox"]:not(:disabled):active { transform: scale(.9); }
+    input[type="checkbox"]:focus-visible { outline: 2px solid rgb(var(--btn-pri)); outline-offset: 2px; }
+    input[type="checkbox"]:disabled { opacity: .5; cursor: not-allowed; }
+    input[type="checkbox"].h-4 { width: 18px; height: 18px; }
+    .md-output input[type="checkbox"] { width: 16px; height: 16px; border-radius: 5px; }
+    input[type="range"] { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px; background: rgb(var(--c-slate-200)); cursor: pointer; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: rgb(var(--btn-pri)); border: 3px solid rgb(var(--c-canvas)); box-shadow: 0 1px 4px rgb(var(--shadow-color) / .35); transition: transform .15s; }
+    input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: rgb(var(--btn-pri)); border: 3px solid rgb(var(--c-canvas)); box-shadow: 0 1px 4px rgb(var(--shadow-color) / .35); }
+    input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.15); }
+    input[type="range"]:focus-visible { outline: 2px solid rgb(var(--btn-pri)); outline-offset: 4px; }
+    input[type="date"], input[type="time"] { color-scheme: light; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) input[type="date"], :root:not([data-theme="light"]) input[type="time"] { color-scheme: dark; } }
+    :root[data-theme="dark"] input[type="date"], :root[data-theme="dark"] input[type="time"] { color-scheme: dark; }
   </style>
 </head>
 
