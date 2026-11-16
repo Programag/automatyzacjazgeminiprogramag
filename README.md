@@ -110,7 +110,16 @@ Przed wysłaniem linku technik powinien:
 
 ## Limity Gemini
 
-Darmowy plan Gemini ma niski limit (np. 20 zapytań dziennie i 5 na minutę na model), a każdy przeanalizowany mail, każde dyktowanie i każdy wiersz w Przetwarzaniu listy to jedno zapytanie. Do codziennej pracy – zwłaszcza kilku osób – włącz płatny plan (Billing) w Google AI Studio. Po wyczerpaniu limitu aplikacja przełącza się na drugi model, a Skrzynka AI wstrzymuje kolejkę do odnowienia limitu.
+Darmowy plan Gemini ma niski limit (np. 20 zapytań dziennie i 5 na minutę na model), a każdy przeanalizowany mail, każde dyktowanie i każdy wiersz w Przetwarzaniu listy to jedno zapytanie. Do codziennej pracy – zwłaszcza kilku osób – włącz płatny plan (Billing) w Google AI Studio.
+
+**Oszczędzanie limitu** – aplikacja nie wysyła zapytań, które Google na pewno odrzuci:
+- Każdy model jest pytany najwyżej raz na jedno polecenie. Przy przeciążeniu (błąd 503) albo braku odpowiedzi aplikacja przechodzi na model zapasowy z osobnym limitem (`gemini-3.7-flash`, potem `gemini-3.6-flash`) i nie ponawia w kółko tego samego modelu.
+- Przeciążony model „odpoczywa” 2, 4, 8, 16, a potem 30 minut, a model z wyczerpanym limitem dziennym jest pomijany do jego odnowienia. Ten stan jest zapamiętany w przeglądarce, także po odświeżeniu strony.
+- Gdy wszystkie modele są przeciążone lub bez limitu, nic nie jest wysyłane. Pracownik widzi godzinę, o której warto spróbować, i przycisk „Spróbuj mimo to” (wysyła jedno zapytanie).
+- Skrzynka AI, Przetwarzanie listy i Windykacja przy przeciążeniu zatrzymują całą kolejkę, zamiast próbować każdego kolejnego maila czy wiersza.
+- Ponowne wysłanie identycznych danych pokazuje wynik z historii bez zapytania do Gemini (z przyciskiem „Wygeneruj od nowa”).
+- Gdy przepisanie dyktowania się nie uda, nagranie zostaje zachowane i przycisk „Ponów przepisanie” wysyła je ponownie, bez ponownego dyktowania.
+- Panel technika pokazuje osobno zapytania udane i odrzucone przez Google.
 
 ## Prywatność
 

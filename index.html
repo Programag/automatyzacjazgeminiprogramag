@@ -1005,6 +1005,7 @@
 
               <!-- Wynik -->
               <div id="resultContent" class="hidden absolute inset-0 overflow-y-auto scroll-thin p-5 sm:p-7">
+                <div id="resultReuse" class="hidden mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900"><span id="resultReuseText" class="min-w-0 flex-1"></span><button type="button" id="resultReuseBtn" class="shrink-0 font-semibold underline underline-offset-2 hover:no-underline">Wygeneruj od nowa</button></div>
                 <div id="resultNotice" class="hidden mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"></div>
                 <article id="resultBody" class="md-output fade-in"></article>
                 <div id="resultExtras"></div>
@@ -1518,17 +1519,14 @@
        ===================================================================== */
     const DEFAULT_MODEL = 'gemini-3.8-flash';
     const FALLBACK_MODEL = 'gemini-3.6-flash';
-    const MODEL_SUGGESTIONS = ['gemini-3.8-flash', FALLBACK_MODEL];
+    const MODEL_SUGGESTIONS = ['gemini-3.8-flash', 'gemini-3.7-flash', FALLBACK_MODEL];
     const STORAGE_MODEL = 'officeflow_gemini_model';
     const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
     const STORAGE_KEY = 'officeflow_gemini_api_key';
     const STORAGE_TOOL = 'officeflow_active_tool';
-    const HEADERS_TIMEOUT_MS = 45000;   // maks. czas na rozpoczęcie odpowiedzi przez Gemini
+    const HEADERS_TIMEOUT_MS = 60000;   // maks. czas na rozpoczęcie odpowiedzi (dłużej = mniej przerwanych i ponownie wysłanych zapytań)
     const HEADERS_TIMEOUT_LONG_MS = 150000; // obliczenia kodem i nagrania: model najpierw liczy / słucha, potem odpowiada
-    const OVERLOAD_COOLDOWN_MS = 15 * 60 * 1000; // jak długo omijać przeciążony model
     const IDLE_TIMEOUT_MS = 120000;     // maks. przerwa między kolejnymi fragmentami odpowiedzi
-    const MAX_ATTEMPTS = 3;             // automatyczne ponawianie przy przeciążeniu serwerów Google
-    const RETRY_DELAYS_MS = [3000, 8000];
     const STORAGE_THINKING = 'officeflow_thinking_level';
     const DEFAULT_THINKING = 'low';
     const THINKING_LEVELS = ['low', 'medium', 'high'];
@@ -2590,8 +2588,6 @@ Na końcu kursywą: *To analiza informacyjna, nie porada prawna. Przy dużych kw
       memoryKey: null,           // gdy localStorage jest niedostępny
       memoryModel: null,
       memoryThinking: null,
-      overloadedUntil: {},
-      dailyExhausted: {},        // model -> do kiedy wyczerpany dzienny limit
       storageAvailable: true,
       results: Object.fromEntries(Object.keys(TOOLS).map(id => [id, { status: 'empty', markdown: '', data: null, meta: '', notice: '', error: null, startedAt: 0 }]))
     };
@@ -3041,101 +3037,167 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       return parts;
     }
 
-    // Który model zapytać w danej próbie: przy przeciążeniu głównego przechodzimy na model zapasowy
-    function modelUsable(m) { return !((state.dailyExhausted[m] || 0) > Date.now()); }
-    function modelForAttempt(primary, attempt) {
-      const candidates = primary === FALLBACK_MODEL ? [primary] : [primary, FALLBACK_MODEL];
-      const usable = candidates.filter(modelUsable);
-      if (!usable.length) return primary;          // wszystkie limity wyczerpane – zapytanie zwróci czytelny błąd
-      if (usable.length === 1) return usable[0];
-      if ((state.overloadedUntil[primary] || 0) > Date.now()) return FALLBACK_MODEL;
-      return attempt === 1 ? primary : FALLBACK_MODEL;
+    /* =====================================================================
+       OSZCZĘDZANIE LIMITU GEMINI
+       Stan modeli (przeciążenie, wyczerpany limit dzienny, brak dostępu) jest zapamiętany
+       w przeglądarce – aplikacja nie wysyła zapytań, które Google na pewno odrzuci,
+       nie ponawia w kółko tego samego przeciążonego modelu i nie wysyła ponownie
+       identycznych danych, dla których ma już wynik.
+       ===================================================================== */
+    const HEALTH_KEY = 'officeflow_model_health';
+    const EXTRA_FALLBACKS = ['gemini-3.7-flash'];   // osobne limity dzienne – większa szansa na odpowiedź
+    function healthAll() { const h = loadJson(HEALTH_KEY, {}); return h && typeof h === 'object' && !Array.isArray(h) ? h : {}; }
+    function healthOf(m) { return healthAll()[m] || {}; }
+    function setHealth(m, patch) { const all = healthAll(); all[m] = Object.assign({}, all[m], patch); saveJson(HEALTH_KEY, all); }
+    function modelBlockedUntil(m) {
+      const h = healthOf(m);
+      if (h.unavailableUntil && h.unavailableUntil > Date.now()) return h.unavailableUntil;
+      return Math.max(h.overloadedUntil || 0, h.exhaustedUntil || 0);
+    }
+    function markOverloaded(m) {
+      // Kolejne przeciążenia wydłużają przerwę: 2, 4, 8, 16, 30 min
+      const fails = Math.min((healthOf(m).fails || 0) + 1, 6);
+      setHealth(m, { fails, overloadedUntil: Date.now() + Math.min(2 * 60000 * 2 ** (fails - 1), 30 * 60000) });
+    }
+    function markHealthy(m) { const h = healthOf(m); if (h.fails || h.overloadedUntil) setHealth(m, { fails: 0, overloadedUntil: 0 }); }
+    function markExhausted(m, secs) { setHealth(m, { exhaustedUntil: Date.now() + Math.min(secs || 3600, 86400) * 1000 }); }
+    function modelChain(primary) {
+      return [...new Set([primary, ...(/^gemini-3\./.test(primary) ? EXTRA_FALLBACKS : []), FALLBACK_MODEL])];
+    }
+    function earliestUnblock(chain) {
+      const now = Date.now();
+      const ts = chain.map(modelBlockedUntil).filter(t => t > now);
+      return ts.length ? Math.min(...ts) : now + 60000;
+    }
+    function notSentError(chain) {
+      const now = Date.now();
+      const live = chain.filter(m => !((healthOf(m).unavailableUntil || 0) > now));
+      const exhausted = live.filter(m => (healthOf(m).exhaustedUntil || 0) > now);
+      const at = new Date(earliestUnblock(live.length ? live : chain));
+      const when = at.toDateString() === new Date().toDateString() ? `ok. ${hhmm(at)}` : `ok. ${at.toLocaleString('pl-PL', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}`;
+      const daily = live.length > 0 && exhausted.length === live.length;
+      return Object.assign(new GeminiError({
+        title: daily ? 'Wyczerpano dzienny limit Gemini' : 'Gemini jest teraz przeciążony',
+        message: daily
+          ? `Dzienny limit wszystkich dostępnych modeli (${exhausted.join(', ')}) jest wyczerpany. Odnowi się ${when}. Nic nie zostało wysłane.`
+          : `Serwery Google odrzucały ostatnie zapytania (przeciążenie), więc aplikacja wstrzymała wysyłanie do ${when}, żeby nie zużywać limitu. Nic nie zostało wysłane.`,
+        hints: daily
+          ? ['Włącz płatny plan (Billing) w Google AI Studio – limity rosną do tysięcy zapytań dziennie.']
+          : ['Przeciążenie po stronie Google zwykle mija w ciągu kilku–kilkunastu minut.', 'Jeśli to pilne, kliknij „Spróbuj mimo to” – aplikacja wyśle jedno zapytanie.'],
+        details: chain.map(m => { const h = healthOf(m); return `${m}: ${h.exhaustedUntil > now ? 'limit dzienny do ' + new Date(h.exhaustedUntil).toLocaleString('pl-PL') : h.overloadedUntil > now ? 'przeciążony do ' + hhmm(new Date(h.overloadedUntil)) : h.unavailableUntil > now ? 'niedostępny dla klucza' : 'dostępny'}`; }).join('\n')
+      }), { notSent: true, transient: !daily, dailyQuota: daily, httpStatus: daily ? 429 : 503, retryAfter: Math.max(30, Math.ceil((at - now) / 1000)) });
+    }
+    function recordRejected(model) {
+      const all = loadJson(USAGE_KEY, {});
+      const day = dayKey();
+      all[day] = all[day] || {};
+      const m = all[day][model] = all[day][model] || { req: 0, input: 0, output: 0 };
+      m.rejected = (m.rejected || 0) + 1;
+      saveJson(USAGE_KEY, all);
+    }
+    // Podpis zapytania – te same dane = ten sam wynik bez ponownego wysyłania
+    function hashStr(str) {
+      let h1 = 0x811c9dc5, h2 = 0x01000193;
+      for (let i = 0; i < str.length; i++) {
+        const c = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ c, 16777619) >>> 0;
+        h2 = Math.imul(h2 ^ c, 2246822519) >>> 0;
+      }
+      return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0') + str.length.toString(36);
     }
 
-    async function callGemini({ apiKey, model, systemInstruction, userText, turns, temperature, thinkingLevel, responseSchema, attachments, codeExecution, maxOutputTokens, mediaResolution, onText, onStatus, signal }) {
+    async function callGemini({ apiKey, model, systemInstruction, userText, turns, temperature, thinkingLevel, responseSchema, attachments, codeExecution, maxOutputTokens, mediaResolution, onText, onStatus, signal, force }) {
       let useThinking = true;
       let useSchema = !!responseSchema;
       let useCode = !!codeExecution;
       let useMediaRes = mediaResolution || null;
       let extraNotice = '';
-      for (let attempt = 1; ; attempt++) {
-        const current = modelForAttempt(model, attempt);
+      const chain = modelChain(model);
+      const tried = new Set();
+      let lastErr = null, sent = 0, minuteWaits = 0;
+      for (;;) {
+        if (signal && signal.aborted) throw networkError(null, 'cancel');
+        const now = Date.now();
+        // Pierwszy model, który nie jest przeciążony, ma limit i jest dostępny; „Spróbuj mimo to” pomija tylko przeciążenie
+        const current = chain.find(m => !tried.has(m) && (modelBlockedUntil(m) <= now
+          || (force && !sent && !((healthOf(m).exhaustedUntil || 0) > now) && !((healthOf(m).unavailableUntil || 0) > now))));
+        if (!current) {
+          if (lastErr) {
+            if (lastErr.dailyQuota) {
+              const ex = chain.filter(m => (healthOf(m).exhaustedUntil || 0) > Date.now());
+              if (ex.length > 1) lastErr.message = lastErr.message.replace(/dla modelu \S+\./, `dla modeli: ${ex.join(', ')}.`);
+            }
+            if (sent > 1) lastErr.hints = [`Aplikacja spróbowała ${sent} modeli (${[...tried].join(', ')}) – każdy odpowiedział błędem, więc dalsze zapytania wstrzymano, żeby nie zużywać limitu.`, ...(lastErr.hints || [])];
+            throw lastErr;
+          }
+          throw notSentError(chain);
+        }
         const url = `${API_BASE}/${encodeURIComponent(current)}:streamGenerateContent?alt=sse`;
         const payload = buildPayload({ model: current, systemInstruction, userText, turns, temperature, thinkingLevel: useThinking ? thinkingLevel : null, responseSchema: useSchema ? responseSchema : null, attachments, codeExecution: useCode, maxOutputTokens, mediaResolution: useMediaRes });
         try {
           // Obliczenia kodem i nagrania dźwięku/wideo potrzebują więcej czasu przed pierwszym fragmentem odpowiedzi
           const slow = !!payload.tools || (attachments || []).some(a => /^(audio|video)\//.test(a.mimeType || ''));
+          sent++;
           const acc = await streamOnce({ url, apiKey, payload, onText, signal, headersTimeout: slow ? HEADERS_TIMEOUT_LONG_MS : HEADERS_TIMEOUT_MS });
           const result = Object.assign(finalizeResponse(acc), { modelUsed: current });
           if (extraNotice) result.notice = [result.notice, extraNotice].filter(Boolean).join(' ');
+          markHealthy(current);
           recordUsage(current, result.usage);
           return result;
         } catch (e) {
           if (!(e instanceof GeminiError) || e.cancelled) throw e;
-          // Model odrzucił parametr poziomu rozumowania – ponów bez niego (nie liczy się jako próba)
-          if (useThinking && payload.generationConfig.thinkingConfig && e.httpStatus === 400 && /thinking/i.test(e.details || '')) {
-            useThinking = false;
-            attempt--;
-            continue;
-          }
-          // Model odrzucił schemat JSON – ponów bez niego (prompt i tak wymaga JSON)
-          if (useSchema && e.httpStatus === 400 && /schema|mime/i.test(e.details || '')) {
-            useSchema = false;
-            attempt--;
-            continue;
-          }
-          // Model nie obsługuje obliczeń kodem lub rozdzielczości wideo – ponów bez nich
+          // Model odrzucił parametr (rozumowanie, schemat JSON, obliczenia kodem, rozdzielczość wideo) – ten sam model bez niego
+          if (useThinking && payload.generationConfig.thinkingConfig && e.httpStatus === 400 && /thinking/i.test(e.details || '')) { useThinking = false; continue; }
+          if (useSchema && e.httpStatus === 400 && /schema|mime/i.test(e.details || '')) { useSchema = false; continue; }
           if (useCode && e.httpStatus === 400 && /code.?execution|tool/i.test(e.details || '')) {
             useCode = false;
             extraNotice = 'Ten model nie obsługuje obliczeń kodem – liczby policzył model językowy, sprawdź je.';
-            attempt--;
             continue;
           }
-          if (useMediaRes && e.httpStatus === 400 && /media.?resolution/i.test(e.details || '')) {
-            useMediaRes = null;
-            attempt--;
-            continue;
-          }
-          if (e.partial) throw e; // część odpowiedzi już dotarła – nie powtarzamy
-          if (e.transient && current === model && model !== FALLBACK_MODEL) {
-            state.overloadedUntil[model] = Date.now() + OVERLOAD_COOLDOWN_MS;
-          }
-          // Dzienny limit jednego modelu – przejdź na drugi model (każdy ma osobny limit)
-          if (e.dailyQuota) {
-            state.dailyExhausted[current] = Date.now() + Math.min(e.retryAfter, 86400) * 1000;
-            const alt = modelForAttempt(model, attempt + 1);
-            if (alt !== current && modelUsable(alt) && attempt < MAX_ATTEMPTS && !(signal && signal.aborted)) {
-              if (onStatus) onStatus(`Dzienny limit ${current} wyczerpany – przełączam na ${alt}…`);
+          if (useMediaRes && e.httpStatus === 400 && /media.?resolution/i.test(e.details || '')) { useMediaRes = null; continue; }
+          if (e.partial) throw e;   // część odpowiedzi już dotarła – nie powtarzamy
+          // Limit na minutę – w narzędziach czekamy (maks. 2 razy) na tym samym modelu; kolejki wstrzymują się same
+          if (e.httpStatus === 429 && !e.dailyQuota) {
+            recordRejected(current);
+            if (onStatus && e.retryAfter <= 90 && minuteWaits < 2 && !(signal && signal.aborted)) {
+              minuteWaits++;
+              const until = Date.now() + (e.retryAfter + 1) * 1000;
+              for (let left = Math.ceil((until - Date.now()) / 1000); left > 0; left = Math.ceil((until - Date.now()) / 1000)) {
+                onStatus(`Limit zapytań na minutę (darmowy plan Gemini) – ponawiam automatycznie za ${left} s…`);
+                await sleep(Math.min(1000, until - Date.now()), signal);
+              }
+              onStatus(`Czekam na odpowiedź ${current}…`);
               continue;
             }
-          }
-          // Limit na minutę (darmowy plan: kilka zapytań/min) – w narzędziach czekamy i ponawiamy sami;
-          // Skrzynka AI (bez onStatus) ma własną kolejkę, która wstrzymuje się do odnowienia limitu
-          if (e.httpStatus === 429 && !e.dailyQuota && onStatus && e.retryAfter <= 90 && attempt < MAX_ATTEMPTS && !(signal && signal.aborted)) {
-            const until = Date.now() + (e.retryAfter + 1) * 1000;
-            for (let left = Math.ceil((until - Date.now()) / 1000); left > 0; left = Math.ceil((until - Date.now()) / 1000)) {
-              onStatus(`Limit zapytań na minutę (darmowy plan Gemini) – ponawiam automatycznie za ${left} s…`);
-              await sleep(Math.min(1000, until - Date.now()), signal);
-            }
-            onStatus(`Próba ${attempt + 1} z ${MAX_ATTEMPTS} – czekam na odpowiedź ${current}…`);
-            continue;
-          }
-          if (!e.transient || attempt >= MAX_ATTEMPTS || (signal && signal.aborted)) {
-            if (e.dailyQuota) {
-              const exhausted = Object.keys(state.dailyExhausted).filter(m => state.dailyExhausted[m] > Date.now());
-              if (exhausted.length > 1) e.message = e.message.replace(/dla modelu \S+\./, `dla każdego modelu – wyczerpano je dla: ${exhausted.join(', ')}.`);
-            }
-            if (attempt > 1) e.hints = [`Aplikacja automatycznie ponowiła zapytanie (łącznie prób: ${attempt}).`, ...(e.hints || [])];
             throw e;
           }
-          const next = modelForAttempt(model, attempt + 1);
-          const switching = next !== current;
-          const delay = switching ? 500 : RETRY_DELAYS_MS[Math.min(attempt - 1, RETRY_DELAYS_MS.length - 1)] + Math.round(Math.random() * 1000);
-          if (onStatus) onStatus(switching
-            ? `${current} jest przeciążony – przełączam na ${next}…`
-            : `${e.title} – ponawiam za ${Math.round(delay / 1000)} s (próba ${attempt + 1} z ${MAX_ATTEMPTS})…`);
-          await sleep(delay, signal);
-          if (onStatus) onStatus(`Próba ${attempt + 1} z ${MAX_ATTEMPTS} – czekam na odpowiedź ${next}…`);
+          // Limit dzienny – zapamiętany do odnowienia; przechodzimy na model z osobnym limitem
+          if (e.dailyQuota) {
+            recordRejected(current);
+            markExhausted(current, e.retryAfter);
+            tried.add(current);
+            lastErr = e;
+            const next = chain.find(m => !tried.has(m) && modelBlockedUntil(m) <= Date.now());
+            if (next && onStatus) onStatus(`Dzienny limit ${current} wyczerpany – przełączam na ${next}…`);
+            continue;
+          }
+          // Model niedostępny dla tego klucza – zapasowy pomijamy na tydzień, główny zgłaszamy użytkownikowi
+          if (e.httpStatus === 404 && current !== model) {
+            setHealth(current, { unavailableUntil: Date.now() + 7 * 864e5 });
+            tried.add(current);
+            continue;
+          }
+          // Przeciążenie, błąd serwera lub brak odpowiedzi – model odpoczywa (2–30 min), próbujemy kolejnego, każdy najwyżej raz
+          if (e.transient || e.httpStatus === 500) {
+            recordRejected(current);
+            markOverloaded(current);
+            tried.add(current);
+            lastErr = e;
+            const next = chain.find(m => !tried.has(m) && modelBlockedUntil(m) <= Date.now());
+            if (next && onStatus) onStatus(`${current} jest przeciążony – przełączam na ${next}…`);
+            continue;
+          }
+          throw e;
         }
       }
     }
@@ -3379,6 +3441,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       $('#copyBtn').disabled = r.status !== 'done';
       $('#exportBtn').disabled = r.status !== 'done';
       if (r.status !== 'done') toggleExportMenu(false);
+      if (r.status !== 'done') $('#resultReuse').classList.add('hidden');
       toggleHistoryMenu(false);
       renderRefineBar();
       $('#resultExtras').innerHTML = '';
@@ -3418,6 +3481,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
         modelBtn.textContent = e.suggestedModel ? `Przełącz na ${e.suggestedModel} i spróbuj ponownie` : '';
         modelBtn.classList.toggle('hidden', !e.suggestedModel);
         $('#errorRetryBtn').classList.toggle('hidden', !!e.suggestedModel);
+        $('#errorRetryBtn').textContent = e.notSent && !e.dailyQuota ? 'Spróbuj mimo to' : 'Spróbuj ponownie';
         return;
       }
 
@@ -3431,6 +3495,8 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
         const notice = $('#resultNotice');
         notice.textContent = r.notice || '';
         notice.classList.toggle('hidden', !r.notice);
+        $('#resultReuse').classList.toggle('hidden', !r.reused);
+        if (r.reused) $('#resultReuseText').textContent = `Te same dane co w wyniku z ${fmtWhen(r.reused)} – pokazuję go ponownie bez wysyłania do Gemini, żeby nie zużywać limitu.`;
         if (!keepScroll) $('#resultContent').scrollTop = 0;
         return;
       }
@@ -3555,10 +3621,22 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       if (useCode) fileWarnings = fileWarnings.filter(w => !/AI otrzyma tylko pierwsze/.test(w));
       const hasVideo = attachments.some(a => /^video\//.test(a.mimeType || ''));
       const basePrompt = refine ? r.prompt : [tool.buildPrompt(data, files), useKb ? KB_PROMPT : '', useCode ? CODE_PROMPT : ''].filter(Boolean).join('\n\n');
+      // Te same dane co w niedawnym wyniku → pokazujemy go bez wysyłania do Gemini (oszczędza limit)
+      const sig = refine ? '' : hashStr([toolId, getModel(), basePrompt, attachments.map(a => `${a.name}|${a.size}|${a.mimeType}`).join(';'), useKb ? kbItems.map(k => k.id).join(',') : ''].join('\n'));
+      if (!refine && !opts.fresh) {
+        const prev = (getHistory()[toolId] || []).find(e => e.sig === sig && Date.now() - e.at < 7 * 864e5);
+        if (prev) {
+          Object.assign(r, { status: 'done', markdown: prev.markdown, data: prev.data || null, notice: prev.notice || '', extras: prev.extras || null, error: null, prompt: prev.prompt, input: prev.input, hadFiles: prev.hadFiles, reused: prev.at, meta: `Z historii · ${fmtWhen(prev.at)}${prev.model ? ` · ${prev.model}` : ''}` });
+          delete panels[`tool:${toolId}`];
+          delete panels[`wl:${toolId}`];
+          if (state.activeTool === toolId) renderResult();
+          return;
+        }
+      }
       const userText = refine ? refinePrompt(r, refine) : basePrompt;
       const hadFiles = refine ? !!r.hadFiles : fileList.length > 0;
       const controller = new AbortController();
-      Object.assign(r, { status: 'loading', error: null, notice: '', markdown: '', data: null, extras: null, statusText: '', startedAt: Date.now(), controller });
+      Object.assign(r, { status: 'loading', error: null, notice: '', markdown: '', data: null, extras: null, reused: 0, statusText: '', startedAt: Date.now(), controller });
       setFormBusy(toolId, true);
       renderMenu();
       if (state.activeTool === toolId) renderResult();
@@ -3585,6 +3663,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
           codeExecution: useCode,
           maxOutputTokens: tool.maxOutputTokens ? tool.maxOutputTokens(data) : undefined,
           mediaResolution: hasVideo ? 'MEDIA_RESOLUTION_LOW' : undefined,
+          force: !!opts.force,
           signal: controller.signal,
           // Wyniki w JSON (np. faktury) pokazujemy dopiero po przetworzeniu, bez podglądu na żywo
           onText: tool.responseSchema ? undefined : (text) => {
@@ -3600,8 +3679,9 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
         const secs = ((Date.now() - r.startedAt) / 1000).toFixed(1).replace('.', ',');
         const tokens = out.usage && out.usage.totalTokenCount ? ` · ${out.usage.totalTokenCount.toLocaleString('pl-PL')} tokenów` : '';
         const requested = getModel();
+        const back = modelBlockedUntil(requested);
         const fallbackNotice = out.modelUsed !== requested
-          ? `Model ${requested} jest teraz przeciążony po stronie Google, więc odpowiedzi udzielił ${out.modelUsed}. Przez najbliższe 15 minut aplikacja będzie od razu używać ${out.modelUsed}.`
+          ? `Model ${requested} jest teraz ${(healthOf(requested).exhaustedUntil || 0) > Date.now() ? 'bez dziennego limitu' : 'przeciążony po stronie Google'}, więc odpowiedzi udzielił ${out.modelUsed}.${back > Date.now() ? ` Aplikacja wróci do ${requested} ok. ${hhmm(new Date(back))}.` : ''}`
           : '';
         let markdown = out.text, resultData = null, ppNotice = '';
         if (tool.postprocess) {
@@ -3616,7 +3696,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
           notice: [fallbackNotice, out.notice, ppNotice, fileWarnings.length ? `Nie wszystko z dołączonych plików trafiło do AI – ${fileWarnings.join(' ')}` : '', useCode && extras ? 'Obliczenia wykonano kodem na pełnych danych arkuszy – szczegóły pod wynikiem.' : ''].filter(Boolean).join(' '),
           meta: `${timeNow()} · ${out.modelUsed} · ${secs} s${tokens}${refine ? ' · po poprawce' : ''}`
         });
-        addHistory(toolId, { markdown, data: resultData, notice: r.notice, prompt: basePrompt, input: data, hadFiles, refine, model: out.modelUsed, extras: extras && extras.steps.length ? { steps: extras.steps, images: [] } : null });
+        addHistory(toolId, { sig, markdown, data: resultData, notice: r.notice, prompt: basePrompt, input: data, hadFiles, refine, model: out.modelUsed, extras: extras && extras.steps.length ? { steps: extras.steps, images: [] } : null });
         if (!isActive()) toast(`Gotowe: ${tool.short}`, 'success');
       } catch (e) {
         const err = e instanceof GeminiError ? e : new GeminiError({ title: 'Nieoczekiwany błąd', message: 'Wystąpił nieoczekiwany błąd aplikacji.', details: String(e && e.stack || e) });
@@ -5019,12 +5099,16 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       if (!btn) return;
       const label = btn.querySelector('[data-dictate-label]');
       btn.classList.toggle('!text-red-600', mode === 'rec');
+      btn.classList.toggle('!text-amber-700', mode === 'retry');
       btn.classList.toggle('!bg-red-50', mode === 'rec');
       btn.disabled = mode === 'busy';
       const compact = !label;
       if (mode === 'rec') {
         btn.innerHTML = `<span class="h-2 w-2 rounded-full bg-red-600 pulse-dot"></span>${compact ? '' : `<span data-dictate-label>Zakończ ${fmtDuration(seconds || 0)}</span>`}`;
         btn.title = 'Kliknij, aby zakończyć dyktowanie';
+      } else if (mode === 'retry') {
+        btn.innerHTML = `${iconSvg('refresh', 'h-3.5 w-3.5')}${compact ? '' : '<span data-dictate-label>Ponów przepisanie</span>'}`;
+        btn.title = 'Wyślij zachowane nagranie jeszcze raz';
       } else if (mode === 'busy') {
         btn.innerHTML = `<span class="h-3 w-3 rounded-full border-2 border-slate-300 border-t-slate-700" style="animation: spin .8s linear infinite"></span>${compact ? '' : '<span data-dictate-label>Przepisuję…</span>'}`;
       } else {
@@ -5040,6 +5124,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
     }
     async function toggleDictation(btn) {
       if (dictation.busy) return;
+      if (dictation.pending && dictation.pending.btn === btn && Date.now() - dictation.pending.at < 30 * 60000) { transcribeDictation(dictation.pending); return; }
       if (dictation.rec) {
         if (dictation.btn === btn) finishDictation();
         else toast('Najpierw zakończ bieżące dyktowanie.', 'info');
@@ -5060,14 +5145,19 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       dictation.timer = setTimeout(() => { if (dictation.rec) { toast('Dyktowanie trwa maks. 5 minut – przepisuję nagrany fragment.', 'info'); finishDictation(); } }, DICTATION_MAX_S * 1000);
     }
     async function finishDictation() {
-      const { rec, btn, target } = dictation;
+      const { rec, btn, target, pos } = dictation;
       clearTimeout(dictation.timer);
       dictation.rec = null;
+      const blob = await rec.stop();
+      if (blob.size < 1500) { setDictateBtn(btn, 'idle'); toast('Nagranie jest puste – sprawdź, czy mikrofon działa.', 'error'); return; }
+      transcribeDictation({ blob, btn, target, pos, at: Date.now() });
+    }
+    async function transcribeDictation(job) {
+      const { blob, btn, target } = job;
       dictation.busy = true;
+      dictation.pending = null;
       setDictateBtn(btn, 'busy');
       try {
-        const blob = await rec.stop();
-        if (blob.size < 1500) throw new Error('Nagranie jest puste – sprawdź, czy mikrofon działa.');
         const label = (document.querySelector(`label[for="${target.id}"]`) || {}).textContent || target.getAttribute('aria-label') || target.placeholder || '';
         const out = await callGemini({
           apiKey: getApiKey(), model: getModel(), thinkingLevel: 'low', temperature: 0.1,
@@ -5077,12 +5167,15 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
         });
         const text = out.text.trim();
         if (!text) toast('Nie rozpoznano mowy – spróbuj mówić wyraźniej i bliżej mikrofonu.', 'info');
-        else insertDictated(target, text, dictation.pos);
+        else insertDictated(target, text, job.pos);
+        setDictateBtn(btn, 'idle');
       } catch (e) {
-        toast(`Dyktowanie: ${e instanceof GeminiError ? `${e.title}. ${e.message}` : (e.message || e)}`, 'error', 8000);
+        // Nagranie zostaje – kliknięcie „Ponów” wyśle je jeszcze raz (bez ponownego dyktowania)
+        dictation.pending = job;
+        setDictateBtn(btn, 'retry');
+        toast(`Dyktowanie: ${e instanceof GeminiError ? `${e.title}. ${e.message}` : (e.message || e)} Nagranie zachowano – kliknij „Ponów”, gdy Gemini będzie dostępny.`, 'error', 9000);
       } finally {
         dictation.busy = false;
-        setDictateBtn(btn, 'idle');
       }
     }
     function insertDictated(el, text, pos) {
@@ -5827,9 +5920,12 @@ Załączniki oznaczone „Baza wiedzy firmy” to oficjalne materiały firmy (ce
             if (e && e.cancelled) { it.status = 'pending'; break; }
             it.status = 'error';
             it.error = e instanceof GeminiError ? `${e.title}: ${e.message}` : (e.message || String(e));
-            if (e && (e.dailyQuota || e.httpStatus === 429 || e.isKeyProblem)) {
+            if (e && (e.dailyQuota || e.httpStatus === 429 || e.isKeyProblem || e.notSent || e.transient)) {
+              // Kolejne wiersze trafiłyby na ten sam problem – zatrzymujemy kolejkę, żeby nie zużywać limitu
               it.status = 'pending';
-              q.stopReason = e.dailyQuota ? `Wyczerpano dzienny limit Gemini – wznów po jego odnowieniu (${e.message})` : it.error;
+              q.stopReason = e.dailyQuota ? `Wyczerpano dzienny limit Gemini – wznów po jego odnowieniu (${e.message})`
+                : e.transient || e.notSent ? `Gemini jest przeciążony – zatrzymano, żeby nie zużywać limitu. Kliknij „Wznów” ok. ${hhmm(new Date(earliestUnblock(modelChain(getModel()))))}.`
+                : it.error;
               break;
             }
           }
@@ -6103,12 +6199,12 @@ ZASADY
       const running = !!(batch.q && batch.q.running);
       const total = batch.items.length;
       $('#batchRunBtn').disabled = !total || running;
-      $('#batchRunBtn').innerHTML = `${iconSvg('play', 'h-4 w-4')}${c.done && c.done < total ? `Wznów (${total - c.done})` : `Uruchom dla ${total} ${plForm(total, 'wiersza', 'wierszy', 'wierszy')}`}`;
+      $('#batchRunBtn').innerHTML = `${iconSvg('play', 'h-4 w-4')}${(c.done || (batch.q && batch.q.stopReason)) && c.done < total ? `Wznów (${total - c.done})` : `Uruchom dla ${total} ${plForm(total, 'wiersza', 'wierszy', 'wierszy')}`}`;
       $('#batchTestBtn').disabled = !total || running || (batch.test && batch.test.status === 'running');
       $('#batchStopBtn').classList.toggle('hidden', !running);
       $('#batchDownloads').classList.toggle('hidden', !c.done);
       const pct = total ? Math.round(c.done / total * 100) : 0;
-      $('#batchProgress').innerHTML = total && (c.done || c.error || running) ? `
+      $('#batchProgress').innerHTML = total && (c.done || c.error || running || (batch.q && batch.q.stopReason)) ? `
         <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span class="text-slate-700"><strong class="font-semibold">${c.done}</strong> z ${total} gotowe${c.error ? ` · <span class="text-red-600">${c.error} z błędem</span>` : ''}</span>
           <span class="text-xs text-slate-500">${running ? escapeHtml(batch.q.statusText || 'Przetwarzam…') : ''}</span>
@@ -8081,12 +8177,12 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
             await applyMailLabel(item);
             if (item.state === 'ready') inbox.pendingNotify.push(item);
           } catch (e) {
-            if (e instanceof GeminiError && e.httpStatus === 429) {
+            if (e instanceof GeminiError && (e.httpStatus === 429 || e.notSent || e.transient)) {
               // Limit Gemini: wiadomość wraca do kolejki, a kolejka czeka do odnowienia limitu
               item.state = 'queued';
               item.pendingInstruction = instruction;
               inbox.queue.unshift(key);
-              inbox.pausedUntil = Date.now() + Math.min(e.retryAfter || 60, 86400) * 1000;
+              inbox.pausedUntil = e.retryAfter ? Date.now() + Math.min(e.retryAfter, 86400) * 1000 : Math.max(Date.now() + 60000, earliestUnblock(modelChain(getModel())));
               inbox.pauseError = e;
               renderInboxCard(item);
               renderInboxToolbar();
@@ -9008,7 +9104,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       const usd = (n) => n.toLocaleString('pl-PL', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: n < 1 ? 4 : 2 });
       const tok = (n) => n.toLocaleString('pl-PL');
       const costCell = (x) => x.req ? `${usd(x.cost)}${x.unknown ? '*' : ''}` : '—';
-      const todayModels = Object.entries(all[today] || {});
+      const todayModels = Object.entries(all[today] || {}).filter(([, v]) => v.req || v.rejected);
       const bars = todayModels.length ? todayModels.map(([model, v]) => {
         const pct = Math.min(100, Math.round(v.req / FREE_TIER_DAILY * 100));
         const color = pct >= 100 ? 'bg-red-500' : pct >= 75 ? 'bg-amber-500' : 'bg-emerald-500';
@@ -9019,7 +9115,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
               <span class="text-slate-600"><strong class="font-semibold text-slate-900">${v.req}</strong> ${paid ? 'zapytań' : `z ok. ${FREE_TIER_DAILY} w darmowym planie`}</span>
             </div>
             ${paid ? '' : `<div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div class="h-full ${color}" style="width:${pct}%"></div></div>`}
-            <div class="mt-1.5 text-xs text-slate-500">Tokeny: ${tok(v.input)} wejściowych · ${tok(v.output)} wyjściowych (z „myśleniem”)${usageCost(model, today, v) != null ? ` · koszt ok. ${usd(usageCost(model, today, v))}` : ''}</div>
+            <div class="mt-1.5 text-xs text-slate-500">Tokeny: ${tok(v.input)} wejściowych · ${tok(v.output)} wyjściowych (z „myśleniem”)${usageCost(model, today, v) != null ? ` · koszt ok. ${usd(usageCost(model, today, v))}` : ''}${v.rejected ? ` · <span title="Google odrzucił zapytanie (przeciążenie lub limit) i nie zwrócił odpowiedzi">odrzucone przez Google: ${v.rejected}</span>` : ''}</div>
           </div>`;
       }).join('') : '<p class="text-sm text-slate-500">Dziś w tej przeglądarce nie było jeszcze zapytań do Gemini.</p>';
       const days = Object.keys(all).sort().reverse().slice(0, 7);
@@ -9292,7 +9388,11 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         Object.assign(state.results[state.activeTool], { status: 'empty', markdown: '', error: null, notice: '', meta: '' });
         renderResult();
       });
-      $('#errorRetryBtn').addEventListener('click', () => runTool(state.activeTool));
+      $('#errorRetryBtn').addEventListener('click', () => {
+        const err = state.results[state.activeTool].error;
+        runTool(state.activeTool, { force: !!(err && err.notSent), fresh: true });
+      });
+      $('#resultReuseBtn').addEventListener('click', () => runTool(state.activeTool, { fresh: true }));
       $('#errorSettingsBtn').addEventListener('click', () => openSettings());
       $('#errorModelBtn').addEventListener('click', () => {
         const e = state.results[state.activeTool].error;
