@@ -55,12 +55,34 @@ jobs:
           cp index.html _site/index.html
           test -s _site/index.html
 
+      - name: Przygotuj dane logowania (usuń przypadkowe spacje i znaki nowej linii)
+        id: creds
+        env:
+          RAW_SERVER: ${{ secrets.FTP_SERVER }}
+          RAW_USER: ${{ secrets.FTP_USERNAME }}
+          RAW_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          trim() { printf '%s' "$1" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          server="$(trim "$RAW_SERVER")"; server="${server#ftp://}"; server="${server#ftps://}"; server="${server%/}"
+          user="$(trim "$RAW_USER")"
+          pass="$(trim "$RAW_PASS")"
+          echo "::add-mask::$user"
+          echo "::add-mask::$pass"
+          echo "Serwer: ${server} | długość loginu: ${#user} (w sekrecie: ${#RAW_USER}) | długość hasła: ${#pass} (w sekrecie: ${#RAW_PASS})"
+          [ "${#user}" -ne "${#RAW_USER}" ] && echo "::warning::Login miał spacje lub znaki nowej linii na brzegach – usunięto je."
+          [ "${#pass}" -ne "${#RAW_PASS}" ] && echo "::warning::Hasło miało spacje lub znaki nowej linii na brzegach – usunięto je."
+          {
+            echo "server=$server"
+            echo "username=$user"
+            echo "password=$pass"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Wgraj przez FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
+          server: ${{ steps.creds.outputs.server }}
+          username: ${{ steps.creds.outputs.username }}
+          password: ${{ steps.creds.outputs.password }}
           protocol: ${{ secrets.FTP_PROTOCOL || 'ftps' }}
           server-dir: ${{ secrets.FTP_DIR || '/' }}
           local-dir: ./_site/
