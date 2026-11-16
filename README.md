@@ -34,12 +34,16 @@ Czyta nieprzeczytane maile, pomija newslettery, powiadomienia i podejrzane wiado
 | Dokumenty | **Analizator dokumentów** | podsumowanie + zadania, kluczowe dane i terminy, ocena ryzyka – z tekstu lub pliku; **dokładne obliczenia kodem** dla Excela i CSV |
 | Dokumenty | **Rozmowa z dokumentem** | pytania o umowy, raporty i arkusze w formie czatu – z odwołaniem do paragrafu, strony lub arkusza |
 | Dokumenty | **Porównanie dokumentów** | różnice między wersjami umowy z oceną ryzyka albo porównanie dwóch ofert |
+| Dokumenty | **Porównanie ofert dostawców** | kilka ofert obok siebie: koszt całkowity, termin, gwarancja, płatność, wymagania obowiązkowe, ryzyka i ranking według Twoich wag; argumenty do negocjacji i pytania do dostawców |
 | Dokumenty | **Haczyki w umowie** | umowa prostym językiem: werdykt 🟢🟡🔴, haczyki z cytatami, wszystkie koszty, jak wyjść z umowy, ważne terminy |
+| Dokumenty | **Rejestr umów** | wszystkie umowy firmy z terminami wypowiedzenia, końcami umów i waloryzacjami – przypomnienia, kalendarz, Excel |
 | Dokumenty | **Notatki ze spotkań** | z nagrania (z mikrofonu, telefonu, Teams) lub transkrypcji: podsumowanie, ustalenia, zadania, mail do uczestników, protokół |
 | Finanse | **Faktury i KSeF** | odczyt zdjęć, PDF-ów i plików XML z KSeF, kategorie kosztów, rejestr zakupów VAT do Excela, biała lista VAT |
 | Finanse | **Windykacja** | lista należności z Excela → przypomnienia, wezwania i przedsądowe wezwania z odsetkami i rekompensatą 40/70/100 EUR |
+| Finanse | **Raport dla zarządu** | z arkusza Excel/CSV: najważniejsze w 30 sekund, wskaźniki z porównaniem do poprzedniego okresu lub planu, przyczyny zmian, wykresy, decyzje do podjęcia |
 | Kadry i kariera | **Rekrutacja** | ocena dopasowania CV do ogłoszenia, pytania na rozmowę, zaproszenie lub odmowa dla kandydata |
 | Kadry i kariera | **CV i list motywacyjny** | CV i list dopasowane do ogłoszenia, słowa kluczowe ATS, klauzula RODO – bez wymyślania doświadczenia |
+| Kadry i kariera | **Symulator rozmowy** | próbna rozmowa kwalifikacyjna z AI-rekruterem pod ogłoszenie i CV, odpowiedzi pisemne lub głosowe, ocena każdej odpowiedzi i przykłady lepszych |
 | Automatyzacja | **Przetwarzanie listy** | to samo polecenie AI dla każdego wiersza Excela/CSV (maile, opisy produktów, kategorie, tłumaczenia), wynik w nowej kolumnie |
 
 #### Szczegóły nowych modułów
@@ -52,6 +56,12 @@ Czyta nieprzeczytane maile, pomija newslettery, powiadomienia i podejrzane wiado
 - **Rejestr zakupów VAT** – eksport do Excela (.xlsx) i CSV z rozbiciem netto/VAT na stawki 23/8/5/0%/zw/np, kategorią, MPP i źródłem danych. To uniwersalny układ kolumn do zmapowania w programie księgowym (Optima, Symfonia, wFirma i inne mają własne formaty importu).
 - **Biała lista VAT** – jednym kliknięciem sprawdza w wykazie Ministerstwa Finansów status VAT sprzedawców i to, czy rachunek z faktury jest zgłoszony (ostrzeżenie przy płatnościach powyżej 15 000 zł).
 - **Windykacja** – kolumny z pliku są rozpoznawane automatycznie (można je zmienić), faktury jednego kontrahenta trafiają do jednego pisma. Etap zależy od dni po terminie (domyślnie do 14 dni przypomnienie, do 30 wezwanie, później przedsądowe). Odsetki: kwota × stopa × dni ÷ 365 (stopę wpisuje się z obwieszczenia MF), rekompensata według kursu średniego NBP z ostatniego dnia roboczego miesiąca przed terminem płatności (pobierany automatycznie). Wynik: wszystkie pisma w jednym pliku Word, zestawienie w Excelu, szkice e-maili w Gmailu lub Outlooku (nic nie jest wysyłane automatycznie) i przypomnienia w kalendarzu o sprawdzeniu wpłat.
+- **Papier firmowy** – w Panelu technika: logo (PNG, JPG, SVG – pomniejszane), nazwa firmy, adres i kontakt, stopka (NIP, KRS, konto) i kolor firmowy. Trafia do eksportów Word (nagłówek z logo, stopka z numerami stron „Strona X z Y”) i PDF – pism, ofert, wezwań, raportów, rozmowy z dokumentem. Można go wyłączyć dla pojedynczego eksportu w menu „Eksportuj”; dokumenty osobiste (CV, symulator rozmowy) są zawsze bez papieru. Pracownicy dostają go w pliku z przycisku „Eksportuj dla pracowników” (razem z bazą wiedzy).
+- **Rejestr umów** – umowę dodasz z pliku (AI odczytuje strony, daty, okres i formę wypowiedzenia, automatyczne przedłużenie, wartość, waloryzację i ryzyka – 1 zapytanie, dane do sprawdzenia przed zapisem) albo ręcznie. Gdy umowa nie podaje ostatniego dnia na wypowiedzenie, aplikacja wylicza go z daty końca i okresu wypowiedzenia (oznaczenie „wyliczony”). Status: czerwony do 14 dni, żółty w oknie przypomnienia (14–90 dni, ustawiane dla każdej umowy). Pilne terminy – powiadomienie raz dziennie po otwarciu aplikacji, licznik przy pozycji w menu, a wszystkie terminy jednym kliknięciem do Kalendarza Google, Outlooka lub pliku .ics. Rejestr jest w przeglądarce (IndexedDB); eksport do Excela, kopia zapasowa i wczytanie kopii na innym komputerze.
+- **Zadania do Microsoft To Do** – pod Notatkami ze spotkań, Analizatorem i Raportem dla zarządu: zadania z tabeli w wyniku (bez zapytania do AI; gdy tabeli brak – 1 zapytanie), z osobą, terminem i priorytetem do poprawienia. Trafiają na wybraną listę To Do z terminem i przypomnieniem o 9:00. W Skrzynce AI przycisk „Do zadań” zamienia maila w zadanie (z podsumowaniem i nadawcą). Uprawnienie `Tasks.ReadWrite` jest dodawane przy pierwszym użyciu – logowanie do poczty nie prosi o nie z góry.
+- **Porównanie ofert dostawców** – oferty jako osobne pliki (PDF, Word, Excel, zdjęcia) albo wklejone i oddzielone „---”. AI odczytuje dane i ocenia jakość oraz wiarygodność; punkty za cenę (koszt całkowity z dostawą i montażem), termin, gwarancję i termin płatności liczy aplikacja względem najlepszej oferty, więc wynik jest powtarzalny. Oferty niespełniające wymagań obowiązkowych spadają na koniec. Wagi zmienisz suwakami pod wynikiem – ranking przelicza się bez nowego zapytania. Eksport porównania do Excela.
+- **Raport dla zarządu** – arkusz bieżącego okresu i opcjonalnie poprzedniego okresu lub budżetu; liczby liczone kodem na wszystkich wierszach, 2–3 wykresy (trafiają też do pliku Word), wskaźniki z oceną ✅/⚠️/❌, ryzyka i tabela decyzji, którą od razu wyślesz do Microsoft To Do. Przycisk „Wstaw przykład” dodaje przykładowy arkusz sprzedaży.
+- **Symulator rozmowy kwalifikacyjnej** – rodzaj rozmowy (HR, merytoryczna, z przełożonym, mieszana), 5–12 pytań, poziom i język (polski, angielski, niemiecki). Pytania mogą być czytane na głos (synteza mowy przeglądarki). Odpowiedzi nagrane głosem zostają w przeglądarce do końca rozmowy – cała rozmowa to 2 zapytania do Gemini (pytania i ocena). Ocena: wynik 0–100, mocne strony, co poprawić, transkrypcja nagrań, przykład lepszej odpowiedzi (tylko z faktów z CV), pytania do rekrutera i plan ćwiczeń. „Ćwicz słabsze odpowiedzi” powtarza tylko pytania z oceną do 3/5 (1 zapytanie). Eksport oceny do Worda.
 - **Przetwarzanie listy** – do 2000 wierszy, z testem na pierwszym wierszu, wstawianiem kolumn do polecenia (`{Firma}`), zatrzymywaniem i wznawianiem, ponawianiem błędnych wierszy; przy limicie na minutę aplikacja czeka, po wyczerpaniu dziennego – zatrzymuje się. Wynik: Excel (.xlsx) lub CSV z nową kolumną. Obsługuje CSV zapisane przez polskiego Excela (Windows-1250, średniki).
 
 Narzędzia z polem pliku przyjmują PDF-y, zdjęcia, TXT/CSV oraz **Word (.docx) i Excel (.xlsx)**. Gemini nie czyta plików Office bezpośrednio, więc aplikacja rozpakowuje je w przeglądarce:
@@ -67,7 +77,7 @@ Praca z wynikiem:
 - **Historia** – ostatnie 10 wyników każdego narzędzia (także po poprawkach); kliknięcie przywraca wynik i dane formularza.
 - **Wersje robocze** – wpisane dane formularzy zapisują się na bieżąco i wracają po odświeżeniu strony; „Wyczyść” usuwa wersję roboczą.
 
-Każdy wynik można **wyeksportować**: Word (.docx), PDF (przez okno drukowania), Markdown, tekst, nowa wiadomość w Gmailu / Outlooku / domyślnym programie pocztowym, a dla faktur – Excel (.xlsx: rejestr VAT, zestawienie, pozycje) i CSV.
+Każdy wynik można **wyeksportować**: Word (.docx, z papierem firmowym i wykresami), PDF (przez okno drukowania, z papierem firmowym), Markdown, tekst, nowa wiadomość w Gmailu / Outlooku / domyślnym programie pocztowym, a dla faktur i porównania ofert – Excel (.xlsx) i CSV.
 
 ### Licznik zużycia
 Panel technika pokazuje dzisiejsze i miesięczne zapytania do Gemini, tokeny i szacowany koszt (według cennika Google dla `gemini-3.8-flash`), z paskiem limitu darmowego planu. Licznik działa w danej przeglądarce; pełne zestawienie dla klucza jest w Google AI Studio.
@@ -87,7 +97,7 @@ Instrukcja krok po kroku jest też w aplikacji: **Panel technika → Skrzynki po
 1. [Microsoft Entra → App registrations](https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) → *New registration*.
 2. *Supported account types*: **Accounts in any organizational directory and personal Microsoft accounts**.
 3. *Redirect URI*: platforma **Single-page application (SPA)**, adres strony, np. `https://officeflow-ai.onrender.com/`.
-4. Skopiuj **Application (client) ID** i wklej w aplikacji. W koncie firmowym administrator może musieć zatwierdzić uprawnienia `Mail.ReadWrite`, `Mail.Send`, `Calendars.ReadWrite`, `User.Read`.
+4. Skopiuj **Application (client) ID** i wklej w aplikacji. W koncie firmowym administrator może musieć zatwierdzić uprawnienia `Mail.ReadWrite`, `Mail.Send`, `Calendars.ReadWrite`, `User.Read`, a do zadań w Microsoft To Do – `Tasks.ReadWrite`.
 
 ## Dwa tryby: technik i pracownik
 
@@ -96,8 +106,9 @@ Instrukcja krok po kroku jest też w aplikacji: **Panel technika → Skrzynki po
 2. **Skrzynki pocztowe** – rejestracja aplikacji w Google Cloud (Gmail) i Microsoft Entra (Outlook / Microsoft 365).
 3. **Informacje o firmie dla AI** – fakty wykorzystywane w odpowiedziach wszystkich pracowników, oraz kategorie kosztów do faktur.
 4. **Baza wiedzy firmy** – dokumenty i notatki, z których AI korzysta w Skrzynce AI i narzędziach; eksport pliku dla pracowników.
-5. **Biblioteka gotowych odpowiedzi** – fragmenty firmowe (cennik, dane do przelewu, regulaminy).
-6. **Zaproś pracowników** – link konfiguracyjny i gotowa wiadomość do wysłania (mail, Teams, Slack) oraz lista rzeczy do odhaczenia u Google/Microsoftu.
+5. **Papier firmowy** – logo, dane firmy, stopka i kolor do eksportów Word i PDF (z podglądem).
+6. **Biblioteka gotowych odpowiedzi** – fragmenty firmowe (cennik, dane do przelewu, regulaminy).
+7. **Zaproś pracowników** – link konfiguracyjny i gotowa wiadomość do wysłania (mail, Teams, Slack) oraz lista rzeczy do odhaczenia u Google/Microsoftu.
 
 **Widok pracownika** pokazuje tylko Skrzynkę AI (połącz skrzynkę, podpis, zatwierdzanie odpowiedzi) i narzędzia biurowe – bez kluczy, modeli i konfiguracji. Komunikaty o problemach technicznych kończą się prośbą o kontakt z technikiem.
 
@@ -125,7 +136,7 @@ Darmowy plan Gemini ma niski limit (np. 20 zapytań dziennie i 5 na minutę na m
 
 Wszystko dzieje się w przeglądarce: klucz Gemini, identyfikatory aplikacji i tokeny logowania są przechowywane lokalnie, a treść maili (wraz z analizowanymi załącznikami), nagrania i dołączone pliki trafiają wyłącznie do Gmail/Microsoft Graph, Kalendarza oraz Gemini API – bez serwera pośredniczącego. Biała lista VAT (Ministerstwo Finansów) dostaje tylko numery NIP sprzedawców, a NBP – zapytanie o kurs EUR. Na darmowym planie Gemini Google może wykorzystywać przesłane treści do ulepszania swoich usług – do danych firmowych i osobowych używaj płatnego planu.
 
-Historia wyników i wersje robocze również zostają tylko w tej przeglądarce. Pracownik usuwa je z menu **Historia**, a technik w **Panelu technika → Dane w tej przeglądarce** może jednym przyciskiem usunąć wszystkie dane OfficeFlow (np. na wspólnym komputerze).
+Historia wyników, wersje robocze, baza wiedzy, rejestr umów i papier firmowy również zostają tylko w tej przeglądarce. Nagrania z symulatora rozmowy trafiają do Gemini dopiero przy ocenie, a większe nagrania przesłane przez Files API są usuwane z serwerów Google zaraz po niej. Pracownik usuwa je z menu **Historia**, a technik w **Panelu technika → Dane w tej przeglądarce** może jednym przyciskiem usunąć wszystkie dane OfficeFlow (np. na wspólnym komputerze).
 
 ## Technologie
 
