@@ -11,7 +11,7 @@ Wdróż `index.html` jako Static Site (np. na Render) albo otwórz go w przeglą
 ## Moduły
 
 ### Konto (wersja testowa)
-- **Zakładanie konta** przy pierwszym uruchomieniu: **Kontynuuj z Google** (Google Identity Services – wymaga tego samego Client ID co Gmail, z adresem strony w *Authorized JavaScript origins*) albo konto lokalne z imieniem.
+- **Zakładanie konta** przy pierwszym uruchomieniu: standardowy przycisk **Zaloguj się przez Google** (okno logowania Google; wymaga tego samego Client ID co Gmail, z adresem strony w *Authorized JavaScript origins* – bez niego kliknięcie pokazuje, co uzupełnić) albo konto lokalne z imieniem. Aplikacja odczytuje tylko imię, e-mail i zdjęcie, a dostęp od Google od razu wycofuje.
 - **Firma albo osoba prywatna**: konto firmowe ma wszystkie narzędzia, a nazwa firmy i NIP (sprawdzana suma kontrolna) trafiają do papieru firmowego. Konto prywatne pokazuje narzędzia do spraw osobistych: Skrzynka AI, pisma, korekta, analizator, rozmowa z dokumentem, porównanie dokumentów, haczyki w umowie, rejestr umów, notatki, CV i symulator rozmowy – bez windykacji, faktur, ofert, marketingu, raportów, rekrutacji, przetwarzania list i zapraszania pracowników.
 - **Moje konto** (na dole menu albo Ctrl+K): zmiana typu konta, dane firmy, wylogowanie (klucz, historia i dokumenty zostają).
 - Konto jest zapisane tylko w tej przeglądarce; token z Google jest jedynie odczytywany lokalnie (bez serwera, który by go weryfikował), więc to rozwiązanie do testów, a nie zabezpieczenie dostępu. Dotychczasowi użytkownicy (z kluczem lub z linku firmy) dostają automatycznie konto firmowe.
