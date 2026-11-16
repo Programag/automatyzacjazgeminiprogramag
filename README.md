@@ -10,6 +10,13 @@ Wdróż `index.html` jako Static Site (np. na Render) albo otwórz go w przeglą
 
 ## Moduły
 
+### Strona startowa
+- **Opisz zadanie** – wpisz po swojemu, np. „przygotuj raport sprzedaży dla zarządu” albo „odpisz klientowi na reklamację”, a aplikacja dobierze narzędzie (podpowiedzi pojawiają się w trakcie pisania). Dopasowanie działa w przeglądarce, bez zapytań do Gemini. W Marketingu, Raporcie dla zarządu i Porównaniu ofert dłuższy opis trafia od razu do formularza.
+- **Karty narzędzi** z abstrakcyjnymi grafikami w kolorach grup (generowanymi w przeglądarce), filtrem grup, przechyleniem 3D i światłem podążającym za kursorem.
+- **Kula AI i sieć cząsteczek** reagują na kursor i przyspieszają, gdy AI pracuje; liczniki: czeka w Skrzynce AI, umowy wymagające uwagi, zapytania dziś, dokumenty w bazie wiedzy.
+- **Ostatnie wyniki** – jedno kliknięcie przywraca wynik razem z danymi formularza.
+- **Wyszukiwarka Ctrl+K** (⌘K na Macu) – z każdego miejsca: narzędzia i akcje (motyw, Panel technika, klucz Gemini), obsługa strzałkami i Enterem.
+
 ### Skrzynka AI (Gmail, Outlook, Microsoft 365)
 Czyta nieprzeczytane maile, pomija newslettery, powiadomienia i podejrzane wiadomości, a do pozostałych przygotowuje propozycję odpowiedzi. Każdą możesz edytować, poprawić poleceniem („krócej”, „zaproponuj czwartek”), zapisać jako szkic albo zatwierdzić i wysłać w tym samym wątku (z 5 s na cofnięcie).
 - **Załączniki** – PDF-y, zdjęcia oraz pliki Word (.docx) i Excel (.xlsx) z maila (do 4 plików, 7 MB każdy) są analizowane razem z treścią; pozostałe formaty (np. stare .doc/.xls) są oznaczone jako nieprzeanalizowane.

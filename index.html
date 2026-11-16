@@ -31,7 +31,7 @@
             canvas: 'rgb(var(--c-canvas) / <alpha-value>)',
             primary: { DEFAULT: 'rgb(var(--c-primary) / <alpha-value>)', hover: 'rgb(var(--c-primary-hover) / <alpha-value>)', disabled: 'rgb(var(--c-primary-disabled) / <alpha-value>)' }
           },
-          borderRadius: { lg: '8px', xl: '12px', '2xl': '16px' },
+          borderRadius: { lg: '8px', xl: '12px', '2xl': '20px' },
           boxShadow: {
             card: '0 1px 0 rgb(var(--shadow-color) / 0.04)',
             sm: '0 1px 0 rgb(var(--shadow-color) / 0.04)',
@@ -641,6 +641,174 @@
       .fx-ripple-host { display: none; }
       .spinner { animation: spin 1.6s linear infinite !important; animation-duration: 1.6s !important; animation-iteration-count: infinite !important; }
     }
+
+    /* =====================================================================
+       STYL „AI”: strona startowa, kula AI, karty z grafiką, paleta poleceń,
+       monochromatyczne przyciski z kolorową poświatą
+       ===================================================================== */
+    @property --fx-a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+    :root { --ai-1: 106 90 249; --ai-2: 79 172 254; --ai-3: 67 233 123; --ai-4: 246 211 101; --ai-5: 255 106 136; --ink: 17 17 19; --ink-fg: 255 255 255; --hero-line: 106 90 249; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ink: 242 242 244; --ink-fg: 15 15 18; --hero-line: 140 160 255; } }
+    :root[data-theme="dark"] { --ink: 242 242 244; --ink-fg: 15 15 18; --hero-line: 140 160 255; }
+
+    .grad-text { background: linear-gradient(90deg, rgb(var(--ai-1)), rgb(var(--ai-2)) 30%, rgb(var(--ai-3)) 55%, rgb(var(--ai-5)) 80%, rgb(var(--ai-1))); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; animation: fxFlow 7s linear infinite; }
+    #toolTitle { letter-spacing: -.01em; }
+
+    /* Przyciski główne: czarna (w ciemnym motywie biała) pigułka z kolorową poświatą AI */
+    :is(button.bg-primary, .submit-btn) { border-radius: 999px !important; }
+    :is(button.bg-primary, .submit-btn):not(:disabled) {
+      color: rgb(var(--ink-fg)) !important; text-shadow: none;
+      background-image: linear-gradient(180deg, rgb(255 255 255 / .14), rgb(255 255 255 / 0) 60%), linear-gradient(rgb(var(--ink)), rgb(var(--ink))) !important;
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / .18), 0 1px 2px rgb(0 0 0 / .2), 0 10px 26px -14px rgb(var(--ai-1) / .7);
+    }
+    :is(button.bg-primary, .submit-btn):not(:disabled):hover {
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / .2), 0 14px 30px -12px rgb(var(--ai-1) / .65), -10px 6px 26px -14px rgb(var(--ai-5) / .7), 10px 6px 26px -14px rgb(var(--ai-2) / .75);
+    }
+    :is(button.bg-primary, .submit-btn)::before { background: radial-gradient(130px circle at var(--mx, 50%) var(--my, 50%), rgb(var(--ai-2) / .55), rgb(var(--ai-1) / .28) 40%, transparent 70%) !important; }
+    button.bg-primary:disabled { background-color: rgb(var(--ink)) !important; color: rgb(var(--ink-fg)) !important; }
+    /* Generowanie: pigułka mieni się kolorami AI */
+    .submit-btn:disabled { color: #fff !important; background-image: linear-gradient(90deg, rgb(var(--ai-1)), rgb(var(--ai-2)), rgb(var(--ai-3)), rgb(var(--ai-5)), rgb(var(--ai-1))) !important; background-size: 300% 100%; animation: fxShimmer 2.6s linear infinite; opacity: 1; box-shadow: 0 12px 30px -12px rgb(var(--ai-1) / .7); }
+    .btn-default { border-radius: 999px !important; }
+    .field-input { border-radius: 12px; }
+
+    /* Mała kula AI w nagłówku – przyspiesza, gdy AI pracuje */
+    .ai-dot { position: relative; width: 18px; height: 18px; flex: none; border-radius: 50%; background: conic-gradient(rgb(var(--ai-1)), rgb(var(--ai-2)), rgb(var(--ai-3)), rgb(var(--ai-4)), rgb(var(--ai-5)), rgb(var(--ai-1))); animation: spin 7s linear infinite; box-shadow: 0 0 0 3px rgb(var(--ai-1) / .1); }
+    .ai-dot::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, rgb(255 255 255 / .95), rgb(255 255 255 / .2) 45%, transparent 70%); }
+    body.ai-busy .ai-dot { animation-duration: 1s; box-shadow: 0 0 0 3px rgb(var(--ai-1) / .15), 0 0 16px rgb(var(--ai-2) / .8); }
+
+    /* Wskaźnik pracy (ładowanie wyniku, symulator) – mieniąca się kula zamiast kółka */
+    .spinner { position: relative; width: 56px; height: 56px; border: 0 !important; border-radius: 50%; -webkit-mask: none !important; mask: none !important; filter: none !important;
+      background: conic-gradient(rgb(var(--ai-1)), rgb(var(--ai-2)), rgb(var(--ai-3)), rgb(var(--ai-4)), rgb(var(--ai-5)), rgb(var(--ai-1))) !important;
+      animation: spin 2.4s linear infinite, fxOrbGlow 2.4s ease-in-out infinite !important; }
+    .spinner::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 32% 28%, rgb(255 255 255 / .9), transparent 34%), radial-gradient(circle, transparent 55%, rgb(0 0 0 / .18) 100%); }
+
+    /* Duża kula AI na stronie startowej */
+    .ai-orb { --s: 132px; position: relative; width: var(--s); height: var(--s); margin: 0 auto; isolation: isolate; transform: translate(calc(var(--px, 0) * 16px), calc(var(--py, 0) * 12px)); transition: transform .8s var(--ease-out); }
+    .ai-orb::before { content: ""; position: absolute; inset: -38%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, rgb(var(--ai-1) / .5), rgb(var(--ai-2) / .28) 50%, transparent 74%); filter: blur(14px); animation: fxBreath 5s ease-in-out infinite; }
+    .ai-orb-core { position: absolute; inset: 0; overflow: hidden; border-radius: 50%; background: conic-gradient(rgb(var(--ai-1)), rgb(var(--ai-2)), rgb(var(--ai-3)), rgb(var(--ai-4)), rgb(var(--ai-5)), rgb(var(--ai-1))); animation: spin 10s linear infinite; }
+    .ai-orb-core i { position: absolute; border-radius: 50%; filter: blur(12px); mix-blend-mode: screen; opacity: .85; }
+    .ai-orb-core i:nth-child(1) { width: 70%; height: 70%; left: -8%; top: 18%; background: rgb(var(--ai-2)); animation: fxBlobA 7s ease-in-out infinite; }
+    .ai-orb-core i:nth-child(2) { width: 60%; height: 60%; right: -6%; top: -6%; background: rgb(var(--ai-5)); animation: fxBlobB 9s ease-in-out infinite; }
+    .ai-orb-core i:nth-child(3) { width: 55%; height: 55%; left: 25%; bottom: -12%; background: rgb(var(--ai-3)); animation: fxBlobC 8s ease-in-out infinite; }
+    .ai-orb-shine { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 34% 28%, rgb(255 255 255 / .85), transparent 30%), radial-gradient(circle at 50% 50%, transparent 58%, rgb(0 0 0 / .22) 100%); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .25); }
+    body.ai-busy .ai-orb-core { animation-duration: 2.4s; }
+    body.ai-busy .ai-orb::before { animation-duration: 1.4s; }
+
+    /* Strona startowa */
+    #view-home { max-width: 1240px; }
+    .home-hero { position: relative; overflow: hidden; isolation: isolate; border-radius: 28px; padding: 56px 24px 36px; text-align: center; border: 1px solid rgb(var(--c-slate-300) / .7); background: rgb(var(--c-canvas) / .55); box-shadow: 0 30px 80px -50px rgb(var(--shadow-color) / .5); }
+    .home-hero canvas { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; }
+    .hero-aurora { position: absolute; inset: -25%; z-index: -2; filter: blur(34px); opacity: .9; transform: translate(calc(var(--px, 0) * -18px), calc(var(--py, 0) * -14px)); transition: transform 1.2s var(--ease-out);
+      background: radial-gradient(38% 48% at 22% 30%, rgb(var(--ai-1) / .32), transparent 70%), radial-gradient(34% 44% at 80% 24%, rgb(var(--ai-2) / .3), transparent 70%), radial-gradient(36% 46% at 62% 88%, rgb(var(--ai-3) / .22), transparent 70%), radial-gradient(28% 38% at 30% 86%, rgb(var(--ai-5) / .22), transparent 70%); }
+    .hero-aurora::after { content: ""; position: absolute; inset: 0; background: inherit; animation: fxAurora 16s ease-in-out infinite alternate; opacity: .6; }
+    .hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; margin-top: 26px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; color: rgb(var(--c-slate-700)); background: rgb(var(--c-canvas) / .7); box-shadow: inset 0 0 0 1px rgb(var(--c-slate-300) / .8); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+    .hero-eyebrow b { width: 6px; height: 6px; border-radius: 50%; background: rgb(var(--ai-3)); box-shadow: 0 0 0 0 rgb(var(--ai-3) / .6); animation: fxPingGreen 1.8s ease-out infinite; }
+    .hero-title { margin-top: 14px; font-size: clamp(30px, 4.6vw, 54px); line-height: 1.06; letter-spacing: -.035em; font-weight: 650; color: var(--fg); }
+    .hero-sub { margin-top: 12px; font-size: clamp(15px, 1.6vw, 18px); color: rgb(var(--c-slate-500)); min-height: 1.6em; }
+    .hero-sub .typed { color: var(--fg); font-weight: 600; }
+    .hero-sub .typed::after { content: ""; display: inline-block; width: 2px; height: 1.1em; margin-left: 2px; vertical-align: -0.18em; background: rgb(var(--ai-1)); animation: fxCaret 1s steps(1) infinite; }
+    .hero-ask { position: relative; max-width: 680px; margin: 26px auto 0; display: flex; align-items: center; gap: 8px; padding: 7px 7px 7px 18px; border-radius: 999px; background: rgb(var(--c-canvas) / .88); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: 0 24px 50px -28px rgb(var(--shadow-color) / .55), 0 0 0 1px rgb(var(--c-slate-300) / .9); }
+    .hero-ask::before { content: ""; position: absolute; inset: -2px; border-radius: inherit; padding: 2px; pointer-events: none; opacity: 0; transition: opacity .35s;
+      background: conic-gradient(from var(--fx-a), rgb(var(--ai-1)), rgb(var(--ai-2)), rgb(var(--ai-3)), rgb(var(--ai-4)), rgb(var(--ai-5)), rgb(var(--ai-1)));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: fxAngle 4s linear infinite; }
+    .hero-ask:focus-within::before { opacity: 1; }
+    .hero-ask input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: 16px; color: var(--fg); padding: 8px 0; }
+    .hero-ask input::placeholder { color: rgb(var(--c-slate-400)); }
+    .hero-ask input:focus-visible { outline: none; }
+    .hero-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 14px auto 0; max-width: 760px; min-height: 34px; }
+    .hero-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; font-size: 13px; font-weight: 500; color: var(--fg); background: rgb(var(--c-canvas) / .8); box-shadow: inset 0 0 0 1px rgb(var(--c-slate-300) / .9); animation: fxRise .35s var(--ease-out) both; }
+    .hero-chip:hover { box-shadow: inset 0 0 0 1px rgb(var(--ai-1) / .5), 0 8px 20px -12px rgb(var(--ai-1) / .6); transform: translateY(-1px); }
+    .hero-chip .dot { width: 22px; height: 22px; border-radius: 50%; }
+    .hero-chip.best { box-shadow: inset 0 0 0 1.5px rgb(var(--ai-1) / .65), 0 10px 24px -14px rgb(var(--ai-1) / .8); }
+    .hero-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; max-width: 860px; margin: 30px auto 0; }
+    .stat-tile { text-align: left; padding: 14px 16px; border-radius: 18px; background: rgb(var(--c-canvas) / .72); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: inset 0 0 0 1px rgb(var(--c-slate-300) / .8); }
+    .stat-tile:hover { box-shadow: inset 0 0 0 1px rgb(var(--ai-1) / .45), 0 14px 30px -18px rgb(var(--ai-1) / .6); transform: translateY(-2px); }
+    .stat-tile b { display: block; font-size: 26px; line-height: 1.1; font-weight: 650; letter-spacing: -.02em; color: var(--fg); font-variant-numeric: tabular-nums; }
+    .stat-tile span { font-size: 12px; color: rgb(var(--c-slate-500)); }
+    .home-h { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin-top: 40px; }
+    .home-h h2 { font-size: 22px; font-weight: 650; letter-spacing: -.02em; color: var(--fg); }
+    .home-h p { font-size: 13px; color: rgb(var(--c-slate-500)); }
+    .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 999px; background: rgb(var(--c-slate-500) / .08); }
+    .seg button { padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 500; color: rgb(var(--c-slate-600)); }
+    .seg button:hover { color: var(--fg); }
+    .seg button[aria-pressed="true"] { background: rgb(var(--c-canvas)); color: var(--fg); box-shadow: 0 1px 2px rgb(var(--shadow-color) / .12), 0 0 0 1px rgb(var(--c-slate-300) / .7); }
+
+    /* Karty narzędzi: grafika, światło podążające za kursorem, przechylenie 3D */
+    .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 16px; margin-top: 16px; }
+    .tool-card { position: relative; display: flex; flex-direction: column; overflow: hidden; text-align: left; border-radius: 22px; background: rgb(var(--c-canvas)); border: 1px solid rgb(var(--c-slate-300) / .75);
+      transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .5s var(--ease-out), box-shadow .45s var(--ease-out), border-color .4s; box-shadow: 0 1px 2px rgb(var(--shadow-color) / .05); }
+    .tool-card:hover { border-color: transparent; box-shadow: 0 30px 60px -32px rgb(var(--shadow-color) / .5), 0 0 0 1px rgb(var(--c-slate-300) / .4); transition: transform .15s linear, box-shadow .45s var(--ease-out), border-color .4s; }
+    .tool-card::after { content: ""; position: absolute; inset: 0; z-index: 2; border-radius: inherit; padding: 1.5px; pointer-events: none; opacity: 0; transition: opacity .35s;
+      background: radial-gradient(280px circle at var(--mx, 50%) var(--my, 50%), rgb(var(--ai-2)), rgb(var(--ai-1) / .7) 30%, rgb(var(--ai-5) / .25) 50%, transparent 65%);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+    .tool-card:hover::after { opacity: 1; }
+    .tool-art { position: relative; height: 118px; overflow: hidden; background: var(--art-base); }
+    .tool-art-mesh { position: absolute; inset: -18%; background: var(--art-mesh); transform: translate(var(--ax, 0px), var(--ay, 0px)) scale(1); transition: transform 1.1s var(--ease-out); }
+    .tool-card:hover .tool-art-mesh { transform: translate(var(--ax, 0px), var(--ay, 0px)) scale(1.14) rotate(5deg); }
+    .tool-art::after { content: ""; position: absolute; inset: 0; background-image: var(--fx-noise, none); opacity: .28; mix-blend-mode: overlay; pointer-events: none; }
+    .tool-art .tool-lines { position: absolute; inset: 0; opacity: .5; color: #fff; }
+    .tool-glyph { position: absolute; left: 16px; bottom: 14px; z-index: 1; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 14px; color: #fff; background: rgb(20 18 40 / .34); -webkit-backdrop-filter: blur(10px) saturate(1.4); backdrop-filter: blur(10px) saturate(1.4); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .35), 0 10px 22px -12px rgb(0 0 0 / .5); filter: drop-shadow(0 1px 1px rgb(0 0 0 / .25)); transition: transform .5s var(--ease-spring); }
+    .tool-card:hover .tool-glyph { transform: translateY(-3px) scale(1.06); }
+    .tool-card-body { display: flex; flex: 1; flex-direction: column; padding: 14px 16px 16px; }
+    .tool-card h3 { font-size: 15px; font-weight: 600; letter-spacing: -.01em; color: var(--fg); }
+    .tool-card p { margin-top: 4px; font-size: 13px; line-height: 1.45; color: rgb(var(--c-slate-500)); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .tool-go { display: inline-flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 12px; font-size: 12.5px; font-weight: 600; color: var(--fg); opacity: .55; transition: opacity .3s, gap .3s var(--ease-out); }
+    .tool-card:hover .tool-go { opacity: 1; gap: 10px; }
+    .tool-badge { position: absolute; top: 12px; right: 12px; z-index: 1; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: #fff; background: rgb(0 0 0 / .28); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tool-art { filter: saturate(1.05) brightness(.82); } }
+    :root[data-theme="dark"] .tool-art { filter: saturate(1.05) brightness(.82); }
+
+    /* Ostatnie wyniki */
+    .recent-list { margin-top: 14px; display: grid; gap: 8px; }
+    .recent-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 14px 10px 10px; border-radius: 16px; background: rgb(var(--c-canvas)); box-shadow: inset 0 0 0 1px rgb(var(--c-slate-300) / .75); }
+    .recent-row:hover { box-shadow: inset 0 0 0 1px rgb(var(--ai-1) / .45), 0 12px 28px -18px rgb(var(--ai-1) / .55); transform: translateX(3px); }
+    .recent-thumb { width: 38px; height: 38px; flex: none; border-radius: 12px; display: grid; place-items: center; color: #fff; }
+
+    /* Pojawianie się elementów przy przewijaniu */
+    .reveal { opacity: 0; transform: translateY(18px) scale(.985); transition: opacity .7s var(--ease-out), transform .7s var(--ease-out); }
+    .reveal.in { opacity: 1; transform: none; }
+    .tool-card.reveal.in { transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
+
+    /* Wyszukiwarka narzędzi (Ctrl+K) */
+    .cmdk-trigger { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px 0 12px; border-radius: 999px; font-size: 13px; color: rgb(var(--c-slate-500)); background: rgb(var(--c-slate-500) / .08); box-shadow: inset 0 0 0 1px rgb(var(--c-slate-300) / .8); }
+    .cmdk-trigger:hover { color: var(--fg); box-shadow: inset 0 0 0 1px rgb(var(--ai-1) / .45), 0 8px 20px -14px rgb(var(--ai-1) / .6); }
+    .cmdk-trigger kbd { padding: 1px 6px; border-radius: 6px; font-size: 11px; background: rgb(var(--c-canvas)); box-shadow: inset 0 0 0 1px rgb(var(--c-slate-300)); }
+    #cmdk .cmdk-backdrop { position: absolute; inset: 0; background: rgb(var(--c-navy-950) / .45); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+    .cmdk-panel { position: relative; width: min(640px, calc(100vw - 24px)); margin: 11vh auto 0; overflow: hidden; border-radius: 22px; background: rgb(var(--c-canvas) / .94); -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4); box-shadow: 0 40px 90px -30px rgb(0 0 0 / .55), 0 0 0 1px rgb(var(--c-slate-300) / .7); animation: fxDialogIn .4s var(--ease-spring); }
+    .cmdk-panel::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: linear-gradient(90deg, rgb(var(--ai-1)), rgb(var(--ai-2)), rgb(var(--ai-3)), rgb(var(--ai-5))); background-size: 200% 100%; animation: fxFlow 3s linear infinite; }
+    .cmdk-search { display: flex; align-items: center; gap: 12px; padding: 0 18px; border-bottom: 1px solid var(--border-muted); }
+    #cmdkInput { flex: 1; min-width: 0; height: 58px; border: 0; outline: none; background: transparent; font-size: 17px; color: var(--fg); }
+    #cmdkInput:focus-visible { outline: none; }
+    #cmdkList { max-height: min(56vh, 460px); overflow-y: auto; padding: 8px; }
+    .cmdk-group { padding: 10px 10px 4px; font-size: 11.5px; font-weight: 600; color: rgb(var(--c-slate-500)); }
+    .cmdk-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 10px; border-radius: 14px; text-align: left; cursor: pointer; }
+    .cmdk-item[aria-selected="true"] { background: linear-gradient(90deg, rgb(var(--ai-1) / .12), rgb(var(--ai-2) / .05)); box-shadow: inset 0 0 0 1px rgb(var(--ai-1) / .2); }
+    .cmdk-thumb { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 11px; color: #fff; }
+    .cmdk-item b { display: block; font-size: 14px; font-weight: 600; color: var(--fg); }
+    .cmdk-item small { display: block; font-size: 12px; color: rgb(var(--c-slate-500)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cmdk-item .go { margin-left: auto; font-size: 12px; color: rgb(var(--c-slate-400)); opacity: 0; }
+    .cmdk-item[aria-selected="true"] .go { opacity: 1; }
+    .cmdk-foot { display: flex; gap: 14px; padding: 9px 16px; font-size: 11.5px; color: rgb(var(--c-slate-500)); border-top: 1px solid var(--border-muted); }
+
+    /* Błysk po gotowym wyniku */
+    .fx-burst { position: fixed; z-index: 80; width: 7px; height: 7px; border-radius: 50%; pointer-events: none; animation: fxBurst .9s var(--ease-out) forwards; }
+
+    @media (max-width: 720px) {
+      .home-hero { padding: 40px 16px 24px; border-radius: 22px; }
+      .hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .ai-orb { --s: 104px; }
+      .hero-ask { padding-left: 14px; }
+    }
+
+    @keyframes fxOrbGlow { 0%, 100% { box-shadow: 0 0 22px rgb(var(--ai-1) / .5), 0 0 50px -10px rgb(var(--ai-2) / .45); } 50% { box-shadow: 0 0 34px rgb(var(--ai-2) / .65), 0 0 70px -6px rgb(var(--ai-5) / .45); } }
+    @keyframes fxBreath { 0%, 100% { transform: scale(.94); opacity: .8; } 50% { transform: scale(1.08); opacity: 1; } }
+    @keyframes fxBlobA { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(18%, -12%) scale(1.15); } }
+    @keyframes fxBlobB { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-16%, 20%) scale(.9); } }
+    @keyframes fxBlobC { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-10%, -22%) scale(1.2); } }
+    @keyframes fxAurora { from { transform: translate(-4%, -2%) rotate(0deg); } to { transform: translate(4%, 3%) rotate(8deg); } }
+    @keyframes fxAngle { to { --fx-a: 360deg; } }
+    @keyframes fxPingGreen { 0% { box-shadow: 0 0 0 0 rgb(var(--ai-3) / .6); } 100% { box-shadow: 0 0 0 8px rgb(var(--ai-3) / 0); } }
+    @keyframes fxBurst { from { transform: translate(0, 0) scale(1); opacity: 1; } to { transform: translate(var(--bx), var(--by)) scale(.2); opacity: 0; } }
   </style>
 </head>
 
@@ -652,7 +820,7 @@
 
     <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 -translate-x-full transform border-r border-slate-300 bg-slate-50 transition-transform duration-200 ease-out lg:static lg:translate-x-0 flex flex-col">
       <div class="flex items-center justify-between gap-2 px-4 h-14 shrink-0">
-        <div class="flex items-center gap-2.5 min-w-0">
+        <div class="flex cursor-pointer items-center gap-2.5 min-w-0" data-tool-link="home" title="Strona startowa">
           <div class="brand-tile flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-canvas">
             <svg data-icon="sparkles" class="h-[18px] w-[18px]"></svg>
           </div>
@@ -712,10 +880,12 @@
         <button id="openSidebarBtn" class="lg:hidden rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Otwórz menu">
           <svg data-icon="bars" class="h-5 w-5"></svg>
         </button>
+        <span class="ai-dot" aria-hidden="true" title="Asystent AI"></span>
         <div class="min-w-0 flex-1">
           <h1 id="toolTitle" class="truncate text-base font-semibold text-slate-900"></h1>
           <p id="toolSubtitle" class="hidden sm:block truncate text-xs text-slate-500"></p>
         </div>
+        <button type="button" id="cmdkBtn" class="cmdk-trigger" aria-label="Wyszukaj narzędzie (Ctrl+K)"><svg data-icon="search" class="h-4 w-4"></svg><span class="hidden md:inline">Szukaj narzędzia…</span><kbd class="hidden md:inline">Ctrl K</kbd></button>
         <button type="button" id="themeToggle" class="btn-default rounded-lg p-1.5 text-slate-600" aria-label="Przełącz motyw jasny lub ciemny" title="Przełącz motyw jasny / ciemny">
           <svg data-icon="moon" class="h-4 w-4"></svg>
         </button>
@@ -1637,6 +1807,50 @@
           </section>
         </div>
 
+        <!-- ===== WIDOK: Strona startowa ===== -->
+        <div id="view-home" class="hidden p-4 sm:p-6 mx-auto">
+          <section id="homeHero" class="home-hero">
+            <div class="hero-aurora" aria-hidden="true"></div>
+            <canvas id="heroField" aria-hidden="true"></canvas>
+            <div class="ai-orb" aria-hidden="true"><div class="ai-orb-core"><i></i><i></i><i></i></div><div class="ai-orb-shine"></div></div>
+            <div class="hero-eyebrow"><b></b>Asystent AI dla biura · Google Gemini</div>
+            <h1 class="hero-title"><span id="heroGreeting">Dzień dobry</span>. Co dziś <span class="grad-text">zautomatyzujemy</span>?</h1>
+            <p class="hero-sub">Na przykład: <span id="heroTyped" class="typed"></span></p>
+            <form id="heroAsk" class="hero-ask" role="search" novalidate>
+              <svg data-icon="sparkles" class="h-5 w-5 shrink-0 text-slate-400"></svg>
+              <input id="heroAskInput" type="text" maxlength="300" autocomplete="off" aria-label="Opisz zadanie" placeholder="Opisz zadanie, np. „przygotuj raport sprzedaży dla zarządu”" />
+              <button type="submit" class="bg-primary inline-flex shrink-0 items-center gap-2 px-4 py-2 text-sm font-semibold text-white">Dalej<svg data-icon="send" class="h-4 w-4"></svg></button>
+            </form>
+            <div id="heroChips" class="hero-chips" aria-live="polite"></div>
+            <div class="hero-stats">
+              <button type="button" class="stat-tile" data-tool-link="inbox"><b id="statInbox">0</b><span>czeka w Skrzynce AI</span></button>
+              <button type="button" class="stat-tile" data-tool-link="contracts"><b id="statContracts">0</b><span>umów wymaga uwagi</span></button>
+              <div class="stat-tile"><b id="statUsage">0</b><span>zapytań do AI dziś</span></div>
+              <div class="stat-tile"><b id="statKb">0</b><span>dokumentów w bazie wiedzy</span></div>
+            </div>
+          </section>
+
+          <section>
+            <div class="home-h reveal">
+              <div><h2>Narzędzia AI</h2><p>Kliknij kartę albo naciśnij <kbd class="rounded border border-slate-300 px-1.5 text-[11px]">Ctrl</kbd> + <kbd class="rounded border border-slate-300 px-1.5 text-[11px]">K</kbd>, żeby wyszukać.</p></div>
+              <div id="homeSeg" class="seg" role="group" aria-label="Filtruj narzędzia">
+                <button type="button" data-home-filter="all" aria-pressed="true">Wszystkie</button>
+                <button type="button" data-home-filter="Pisanie" aria-pressed="false">Pisanie</button>
+                <button type="button" data-home-filter="Dokumenty" aria-pressed="false">Dokumenty</button>
+                <button type="button" data-home-filter="Finanse" aria-pressed="false">Finanse</button>
+                <button type="button" data-home-filter="Kadry i kariera" aria-pressed="false">Kadry</button>
+                <button type="button" data-home-filter="Automatyzacja" aria-pressed="false">Automatyzacja</button>
+              </div>
+            </div>
+            <div id="homeGrid" class="tool-grid"></div>
+          </section>
+
+          <section class="hidden">
+            <div class="home-h reveal"><div><h2>Ostatnie wyniki</h2><p>Kliknij, aby wrócić do wyniku razem z danymi formularza.</p></div></div>
+            <div id="homeRecent" class="recent-list"></div>
+          </section>
+        </div>
+
         <!-- ===== WIDOK: Rejestr umów ===== -->
         <div id="view-contracts" class="hidden p-4 sm:p-6 max-w-[1300px] mx-auto space-y-5">
           <section class="rounded-2xl border border-slate-300 bg-canvas p-5 shadow-card sm:p-6">
@@ -1927,6 +2141,20 @@
   </div>
 
   <!-- Toasty -->
+  <!-- ============ WYSZUKIWARKA NARZĘDZI (Ctrl+K) ============ -->
+  <div id="cmdk" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true" aria-label="Wyszukaj narzędzie">
+    <div class="cmdk-backdrop"></div>
+    <div class="cmdk-panel">
+      <div class="cmdk-search">
+        <svg data-icon="search" class="h-5 w-5 shrink-0 text-slate-400"></svg>
+        <input id="cmdkInput" type="text" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="cmdkList" aria-label="Czego potrzebujesz?" placeholder="Czego potrzebujesz? np. faktura, raport, umowa, post…" />
+        <kbd class="rounded border border-slate-300 px-1.5 text-[11px] text-slate-500">Esc</kbd>
+      </div>
+      <div id="cmdkList" role="listbox" aria-label="Wyniki"></div>
+      <div class="cmdk-foot"><span>↑ ↓ wybierz</span><span>Enter otwórz</span><span>Esc zamknij</span><span class="ml-auto">Dopasowanie działa lokalnie – bez zapytań do AI</span></div>
+    </div>
+  </div>
+
   <div id="toastContainer" class="pointer-events-none fixed bottom-4 right-4 z-[60] flex flex-col gap-2 items-end"></div>
 
   <script>
@@ -3265,6 +3493,7 @@ ZASADY
 
     /* ---------- widoki specjalne w menu ---------- */
     const VIEWS = {
+      home: { group: 'Start', name: 'Start', short: 'Start', subtitle: 'Opisz zadanie albo wybierz narzędzie – wszystko, co AI zrobi dziś za Ciebie', icon: 'sparkles' },
       chat: { group: 'Dokumenty', name: 'Rozmowa z dokumentem', short: 'Rozmowa z dokumentem', subtitle: 'Zadawaj pytania o umowy, raporty i arkusze – odpowiedzi z odwołaniem do treści', icon: 'chat' },
       dunning: { group: 'Finanse', name: 'Windykacja należności', short: 'Windykacja', subtitle: 'Przypomnienia i wezwania do zapłaty z odsetkami i rekompensatą – dla całej listy dłużników', icon: 'banknotes' },
       batch: { group: 'Automatyzacja', name: 'Przetwarzanie całej listy', short: 'Przetwarzanie listy', subtitle: 'To samo polecenie AI dla każdego wiersza Excela – maile, opisy, kategorie, tłumaczenia', icon: 'queueList' },
@@ -4027,7 +4256,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
             </button>
           </li>`;
       };
-      menu.innerHTML = inboxItem + TOOL_GROUPS.map(g => groupLabel(g) + TOOL_ORDER.filter(id => (TOOLS[id] || VIEWS[id]).group === g).map(toolItem).join('')).join('');
+      menu.innerHTML = toolItem('home') + inboxItem + TOOL_GROUPS.map(g => groupLabel(g) + TOOL_ORDER.filter(id => (TOOLS[id] || VIEWS[id]).group === g).map(toolItem).join('')).join('');
       const navNow = state.view === 'tools' ? state.activeTool : state.view;
       if (navNow !== fxLastNav) { fxLastNav = navNow; const cur = menu.querySelector('[aria-current="page"]'); if (cur && !fxReduced()) cur.classList.add('nav-enter'); }
       if (typeof updateInboxBadge === 'function') updateInboxBadge();
@@ -4063,6 +4292,11 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       $('#toolSubtitle').textContent = t.subtitle;
       $('#formIcon').innerHTML = iconSvg(t.icon, 'h-5 w-5');
       replayAnim($('#formIcon'), 'fx-pop', 700);
+      const art = toolArt(id);
+      $('#formIcon').style.setProperty('background', art.gradient, 'important');
+      $('#formIcon').style.color = '#fff';
+      const emptyTile = $('#resultEmpty > div');
+      if (emptyTile) { emptyTile.style.setProperty('background', art.gradient, 'important'); emptyTile.style.color = '#fff'; }
       $('#resultEmptyText').textContent = t.emptyText;
 
       $$('.tool-form').forEach(f => f.classList.toggle('hidden', f.dataset.tool !== id));
@@ -4409,6 +4643,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
         });
         addHistory(toolId, { sig, markdown, data: resultData, notice: r.notice, prompt: basePrompt, input: data, hadFiles, refine, model: out.modelUsed, extras: extras && extras.steps.length ? { steps: extras.steps, images: [] } : null });
         if (!isActive()) toast(`Gotowe: ${tool.short}`, 'success');
+        else setTimeout(() => fxBurst($('#resultCard')), 60);
       } catch (e) {
         const err = e instanceof GeminiError ? e : new GeminiError({ title: 'Nieoczekiwany błąd', message: 'Wystąpił nieoczekiwany błąd aplikacji.', details: String(e && e.stack || e) });
         if (previous && !(err.cancelled && r.markdown.trim())) {
@@ -6874,9 +7109,10 @@ Załączniki oznaczone „Baza wiedzy firmy” to oficjalne materiały firmy (ce
     /* =====================================================================
        WIDOKI SPECJALNE: rozmowa z dokumentem, przetwarzanie listy, windykacja
        ===================================================================== */
-    const VIEW_IDS = ['tools', 'inbox', 'admin', 'chat', 'batch', 'dunning', 'contracts', 'interview'];
+    const VIEW_IDS = ['tools', 'inbox', 'admin', 'chat', 'batch', 'dunning', 'contracts', 'interview', 'home'];
     function showOnly(view) {
       VIEW_IDS.forEach(v => { const el = document.getElementById(`view-${v}`); if (el) el.classList.toggle('hidden', v !== view); });
+      if (view !== 'home' && typeof heroStop === 'function') heroStop();
     }
     function showView(id) {
       const v = VIEWS[id];
@@ -6892,6 +7128,7 @@ Załączniki oznaczone „Baza wiedzy firmy” to oficjalne materiały firmy (ce
       if (id === 'dunning') renderDunning();
       if (id === 'contracts') renderContracts();
       if (id === 'interview') renderInterview();
+      if (id === 'home') renderHome();
     }
     function viewBusy(id) {
       if (id === 'chat') return chat.busy;
@@ -10116,7 +10353,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
 
     function updateInboxBadge() {
       const n = inboxCounts().ready;
-      const base = state.view === 'inbox' ? 'Skrzynka AI' : state.view === 'admin' ? 'Panel technika' : TOOLS[state.activeTool].short;
+      const base = state.view === 'inbox' ? 'Skrzynka AI' : state.view === 'admin' ? 'Panel technika' : VIEWS[state.view] ? VIEWS[state.view].short : TOOLS[state.activeTool].short;
       document.title = `${n ? `(${n}) ` : ''}${base} · OfficeFlow AI`;
       const badge = document.getElementById('inboxMenuBadge');
       if (badge) { badge.textContent = n; badge.classList.toggle('hidden', !n); }
@@ -11322,6 +11559,357 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       }, { passive: true });
     }
 
+    /* =====================================================================
+       STRONA STARTOWA W STYLU AI: kula AI, sieć cząsteczek, karty z grafiką,
+       inteligentne dopasowanie narzędzia (lokalnie – bez zapytań do Gemini),
+       wyszukiwarka Ctrl+K
+       ===================================================================== */
+    const ART_PALETTES = {
+      Start: ['#6a5af9', '#4facfe', '#43e97b', '#fbc2eb'],
+      Poczta: ['#5b86e5', '#36d1dc', '#a18cd1', '#dff1ff'],
+      Pisanie: ['#ff6a88', '#ff9a8b', '#a18cd1', '#ffe3ea'],
+      Dokumenty: ['#4facfe', '#6a5af9', '#5ee7df', '#e6ecff'],
+      Finanse: ['#0ba360', '#38f9d7', '#9be15d', '#e3fff1'],
+      'Kadry i kariera': ['#f093fb', '#fda085', '#f6d365', '#fff1e3'],
+      Automatyzacja: ['#8e2de2', '#00c6ff', '#c471f5', '#efe7ff']
+    };
+    const TOOL_KEYWORDS = {
+      inbox: 'poczta skrzynka gmail outlook maile wiadomosci odpowiedzi automatyczne',
+      email: 'mail email odpowiedz odpisz klient kontrahent reklamacja wiadomosc korespondencja zapytanie',
+      offer: 'oferta oferte propozycja sprzedaz wycena klient handlowa',
+      letters: 'pismo wezwanie wypowiedzenie aneks reklamacja urzad formalne przewodnie',
+      rewrite: 'korekta popraw poprawic ton tlumacz przetlumacz skroc uprosc angielski niemiecki tekst',
+      marketing: 'post linkedin facebook instagram newsletter opis produktu reklama seo opinia google social',
+      analyzer: 'analiza analizuj dokument podsumuj podsumowanie notatka excel dane liczby wykres ryzyko',
+      chat: 'pytanie pytania dokument rozmowa zapytaj czat regulamin znajdz',
+      compare: 'porownaj porownanie wersje roznice zmiany dokumenty umowy',
+      supplier: 'oferty dostawcy dostawca dostawcow zakup przetarg porownanie cen najtansza wybor',
+      contract: 'umowa haczyk ryzyko abonament najem kredyt leasing warunki',
+      contracts: 'rejestr umow umowy wypowiedzenie termin przypomnienie koniec waloryzacja',
+      meeting: 'spotkanie spotkania notatka nagranie transkrypcja protokol teams zoom ustalenia',
+      invoices: 'faktura faktury paragon ksef vat koszty ksiegowosc rejestr zakupow',
+      dunning: 'windykacja dluznik dluznicy naleznosc naleznosci wezwanie zaplata odsetki zalegle',
+      report: 'raport zarzad zarzadu excel sprzedaz wyniki kpi wskazniki wykres prezentacja miesieczny',
+      recruit: 'rekrutacja kandydat kandydata cv ocena zaproszenie odmowa pracownik',
+      cv: 'cv list motywacyjny praca ogloszenie kariera aplikacja',
+      interview: 'rozmowa kwalifikacyjna rekruter symulator pytania przygotowanie cwiczenie',
+      batch: 'lista wiersze excel masowo hurtowo wiele kategorie tlumaczenia kazdy wiersz'
+    };
+    const HERO_PHRASES = ['odpowiedź na reklamację klienta', 'raport dla zarządu z Excela', 'post na LinkedIn', 'porównanie ofert dostawców', 'notatkę ze spotkania', 'wezwanie do zapłaty', 'rejestr umów z przypomnieniami'];
+    const ASK_FIELDS = { marketing: 'brief', report: 'focus', supplier: 'subject' };
+    const home = { filter: 'all', raf: 0, typing: 0, pts: [], w: 0, h: 0, mouse: null, ro: null, io: null };
+
+    function fnv(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+    function toolInfo(id) { return TOOLS[id] || VIEWS[id] || (id === 'inbox' ? { group: 'Poczta', name: 'Skrzynka AI', short: 'Skrzynka AI', subtitle: 'Propozycje odpowiedzi na nowe maile z Gmaila i Outlooka – do zatwierdzenia jednym kliknięciem', icon: 'inbox' } : null); }
+    // Abstrakcyjna „grafika” narzędzia – siatka gradientów w kolorach grupy, inna dla każdego narzędzia
+    function toolArt(id) {
+      const t = toolInfo(id) || {};
+      const pal = ART_PALETTES[t.group] || ART_PALETTES.Start;
+      let h = fnv(id) || 1;
+      const rnd = () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return (h % 1000) / 1000; };
+      const spots = [0, 1, 2, 0].map((ci, i) => `radial-gradient(${Math.round(38 + rnd() * 30)}% ${Math.round(50 + rnd() * 40)}% at ${Math.round(rnd() * 100)}% ${Math.round(rnd() * 100)}%, ${pal[(ci + i) % 3]} 0%, transparent 70%)`);
+      return { mesh: spots.join(', '), base: pal[3], gradient: `linear-gradient(135deg, ${pal[0]}, ${pal[1]} 55%, ${pal[2]})` };
+    }
+    function artHtml(id, extra = '') {
+      const a = toolArt(id), t = toolInfo(id) || {};
+      return `<div class="tool-art" style="--art-base:${a.base};--art-mesh:${a.mesh}" aria-hidden="true"><div class="tool-art-mesh"></div>
+        <svg class="tool-lines" viewBox="0 0 300 120" preserveAspectRatio="none"><path d="M0 ${80 + (fnv(id) % 20)} C 80 ${30 + (fnv(id + 'a') % 40)}, 160 ${110 - (fnv(id + 'b') % 30)}, 300 ${40 + (fnv(id + 'c') % 30)}" fill="none" stroke="currentColor" stroke-width="1" opacity=".55"/><path d="M0 ${95 + (fnv(id + 'd') % 15)} C 90 ${60 + (fnv(id + 'e') % 30)}, 190 ${120 - (fnv(id + 'f') % 20)}, 300 ${70 + (fnv(id + 'g') % 25)}" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"/></svg>
+        <span class="tool-glyph">${iconSvg(t.icon || 'sparkles', 'h-5 w-5')}</span>${extra}</div>`;
+    }
+    // Szum (ziarno) dla grafik – generowany raz w przeglądarce
+    function makeNoise() {
+      try {
+        const c = document.createElement('canvas'); c.width = c.height = 96;
+        const g = c.getContext('2d'); const img = g.createImageData(96, 96);
+        for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 60; }
+        g.putImageData(img, 0, 0);
+        document.documentElement.style.setProperty('--fx-noise', `url(${c.toDataURL('image/png')})`);
+      } catch (e) { /* bez ziarna */ }
+    }
+
+    /* ---------- inteligentne dopasowanie narzędzia do opisu ---------- */
+    function normPl(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ł/g, 'l').replace(/[^a-z0-9 ]+/g, ' '); }
+    function homeToolIds() { return ['inbox', ...TOOL_ORDER]; }
+    function matchTools(query) {
+      const words = normPl(query).split(/\s+/).filter(w => w.length >= 3);
+      if (!words.length) return [];
+      return homeToolIds().map(id => {
+        const t = toolInfo(id);
+        const kw = normPl(TOOL_KEYWORDS[id] || '').split(' ').filter(Boolean);
+        const name = normPl(`${t.name} ${t.short}`), sub = normPl(t.subtitle);
+        let score = 0;
+        words.forEach(w => {
+          const stem = w.length > 5 ? w.slice(0, w.length - 2) : w.slice(0, 4);
+          if (name.includes(stem)) score += 4;
+          if (kw.some(k => k.startsWith(stem) || (k.length >= 4 && w.startsWith(k.slice(0, Math.max(4, k.length - 2)))))) score += 3;
+          if (sub.includes(stem)) score += 1;
+        });
+        return { id, score };
+      }).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
+    }
+
+    /* ---------- strona startowa ---------- */
+    function homeCardHtml(id, i) {
+      const t = toolInfo(id);
+      const badge = id === 'inbox' && typeof inboxCounts === 'function' && inboxCounts().ready ? `<span class="tool-badge">${inboxCounts().ready} do zatwierdzenia</span>`
+        : id === 'contracts' && ctAttention() ? `<span class="tool-badge">${ctAttention()} wymaga uwagi</span>` : '';
+      return `<button type="button" class="tool-card reveal" data-tool-link="${id}" style="transition-delay:${Math.min(i, 12) * 35}ms">
+        ${artHtml(id, badge)}
+        <div class="tool-card-body"><h3>${escapeHtml(t.short)}</h3><p>${escapeHtml(t.subtitle)}</p><span class="tool-go">Otwórz ${iconSvg('chevronDown', 'h-3.5 w-3.5 -rotate-90')}</span></div>
+      </button>`;
+    }
+    function renderHomeGrid() {
+      const grid = document.getElementById('homeGrid');
+      if (!grid) return;
+      const ids = homeToolIds().filter(id => home.filter === 'all' || toolInfo(id).group === home.filter);
+      grid.innerHTML = ids.map(homeCardHtml).join('');
+      $$('#homeSeg [data-home-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.homeFilter === home.filter)));
+      observeReveal(grid);
+    }
+    function renderHomeSuggest(q) {
+      const box = document.getElementById('heroChips');
+      if (!box) return;
+      const list = q && q.trim() ? matchTools(q).slice(0, 4).map(x => x.id) : ['email', 'report', 'invoices', 'meeting', 'interview'];
+      box.innerHTML = list.length ? list.map((id, i) => `<button type="button" class="hero-chip${q && i === 0 ? ' best' : ''}" data-tool-link="${id}" style="animation-delay:${i * 45}ms"><span class="dot" style="background:${toolArt(id).gradient}"></span>${escapeHtml(toolInfo(id).short)}</button>`).join('')
+        : '<span class="text-sm text-slate-500">Nie znalazłem pasującego narzędzia – wybierz z listy poniżej albo naciśnij Ctrl+K.</span>';
+    }
+    function renderHomeRecent() {
+      const box = document.getElementById('homeRecent');
+      if (!box) return;
+      const all = Object.entries(getHistory()).flatMap(([toolId, list]) => (list || []).map(e => ({ toolId, e }))).filter(x => TOOLS[x.toolId]).sort((a, b) => b.e.at - a.e.at).slice(0, 5);
+      box.closest('section').classList.toggle('hidden', !all.length);
+      box.innerHTML = all.map(({ toolId, e }) => `<button type="button" class="recent-row" data-home-recent="${escapeHtml(toolId)}|${escapeHtml(e.id)}">
+          <span class="recent-thumb" style="background:${toolArt(toolId).gradient}">${iconSvg(TOOLS[toolId].icon, 'h-4 w-4')}</span>
+          <span class="min-w-0 flex-1"><span class="block truncate text-sm font-medium text-slate-900">${escapeHtml(historyTitle(e))}</span><span class="block truncate text-xs text-slate-500">${escapeHtml(TOOLS[toolId].short)} · ${escapeHtml(fmtWhen(e.at))}</span></span>
+          ${iconSvg('chevronDown', 'h-4 w-4 -rotate-90 text-slate-400')}
+        </button>`).join('');
+    }
+    function countUp(el, to) {
+      if (!el) return;
+      if (fxReduced() || !to) { el.textContent = Number(to).toLocaleString('pl-PL'); return; }
+      const t0 = performance.now(), d = 900;
+      const f = (t) => { const k = Math.min(1, (t - t0) / d), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(to * e).toLocaleString('pl-PL'); if (k < 1) requestAnimationFrame(f); };
+      requestAnimationFrame(f);
+    }
+    function renderHome() {
+      const hour = new Date().getHours();
+      $('#heroGreeting').textContent = hour < 5 ? 'Dobranoc' : hour < 12 ? 'Dzień dobry' : hour < 18 ? 'Dzień dobry' : 'Dobry wieczór';
+      countUp($('#statUsage'), usageToday());
+      countUp($('#statInbox'), typeof inboxCounts === 'function' ? inboxCounts().ready : 0);
+      countUp($('#statContracts'), ctAttention());
+      countUp($('#statKb'), kbCount());
+      renderHomeSuggest($('#heroAskInput').value);
+      renderHomeGrid();
+      renderHomeRecent();
+      observeReveal(document.getElementById('view-home'));
+      heroStart();
+    }
+    function observeReveal(root) {
+      const els = $$('.reveal:not(.in)', root);
+      if (fxReduced() || !('IntersectionObserver' in window)) { els.forEach(el => el.classList.add('in')); return; }
+      if (!home.io) home.io = new IntersectionObserver((entries) => entries.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); home.io.unobserve(en.target); } }), { threshold: 0.08 });
+      els.forEach(el => home.io.observe(el));
+    }
+    function homeAsk(q) {
+      q = String(q || '').trim();
+      if (!q) { $('#heroAskInput').focus(); return; }
+      const best = matchTools(q)[0];
+      if (!best) { toast('Nie znalazłem pasującego narzędzia – wybierz je z listy poniżej.', 'info'); $('#homeGrid').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+      setActiveTool(best.id);
+      const field = ASK_FIELDS[best.id];
+      const form = document.getElementById(`form-${best.id}`);
+      if (field && form && form.elements[field] && q.length >= 25 && !form.elements[field].value.trim()) {
+        form.elements[field].value = q;
+        updateCounter(form.elements[field]);
+        saveDraftNow(best.id);
+        toast(`Otwieram: ${toolInfo(best.id).short} – Twój opis jest już w formularzu`, 'success');
+      } else toast(`Otwieram: ${toolInfo(best.id).short}`, 'info');
+    }
+
+    /* ---------- sieć cząsteczek w tle nagłówka strony startowej ---------- */
+    function heroStop() {
+      cancelAnimationFrame(home.raf); home.raf = 0;
+      clearInterval(home.typing); home.typing = 0;
+      if (home.ro) { home.ro.disconnect(); home.ro = null; }
+    }
+    function heroStart() {
+      heroStop();
+      const c = document.getElementById('heroField');
+      const hero = document.getElementById('homeHero');
+      if (!c || !hero) return;
+      const ctx = c.getContext('2d');
+      if (!ctx) return;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const resize = () => {
+        const r = hero.getBoundingClientRect();
+        if (!r.width) return;
+        home.w = r.width; home.h = r.height;
+        c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const n = Math.max(26, Math.min(78, Math.round(r.width * r.height / 11000)));
+        home.pts = Array.from({ length: n }, () => ({ x: Math.random() * r.width, y: Math.random() * r.height, vx: (Math.random() - .5) * .32, vy: (Math.random() - .5) * .32, r: .8 + Math.random() * 1.6 }));
+      };
+      resize();
+      if ('ResizeObserver' in window) { home.ro = new ResizeObserver(resize); home.ro.observe(hero); }
+      const col = () => getComputedStyle(document.documentElement).getPropertyValue('--hero-line').trim().split(/\s+/).join(',') || '106,90,249';
+      let rgb = col(), frame = 0;
+      const draw = () => {
+        if (state.view !== 'home') { heroStop(); return; }
+        if (++frame % 60 === 0) rgb = col();
+        const busy = document.body.classList.contains('ai-busy');
+        const sp = busy ? 2.6 : 1;
+        const pts = home.pts, m = home.mouse, w = home.w, h = home.h;
+        ctx.clearRect(0, 0, w, h);
+        for (const p of pts) {
+          p.x += p.vx * sp; p.y += p.vy * sp;
+          if (p.x < 0 || p.x > w) p.vx *= -1;
+          if (p.y < 0 || p.y > h) p.vy *= -1;
+          if (m) { const dx = m.x - p.x, dy = m.y - p.y, d = Math.hypot(dx, dy); if (d < 180 && d > 24) { p.x += dx / d * .22; p.y += dy / d * .22; } }
+        }
+        ctx.lineWidth = 1;
+        for (let i = 0; i < pts.length; i++) {
+          for (let j = i + 1; j < pts.length; j++) {
+            const a = pts[i], b = pts[j], d = Math.hypot(a.x - b.x, a.y - b.y);
+            if (d < 115) { ctx.strokeStyle = `rgba(${rgb},${(1 - d / 115) * (busy ? .4 : .22)})`; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+          }
+          if (m) { const a = pts[i], d = Math.hypot(a.x - m.x, a.y - m.y); if (d < 170) { ctx.strokeStyle = `rgba(${rgb},${(1 - d / 170) * .55})`; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(m.x, m.y); ctx.stroke(); } }
+        }
+        for (const p of pts) { ctx.fillStyle = `rgba(${rgb},${busy ? .85 : .6})`; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); }
+        home.raf = requestAnimationFrame(draw);
+      };
+      if (fxReduced()) { draw(); cancelAnimationFrame(home.raf); home.raf = 0; }
+      else home.raf = requestAnimationFrame(draw);
+      // Pisanie przykładów zadań w podtytule
+      const el = document.getElementById('heroTyped');
+      if (fxReduced()) { el.textContent = HERO_PHRASES[0]; return; }
+      let i = 0, j = 0, back = false;
+      home.typing = setInterval(() => {
+        const p = HERO_PHRASES[i];
+        if (!back) { j++; if (j > p.length + 22) back = true; }
+        else { j -= 2; if (j <= 0) { back = false; j = 0; i = (i + 1) % HERO_PHRASES.length; } }
+        el.textContent = p.slice(0, Math.max(0, Math.min(j, p.length)));
+      }, 55);
+    }
+
+    /* ---------- wyszukiwarka narzędzi (Ctrl+K) ---------- */
+    const cmdk = { items: [], sel: 0, lastFocus: null };
+    function cmdkActions() {
+      return [
+        { id: 'home', label: 'Strona startowa', sub: 'Wszystkie narzędzia i ostatnie wyniki', icon: 'sparkles', run: () => setActiveTool('home') },
+        { id: 'act:theme', label: 'Przełącz motyw jasny / ciemny', sub: 'Wygląd aplikacji', icon: 'moon', run: () => $('#themeToggle').click() },
+        ...(isTech() ? [
+          { id: 'act:admin', label: 'Panel technika', sub: 'Klucz AI, skrzynki, baza wiedzy, papier firmowy', icon: 'wrench', run: () => showAdmin() },
+          { id: 'act:key', label: 'Ustawienia klucza Gemini', sub: 'Klucz API i model', icon: 'key', run: () => openSettings() }
+        ] : [])
+      ];
+    }
+    function renderCmdk() {
+      const q = $('#cmdkInput').value;
+      const tools = q.trim() ? matchTools(q).map(x => x.id) : homeToolIds();
+      const acts = cmdkActions().filter(a => !q.trim() || normPl(`${a.label} ${a.sub}`).includes(normPl(q).trim().slice(0, 5)));
+      cmdk.items = [...tools.map(id => ({ id, label: toolInfo(id).short, sub: toolInfo(id).subtitle, tool: true, run: () => setActiveTool(id) })), ...acts];
+      cmdk.sel = Math.min(cmdk.sel, Math.max(0, cmdk.items.length - 1));
+      const row = (it, i) => `<div role="option" id="cmdk-opt-${i}" class="cmdk-item" data-cmdk="${i}" aria-selected="${i === cmdk.sel}">
+          <span class="cmdk-thumb" style="background:${it.tool ? toolArt(it.id).gradient : 'linear-gradient(135deg, rgb(var(--c-slate-500)), rgb(var(--c-slate-700)))'}">${iconSvg(it.tool ? toolInfo(it.id).icon : it.icon, 'h-4 w-4')}</span>
+          <span class="min-w-0 flex-1"><b>${escapeHtml(it.label)}</b><small>${escapeHtml(it.sub || '')}</small></span><span class="go">Enter ↵</span></div>`;
+      const nT = tools.length;
+      $('#cmdkList').innerHTML = cmdk.items.length
+        ? (nT ? `<div class="cmdk-group">${q.trim() ? 'Najlepiej pasują' : 'Narzędzia'}</div>` : '') + cmdk.items.slice(0, nT).map(row).join('') + (acts.length ? '<div class="cmdk-group">Akcje</div>' + cmdk.items.slice(nT).map((it, k) => row(it, nT + k)).join('') : '')
+        : '<p class="px-4 py-8 text-center text-sm text-slate-500">Nic nie pasuje. Spróbuj innego słowa, np. „faktura”, „raport”, „umowa”.</p>';
+      $('#cmdkInput').setAttribute('aria-activedescendant', cmdk.items.length ? `cmdk-opt-${cmdk.sel}` : '');
+    }
+    function openCmdk() {
+      cmdk.lastFocus = document.activeElement;
+      $('#cmdk').classList.remove('hidden');
+      $('#cmdkInput').value = '';
+      cmdk.sel = 0;
+      renderCmdk();
+      $('#cmdkInput').focus();
+    }
+    function closeCmdk() { $('#cmdk').classList.add('hidden'); if (cmdk.lastFocus && cmdk.lastFocus.focus) cmdk.lastFocus.focus(); }
+    function runCmdk(i) { const it = cmdk.items[i]; if (!it) return; closeCmdk(); it.run(); }
+
+    /* ---------- błysk po gotowym wyniku ---------- */
+    function fxBurst(el) {
+      if (!el || fxReduced()) return;
+      const r = el.getBoundingClientRect();
+      if (!r.width) return;
+      const cols = ['--ai-1', '--ai-2', '--ai-3', '--ai-4', '--ai-5'];
+      for (let i = 0; i < 16; i++) {
+        const d = document.createElement('span');
+        const ang = (Math.PI * 2 * i) / 16 + Math.random() * .3, dist = 40 + Math.random() * 70;
+        d.className = 'fx-burst';
+        d.style.cssText = `left:${r.left + r.width / 2}px;top:${r.top + 28}px;background:rgb(var(${cols[i % 5]}));--bx:${Math.cos(ang) * dist}px;--by:${Math.sin(ang) * dist * .6}px`;
+        document.body.appendChild(d);
+        setTimeout(() => d.remove(), 950);
+      }
+    }
+
+    function bindHome() {
+      makeNoise();
+      const view = $('#view-home');
+      $('#heroAsk').addEventListener('submit', (e) => { e.preventDefault(); homeAsk($('#heroAskInput').value); });
+      $('#heroAskInput').addEventListener('input', (e) => renderHomeSuggest(e.target.value));
+      view.addEventListener('click', (e) => {
+        const f = e.target.closest('[data-home-filter]');
+        if (f) { home.filter = f.dataset.homeFilter; renderHomeGrid(); return; }
+        const r = e.target.closest('[data-home-recent]');
+        if (r) { const [toolId, id] = r.dataset.homeRecent.split('|'); setActiveTool(toolId); restoreHistory(id); }
+      });
+      // Nagłówek: kula i zorza reagują na kursor
+      const hero = $('#homeHero');
+      hero.addEventListener('pointermove', (e) => {
+        const r = hero.getBoundingClientRect();
+        home.mouse = { x: e.clientX - r.left, y: e.clientY - r.top };
+        hero.style.setProperty('--px', ((e.clientX - r.left) / r.width * 2 - 1).toFixed(3));
+        hero.style.setProperty('--py', ((e.clientY - r.top) / r.height * 2 - 1).toFixed(3));
+      });
+      hero.addEventListener('pointerleave', () => { home.mouse = null; hero.style.setProperty('--px', 0); hero.style.setProperty('--py', 0); });
+      // Karty: światło za kursorem, przechylenie i paralaksa grafiki
+      const grid = $('#homeGrid');
+      grid.addEventListener('pointermove', (e) => {
+        const card = e.target.closest('.tool-card');
+        if (!card || fxReduced()) return;
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+        card.style.setProperty('--mx', `${Math.round(x * r.width)}px`);
+        card.style.setProperty('--my', `${Math.round(y * r.height)}px`);
+        card.style.setProperty('--ry', `${((x - .5) * 9).toFixed(2)}deg`);
+        card.style.setProperty('--rx', `${((.5 - y) * 7).toFixed(2)}deg`);
+        card.style.setProperty('--ax', `${((x - .5) * -16).toFixed(1)}px`);
+        card.style.setProperty('--ay', `${((y - .5) * -12).toFixed(1)}px`);
+      });
+      grid.addEventListener('pointerout', (e) => {
+        const card = e.target.closest('.tool-card');
+        if (card && !card.contains(e.relatedTarget)) ['--rx', '--ry', '--ax', '--ay'].forEach(k => card.style.removeProperty(k));
+      });
+      // Wyszukiwarka Ctrl+K
+      $('#cmdkBtn').addEventListener('click', openCmdk);
+      $('#cmdk .cmdk-backdrop').addEventListener('click', closeCmdk);
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); if ($('#cmdk').classList.contains('hidden')) openCmdk(); else closeCmdk(); return; }
+        if (e.key === 'Escape' && !$('#cmdk').classList.contains('hidden')) { e.preventDefault(); closeCmdk(); }
+      });
+      $('#cmdkInput').addEventListener('input', () => { cmdk.sel = 0; renderCmdk(); });
+      $('#cmdkInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeCmdk(); return; }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          const n = cmdk.items.length; if (!n) return;
+          cmdk.sel = (cmdk.sel + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
+          renderCmdk();
+          const opt = document.getElementById(`cmdk-opt-${cmdk.sel}`); if (opt) opt.scrollIntoView({ block: 'nearest' });
+          return;
+        }
+        if (e.key === 'Enter') { e.preventDefault(); runCmdk(cmdk.sel); }
+      });
+      $('#cmdkList').addEventListener('click', (e) => { const o = e.target.closest('[data-cmdk]'); if (o) runCmdk(+o.dataset.cmdk); });
+      $('#cmdkList').addEventListener('pointermove', (e) => {
+        const o = e.target.closest('[data-cmdk]');
+        if (o && +o.dataset.cmdk !== cmdk.sel) { cmdk.sel = +o.dataset.cmdk; $$('#cmdkList [data-cmdk]').forEach(x => x.setAttribute('aria-selected', String(+x.dataset.cmdk === cmdk.sel))); }
+      });
+    }
+
     function renderThemeToggle() {
       const dark = currentTheme() === 'dark';
       const btn = $('#themeToggle');
@@ -11346,6 +11934,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       bindEvents();
       bindNewFeatures();
       initUiEffects();
+      bindHome();
       bindLetterhead();
       bindContracts();
       bindTasksPanel();
@@ -11355,7 +11944,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       updateAnalyzerHint();
       document.body.dataset.role = getRole();
       const savedTool = storageGet(STORAGE_TOOL);
-      setActiveTool(TOOLS[savedTool] || VIEWS[savedTool] || savedTool === 'inbox' || (savedTool === 'admin' && isTech()) ? savedTool : (isTech() ? 'email' : 'inbox'));
+      setActiveTool(TOOLS[savedTool] || VIEWS[savedTool] || savedTool === 'inbox' || (savedTool === 'admin' && isTech()) ? savedTool : 'home');
       initInbox();
       ctLoad();
       $('#modelSuggestions').innerHTML = MODEL_SUGGESTIONS.map(m => `<option value="${m}"></option>`).join('');
