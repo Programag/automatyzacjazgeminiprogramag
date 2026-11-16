@@ -856,7 +856,7 @@
     <div class="flex flex-1 flex-col min-w-0">
 
       <!-- Górny pasek -->
-      <header class="app-header h-14 shrink-0 border-b border-slate-300 bg-canvas flex items-center gap-3 px-4 sm:px-6">
+      <header class="app-header h-14 shrink-0 border-b border-slate-300 bg-canvas flex items-center gap-2 px-3 sm:gap-3 sm:px-6">
         <button id="openSidebarBtn" class="lg:hidden rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Otwórz menu">
           <svg data-icon="bars" class="h-5 w-5"></svg>
         </button>
@@ -1835,7 +1835,7 @@
         <div id="view-contracts" class="hidden p-4 sm:p-6 max-w-[1300px] mx-auto space-y-5">
           <section class="rounded-2xl border border-slate-300 bg-canvas p-5 shadow-card sm:p-6">
             <div class="flex flex-wrap items-start gap-3">
-              <div class="min-w-0 flex-1">
+              <div class="min-w-0 flex-1 basis-full sm:basis-0">
                 <h2 class="font-semibold text-slate-900">Umowy firmy</h2>
                 <p class="mt-1 text-sm text-slate-500">Najem, leasing, abonamenty, umowy z dostawcami i klientami – z terminami wypowiedzenia, końcami umów i waloryzacjami. Aplikacja przypomni o nich na czas, a terminy dodasz do kalendarza.</p>
               </div>
@@ -4180,15 +4180,15 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
         el.innerHTML = `
           <button type="button" data-action="open-settings" class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition" title="Klucz: ${escapeHtml(maskKey(key))} – kliknij, aby zarządzać">
             <span class="relative flex h-2.5 w-2.5"><span class="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 pulse-dot"></span><span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span></span>
-            API Aktywne
+            <span class="hidden sm:inline">API Aktywne</span><span class="sr-only sm:hidden">API Aktywne</span>
             <span class="hidden md:inline font-mono text-[11px] text-emerald-600/80">${escapeHtml(maskKey(key))}</span>
           </button>`;
         dot.className = 'h-2 w-2 rounded-full bg-emerald-500';
       } else {
         el.innerHTML = `
-          <span class="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700">
+          <span class="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 sm:px-3" title="Brak klucza API">
             <span class="h-2.5 w-2.5 rounded-full bg-red-500"></span>
-            Brak klucza API
+            <span class="hidden sm:inline">Brak klucza API</span><span class="sr-only sm:hidden">Brak klucza API</span>
           </span>
           <button type="button" data-action="open-settings" class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-primary-hover transition">
             ${iconSvg('key', 'h-3.5 w-3.5')}<span class="hidden sm:inline">Konfiguruj</span>
