@@ -665,7 +665,7 @@
     /* Duża kula AI na stronie startowej */
     .ai-orb { --s: 132px; position: relative; width: var(--s); height: var(--s); margin: 0 auto; isolation: isolate; transform: translate(calc(var(--px, 0) * 16px), calc(var(--py, 0) * 12px)); transition: transform .8s var(--ease-out); }
     .ai-orb::before { content: ""; position: absolute; inset: -38%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, rgb(var(--ai-1) / .5), rgb(var(--ai-2) / .28) 50%, transparent 74%); filter: blur(14px); animation: fxBreath 5s ease-in-out infinite; }
-    .ai-orb-core { position: absolute; inset: 0; overflow: hidden; border-radius: 50%; background: conic-gradient(rgb(var(--ai-1)), rgb(var(--ai-2)), rgb(var(--ai-3)), rgb(var(--ai-4)), rgb(var(--ai-5)), rgb(var(--ai-1))); animation: spin 10s linear infinite; }
+    .ai-orb-core { position: absolute; inset: 0; overflow: hidden; border-radius: 50%; clip-path: circle(50% at 50% 50%); -webkit-mask-image: radial-gradient(circle, #000 69%, transparent 70.5%); mask-image: radial-gradient(circle, #000 69%, transparent 70.5%); will-change: transform; background: conic-gradient(rgb(var(--ai-1)), rgb(var(--ai-2)), rgb(var(--ai-3)), rgb(var(--ai-4)), rgb(var(--ai-5)), rgb(var(--ai-1))); animation: spin 10s linear infinite; }
     .ai-orb-core i { position: absolute; border-radius: 50%; filter: blur(12px); mix-blend-mode: screen; opacity: .85; }
     .ai-orb-core i:nth-child(1) { width: 70%; height: 70%; left: -8%; top: 18%; background: rgb(var(--ai-2)); animation: fxBlobA 7s ease-in-out infinite; }
     .ai-orb-core i:nth-child(2) { width: 60%; height: 60%; right: -6%; top: -6%; background: rgb(var(--ai-5)); animation: fxBlobB 9s ease-in-out infinite; }
