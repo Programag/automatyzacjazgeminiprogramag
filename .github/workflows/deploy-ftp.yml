@@ -1,0 +1,67 @@
+# Wgrywa aplikację (index.html) na hosting przez FTP po każdej zmianie na wskazanych gałęziach
+# oraz na żądanie (Actions -> "Wgraj na FTP" -> Run workflow).
+#
+# Dane dostępowe NIE są w kodzie. Ustaw je raz w repozytorium:
+# Settings -> Secrets and variables -> Actions -> New repository secret
+#   FTP_SERVER    adres serwera FTP, np. ftp.paperlyai.pl (bez ftp://)
+#   FTP_USERNAME  login konta FTP
+#   FTP_PASSWORD  hasło konta FTP
+#   FTP_DIR       (opcjonalnie) folder strony na serwerze, np. /public_html/ – domyślnie /
+#   FTP_PROTOCOL  (opcjonalnie) ftp, ftps albo ftps-legacy – domyślnie ftps
+name: Wgraj na FTP
+
+on:
+  push:
+    branches:
+      - main
+      - claude/sleepy-galileo-wyv13q
+    paths:
+      - index.html
+      - .github/workflows/deploy-ftp.yml
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ftp
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pobierz kod
+        uses: actions/checkout@v4
+
+      - name: Sprawdź, czy ustawiono dane FTP
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          missing=""
+          [ -z "$FTP_SERVER" ] && missing="$missing FTP_SERVER"
+          [ -z "$FTP_USERNAME" ] && missing="$missing FTP_USERNAME"
+          [ -z "$FTP_PASSWORD" ] && missing="$missing FTP_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Brak sekretów w repozytorium:$missing (Settings -> Secrets and variables -> Actions)"
+            exit 1
+          fi
+
+      - name: Przygotuj pliki do wgrania
+        run: |
+          mkdir -p _site
+          cp index.html _site/index.html
+          test -s _site/index.html
+
+      - name: Wgraj przez FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ${{ secrets.FTP_PROTOCOL || 'ftps' }}
+          server-dir: ${{ secrets.FTP_DIR || '/' }}
+          local-dir: ./_site/
+          dry-run: false

@@ -154,6 +154,22 @@ Wszystko dzieje się w przeglądarce: klucz Gemini, identyfikatory aplikacji i t
 
 Historia wyników, wersje robocze, baza wiedzy, rejestr umów i papier firmowy również zostają tylko w tej przeglądarce. Nagrania z symulatora rozmowy trafiają do Gemini dopiero przy ocenie, a większe nagrania przesłane przez Files API są usuwane z serwerów Google zaraz po niej. Pracownik usuwa je z menu **Historia**, a technik w **Panelu technika → Dane w tej przeglądarce** może jednym przyciskiem usunąć wszystkie dane Paperly (np. na wspólnym komputerze).
 
+## Wgrywanie na własny hosting (FTP)
+
+Aplikacja to jeden plik `index.html` – wystarczy hosting ze zwykłymi plikami i certyfikatem HTTPS (bez niego nie działa logowanie Google ani mikrofon). Repozytorium ma workflow **Wgraj na FTP** (`.github/workflows/deploy-ftp.yml`), który po każdej zmianie `index.html` na gałęzi `main` lub `claude/sleepy-galileo-wyv13q` wgrywa plik na serwer; można też uruchomić go ręcznie w zakładce **Actions**.
+
+Jednorazowo ustaw w repozytorium (**Settings → Secrets and variables → Actions → New repository secret**):
+
+| Sekret | Wartość |
+|---|---|
+| `FTP_SERVER` | adres serwera FTP, np. `ftp.paperlyai.pl` (bez `ftp://`) |
+| `FTP_USERNAME` | login konta FTP |
+| `FTP_PASSWORD` | hasło konta FTP |
+| `FTP_DIR` | opcjonalnie: folder strony, np. `/public_html/` (domyślnie `/`) |
+| `FTP_PROTOCOL` | opcjonalnie: `ftps` (domyślnie), `ftp` albo `ftps-legacy` |
+
+Po zmianie domeny dodaj nowy adres w Google Cloud w *Authorized JavaScript origins* i *Authorized redirect URIs* (`https://twoja-domena/`). Dane (konto, klucz Gemini, historia) są zapisane osobno dla każdego adresu strony.
+
 ## Technologie
 
 Tailwind CSS (CDN) z paletą w stylu Primer (jasny i ciemny motyw – automatycznie według systemu lub przełącznikiem w nagłówku, z kolistym przejściem między motywami), warstwa efektów w czystym CSS (przyciski w jednolitych kolorach jednej palety – niebieski akcent, zielony dla wysyłki, czerwony dla usuwania – z falą po kliknięciu i delikatnym uniesieniem, płynne wejścia widoków, animowane ładowanie, linia „AI pracuje” w nagłówku, powiadomienia z paskiem czasu) – wyłączana automatycznie, gdy system ma ustawione ograniczenie ruchu, czysty JavaScript, `marked.js` + `DOMPurify`, Google Identity Services, MSAL.js (`@azure/msal-browser` 3.28.1), Gmail API, Microsoft Graph, Google Calendar API, Gemini Files API i code execution, API NBP, API wykazu podatników VAT (MF). Pliki .docx/.xlsx (odczyt i zapis), .ics i CSV są obsługiwane bez dodatkowych bibliotek.
