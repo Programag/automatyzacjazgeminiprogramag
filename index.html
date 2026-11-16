@@ -31,7 +31,7 @@
             canvas: 'rgb(var(--c-canvas) / <alpha-value>)',
             primary: { DEFAULT: 'rgb(var(--c-primary) / <alpha-value>)', hover: 'rgb(var(--c-primary-hover) / <alpha-value>)', disabled: 'rgb(var(--c-primary-disabled) / <alpha-value>)' }
           },
-          borderRadius: { lg: '6px', xl: '8px', '2xl': '12px' },
+          borderRadius: { lg: '8px', xl: '12px', '2xl': '16px' },
           boxShadow: {
             card: '0 1px 0 rgb(var(--shadow-color) / 0.04)',
             sm: '0 1px 0 rgb(var(--shadow-color) / 0.04)',
@@ -399,6 +399,248 @@
     .scroll-thin::-webkit-scrollbar-thumb { background: rgb(var(--c-slate-300)); border-radius: 8px; }
     .scroll-thin::-webkit-scrollbar-track { background: transparent; }
     kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    /* =====================================================================
+       WARSTWA WIZUALNA: głębia, gradienty i mikroanimacje
+       Ruch jest wyłączany, gdy system ma ustawione „ogranicz ruch”.
+       ===================================================================== */
+    :root {
+      --ease-out: cubic-bezier(.22, 1, .36, 1);
+      --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+      --fx-hl: 255 255 255;
+      --fx-hl-a: .75;
+      --fx-g1: 56 184 92;
+      --fx-g2: 31 136 61;
+      --fx-g3: 21 104 45;
+      --fx-d1: 239 92 84;
+      --fx-d2: 207 34 46;
+      --fx-d3: 160 18 34;
+      --fx-brand-a: 33 139 255;
+      --fx-brand-b: 45 164 78;
+      --fx-aurora-a: .09;
+      --fx-aurora-b: .07;
+      --fx-skel-a: var(--c-slate-100);
+      --fx-skel-b: var(--c-slate-50);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) { --fx-hl-a: .05; --fx-brand-a: 68 147 248; --fx-brand-b: 63 185 80; --fx-aurora-a: .13; --fx-aurora-b: .08; --fx-skel-a: var(--c-slate-200); --fx-skel-b: var(--c-slate-100); }
+    }
+    :root[data-theme="dark"] { --fx-hl-a: .05; --fx-brand-a: 68 147 248; --fx-brand-b: 63 185 80; --fx-aurora-a: .13; --fx-aurora-b: .08; --fx-skel-a: var(--c-slate-200); --fx-skel-b: var(--c-slate-100); }
+
+    /* Tło z delikatną poświatą w kolorach marki */
+    body {
+      background:
+        radial-gradient(1100px 620px at 105% -12%, rgb(var(--fx-brand-a) / var(--fx-aurora-a)), transparent 62%),
+        radial-gradient(900px 560px at -8% 108%, rgb(var(--fx-brand-b) / var(--fx-aurora-b)), transparent 60%),
+        rgb(var(--c-canvas));
+      background-attachment: fixed;
+    }
+
+    /* Górny pasek: półprzezroczysty, z linią gradientu (płynie, gdy AI pracuje) */
+    .app-header { position: relative; background-color: rgb(var(--c-canvas) / .72) !important; -webkit-backdrop-filter: saturate(1.5) blur(12px); backdrop-filter: saturate(1.5) blur(12px); }
+    .app-header::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; pointer-events: none; opacity: .6;
+      background: linear-gradient(90deg, transparent, rgb(var(--fx-brand-a) / .7) 30%, rgb(var(--fx-brand-b) / .7) 70%, transparent); background-size: 200% 100%; transition: opacity .3s, height .3s; }
+    body.ai-busy .app-header::after { opacity: 1; height: 2px; animation: fxFlow 1.4s linear infinite; }
+
+    /* Pasek boczny i logo */
+    #sidebar { background-image: linear-gradient(180deg, transparent 50%, rgb(var(--fx-brand-a) / .05)); }
+    .brand-tile { position: relative; overflow: hidden; color: #fff !important; background: linear-gradient(135deg, rgb(var(--fx-brand-a)), rgb(var(--fx-brand-b))) !important;
+      box-shadow: 0 6px 16px -6px rgb(var(--fx-brand-a) / .6), inset 0 1px 0 rgb(255 255 255 / .35); }
+    .brand-tile::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 30%, rgb(255 255 255 / .5) 50%, transparent 70%); transform: translateX(-130%); animation: fxBrandShine 7s var(--ease-out) 1.5s infinite; }
+    .brand-tile svg { animation: fxTwinkle 4.5s ease-in-out infinite; }
+    #toolMenu { animation: fxSlideIn .5s var(--ease-out) .05s both; }
+
+    /* Menu: przesunięcie przy najechaniu, gradientowy wskaźnik aktywnej pozycji */
+    .nav-item { transition: background-color .2s var(--ease-out), color .2s, padding-left .3s var(--ease-out), box-shadow .3s; }
+    .nav-item:hover { padding-left: 12px; }
+    .nav-item .nav-icon { transition: transform .35s var(--ease-spring), color .2s; }
+    .nav-item:hover .nav-icon { transform: scale(1.15); color: var(--accent); }
+    .nav-item[aria-current="page"] { background: linear-gradient(90deg, rgb(var(--fx-brand-a) / .16), rgb(var(--fx-brand-a) / .03)); box-shadow: inset 0 0 0 1px rgb(var(--fx-brand-a) / .14); }
+    .nav-item[aria-current="page"] .nav-icon { color: var(--accent); }
+    .nav-item[aria-current="page"]::before { background: linear-gradient(180deg, rgb(var(--fx-brand-a)), rgb(var(--fx-brand-b))); box-shadow: 0 0 10px rgb(var(--fx-brand-a) / .55); }
+    .nav-item.nav-enter::before { animation: fxBarGrow .45s var(--ease-spring); }
+    .nav-item.nav-enter .nav-icon { animation: fxIconPop .55s var(--ease-spring); }
+
+    /* Karty: miękki, warstwowy cień */
+    .shadow-card { box-shadow: 0 1px 2px rgb(var(--shadow-color) / .05), 0 14px 34px -22px rgb(var(--shadow-color) / .3), inset 0 1px 0 rgb(var(--fx-hl) / var(--fx-hl-a)); transition: box-shadow .4s var(--ease-out), border-color .4s; }
+    .shadow-card:hover { box-shadow: 0 1px 2px rgb(var(--shadow-color) / .06), 0 22px 44px -24px rgb(var(--shadow-color) / .38), inset 0 1px 0 rgb(var(--fx-hl) / var(--fx-hl-a)); }
+    .rounded-t-2xl.bg-slate-50 { background-image: linear-gradient(180deg, rgb(var(--c-canvas) / .65), rgb(var(--c-canvas) / 0)); }
+    #formIcon { background: linear-gradient(135deg, rgb(var(--fx-brand-a) / .18), rgb(var(--fx-brand-b) / .16)) !important; box-shadow: inset 0 0 0 1px rgb(var(--fx-brand-a) / .2), 0 6px 14px -8px rgb(var(--fx-brand-a) / .5); }
+    #formIcon.fx-pop svg { animation: fxIconPop .6s var(--ease-spring); }
+
+    /* Wszystkie przyciski: płynne przejścia i sprężyste „wciśnięcie” */
+    button { transition: background-color .2s var(--ease-out), border-color .2s, color .2s, box-shadow .3s var(--ease-out), transform .2s var(--ease-out), opacity .2s, padding .3s var(--ease-out); }
+    button:not(:disabled):active { transform: scale(.96); transition-duration: .08s; }
+    button svg { transition: transform .4s var(--ease-spring); }
+
+    /* Przyciski główne: gradient, połysk, poświata i światło podążające za kursorem */
+    :is(button.bg-primary, button.bg-emerald-600, .submit-btn) { --g1: var(--fx-g1); --g2: var(--fx-g2); --g3: var(--fx-g3); }
+    button.bg-red-600 { --g1: var(--fx-d1); --g2: var(--fx-d2); --g3: var(--fx-d3); }
+    :is(button.bg-primary, button.bg-emerald-600, button.bg-red-600, .submit-btn) { position: relative; isolation: isolate; overflow: hidden; }
+    :is(button.bg-primary, button.bg-emerald-600, button.bg-red-600, .submit-btn):not(:disabled) {
+      background-image: linear-gradient(180deg, rgb(255 255 255 / .2), rgb(255 255 255 / 0) 55%), linear-gradient(135deg, rgb(var(--g1)), rgb(var(--g2)) 55%, rgb(var(--g3)));
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / .3), inset 0 0 0 1px rgb(var(--g3) / .55), 0 1px 2px rgb(var(--shadow-color) / .2), 0 8px 18px -9px rgb(var(--g2) / .75);
+      text-shadow: 0 1px 1px rgb(0 0 0 / .18);
+    }
+    :is(button.bg-primary, button.bg-emerald-600, button.bg-red-600, .submit-btn):not(:disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / .35), inset 0 0 0 1px rgb(var(--g3) / .6), 0 2px 4px rgb(var(--shadow-color) / .18), 0 16px 28px -12px rgb(var(--g2) / .85);
+    }
+    :is(button.bg-primary, button.bg-emerald-600, button.bg-red-600, .submit-btn):not(:disabled):active { transform: translateY(0) scale(.97); }
+    :is(button.bg-primary, button.bg-emerald-600, button.bg-red-600, .submit-btn)::before {
+      content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0; transition: opacity .35s;
+      background: radial-gradient(160px circle at var(--mx, 50%) var(--my, 50%), rgb(255 255 255 / .32), transparent 60%);
+    }
+    :is(button.bg-primary, button.bg-emerald-600, button.bg-red-600, .submit-btn)::after {
+      content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; transform: translateX(-120%);
+      background: linear-gradient(115deg, transparent 35%, rgb(255 255 255 / .4) 50%, transparent 65%);
+    }
+    :is(button.bg-primary, button.bg-emerald-600, button.bg-red-600, .submit-btn):not(:disabled):hover::before { opacity: 1; }
+    :is(button.bg-primary, button.bg-emerald-600, button.bg-red-600, .submit-btn):not(:disabled):hover::after { transform: translateX(120%); transition: transform .8s var(--ease-out); }
+    .submit-btn { padding-top: .6rem !important; padding-bottom: .6rem !important; font-size: 14.5px !important; letter-spacing: .01em; }
+    .submit-btn:not(:disabled):hover svg { transform: rotate(-14deg) scale(1.18); }
+    /* Generowanie: przycisk „płynie” */
+    .submit-btn:disabled { cursor: wait; background-image: linear-gradient(110deg, rgb(var(--fx-g2) / .75) 0 35%, rgb(var(--fx-g1)) 50%, rgb(var(--fx-g2) / .75) 65% 100%) !important; background-size: 220% 100%; animation: fxShimmer 1.6s linear infinite; opacity: .95; }
+
+    /* Przyciski drugorzędne */
+    .btn-default { background-color: rgb(var(--c-canvas)); background-image: linear-gradient(180deg, rgb(var(--c-canvas)), rgb(var(--c-slate-50))); border-color: rgb(var(--c-slate-300)); box-shadow: 0 1px 2px rgb(var(--shadow-color) / .06), inset 0 1px 0 rgb(var(--fx-hl) / var(--fx-hl-a)); }
+    .btn-default:not(:disabled):hover { background-image: linear-gradient(180deg, rgb(var(--c-canvas)), rgb(var(--c-indigo-50) / .85)); border-color: rgb(var(--c-indigo-400) / .6); transform: translateY(-1px);
+      box-shadow: 0 8px 16px -10px rgb(var(--fx-brand-a) / .55), inset 0 1px 0 rgb(var(--fx-hl) / var(--fx-hl-a)); }
+    .btn-default:not(:disabled):hover svg { transform: scale(1.14); }
+    #fillExampleBtn:hover { transform: translateY(-1px); box-shadow: 0 8px 16px -10px rgb(var(--fx-brand-a) / .55); }
+    #themeToggle:hover svg { transform: rotate(-25deg) scale(1.12); }
+
+    /* Pola formularzy: poświata przy fokusie, „potrząśnięcie” przy błędzie */
+    .field-input { border-radius: 8px; transition: border-color .2s var(--ease-out), box-shadow .3s var(--ease-out), background-color .2s; }
+    .field-input:focus { border-color: rgb(var(--c-indigo-500)); box-shadow: 0 0 0 3px rgb(var(--fx-brand-a) / .2), 0 1px 2px rgb(var(--shadow-color) / .06); }
+    .field-input.invalid { box-shadow: inset 0 0 0 1px rgb(var(--c-red-600)), 0 0 0 3px rgb(var(--c-red-500) / .18); animation: fxShake .42s var(--ease-out); }
+    :is([data-drop], #batchDrop, #dunDrop) { transition: border-color .25s, background-color .25s, box-shadow .3s, transform .3s var(--ease-out); }
+    :is([data-drop], #batchDrop, #dunDrop):hover { border-color: rgb(var(--c-indigo-400) / .8); background-color: rgb(var(--c-indigo-50) / .55); }
+    :is([data-drop], #batchDrop, #dunDrop).\!bg-indigo-50 { transform: scale(1.012); box-shadow: 0 0 0 4px rgb(var(--fx-brand-a) / .15); }
+
+    /* Rozwijane menu i okna dialogowe */
+    :is(#exportMenu, #historyMenu):not(.hidden) { transform-origin: top right; animation: fxMenuIn .22s var(--ease-out); background-color: rgb(var(--c-canvas) / .94); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+      box-shadow: 0 24px 48px -20px rgb(var(--shadow-color) / .45), 0 0 0 1px rgb(var(--c-slate-300) / .5); }
+    [role="menuitem"] { transition: background-color .15s, color .15s, padding-left .25s var(--ease-out); }
+    [role="menuitem"]:hover { padding-left: 14px; }
+    [role="menuitem"]:hover svg { color: var(--accent); }
+    [role="dialog"]:not(.hidden) > div:first-child { animation: fxFade .25s ease-out; }
+    [role="dialog"]:not(.hidden) .shadow-2xl { animation: fxDialogIn .4s var(--ease-spring); }
+    #sidebarOverlay:not(.hidden) { animation: fxFade .25s ease-out; }
+
+    /* Widoki i formularze wjeżdżają płynnie; karty pojawiają się kaskadowo */
+    [id^="view-"]:not(.hidden) > :is(section, div, p) { animation: fxRise .38s var(--ease-out) both; }
+    [id^="view-"]:not(.hidden) > :nth-child(2) { animation-delay: .04s; }
+    [id^="view-"]:not(.hidden) > :nth-child(3) { animation-delay: .08s; }
+    [id^="view-"]:not(.hidden) > :nth-child(n+4) { animation-delay: .12s; }
+    .tool-form:not(.hidden) { animation: fxRise .32s var(--ease-out) both; }
+    .fade-in { animation: fxRise .35s var(--ease-out); }
+
+    /* Panel wyniku: pusty stan, ładowanie, praca AI, wynik */
+    .h-14.w-14.rounded-2xl.bg-indigo-50 { background: linear-gradient(135deg, rgb(var(--fx-brand-a) / .18), rgb(var(--fx-brand-b) / .16)); box-shadow: 0 14px 30px -14px rgb(var(--fx-brand-a) / .6), inset 0 0 0 1px rgb(var(--fx-brand-a) / .18); animation: fxFloat 4.5s ease-in-out infinite; }
+    .h-14.w-14.rounded-2xl.bg-indigo-50 svg { animation: fxTwinkle 3.5s ease-in-out infinite; }
+    .spinner { width: 48px; height: 48px; border: 0; border-radius: 50%;
+      background: conic-gradient(from 90deg, rgb(var(--fx-brand-a) / 0), rgb(var(--fx-brand-a)) 60%, rgb(var(--fx-brand-b)));
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px)); mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+      filter: drop-shadow(0 0 8px rgb(var(--fx-brand-a) / .45)); animation: spin .9s linear infinite; }
+    #resultLoading::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, rgb(var(--fx-brand-a)), rgb(var(--fx-brand-b)), transparent) no-repeat; background-size: 45% 100%; animation: fxIndeterminate 1.3s var(--ease-out) infinite; }
+    .fx-skeleton span { display: block; height: 10px; border-radius: 6px; background: linear-gradient(90deg, rgb(var(--fx-skel-a)) 25%, rgb(var(--fx-skel-b)) 50%, rgb(var(--fx-skel-a)) 75%); background-size: 200% 100%; animation: fxShimmer 1.4s linear infinite; }
+    #resultCard { transition: box-shadow .5s var(--ease-out), border-color .5s; }
+    #resultCard.is-working { border-color: rgb(var(--fx-brand-a) / .5); animation: fxWorkGlow 2.4s ease-in-out infinite; }
+    .md-output.is-streaming > :last-child::after { content: ""; display: inline-block; width: .55em; height: 1.05em; margin-left: 3px; vertical-align: -0.15em; border-radius: 2px; background: linear-gradient(180deg, rgb(var(--fx-brand-a)), rgb(var(--fx-brand-b))); animation: fxCaret 1s steps(1) infinite; }
+    .fx-reveal > * { animation: fxRise .5s var(--ease-out) both; }
+    .fx-reveal > :nth-child(2) { animation-delay: .04s; } .fx-reveal > :nth-child(3) { animation-delay: .08s; } .fx-reveal > :nth-child(4) { animation-delay: .12s; }
+    .fx-reveal > :nth-child(5) { animation-delay: .16s; } .fx-reveal > :nth-child(6) { animation-delay: .2s; } .fx-reveal > :nth-child(7) { animation-delay: .24s; }
+    .fx-reveal > :nth-child(n+8) { animation-delay: .28s; }
+
+    /* Wynik w Markdown: nagłówki z akcentem, zaokrąglone tabele */
+    .md-output h1, .md-output h2 { border-bottom: 0; background: linear-gradient(90deg, rgb(var(--fx-brand-a) / .55), rgb(var(--fx-brand-b) / .35) 40%, transparent 75%) left bottom / 100% 1px no-repeat; }
+    .md-output table { border-collapse: separate; border-spacing: 0; border: 1px solid var(--border); border-radius: 10px; }
+    .md-output th, .md-output td { border: 0; border-right: 1px solid var(--border-muted); border-bottom: 1px solid var(--border-muted); }
+    .md-output tr > :last-child { border-right: 0; }
+    .md-output tbody tr:last-child > * { border-bottom: 0; }
+    .md-output thead th { background: rgb(var(--c-slate-50)); }
+    .md-output tbody tr { transition: background-color .15s; }
+    .md-output tbody tr:hover { background: rgb(var(--fx-brand-a) / .06); }
+    .md-output blockquote { border-left-color: rgb(var(--fx-brand-a) / .5); }
+    .md-output hr { height: 1px; background: linear-gradient(90deg, transparent, rgb(var(--c-slate-300)), rgb(var(--fx-brand-a) / .45), rgb(var(--c-slate-300)), transparent); }
+
+    /* Numerowane kroki (Panel technika, Windykacja, Przetwarzanie listy) */
+    :is(h2, h3) > span.rounded-full.bg-indigo-100 { background: linear-gradient(135deg, rgb(var(--fx-brand-a)), rgb(var(--fx-brand-b))); color: #fff; box-shadow: 0 4px 10px -4px rgb(var(--fx-brand-a) / .6); }
+
+    /* Rozmowa z dokumentem: dymki i awatar */
+    #chatMessages .rounded-br-md.bg-slate-100 { background: linear-gradient(135deg, rgb(var(--fx-brand-a) / .14), rgb(var(--fx-brand-b) / .1)); box-shadow: inset 0 0 0 1px rgb(var(--fx-brand-a) / .16); }
+    #chatMessages .rounded-lg.bg-slate-900 { background: linear-gradient(135deg, rgb(var(--fx-brand-a)), rgb(var(--fx-brand-b))); color: #fff; box-shadow: 0 4px 10px -4px rgb(var(--fx-brand-a) / .55); }
+
+    /* Skrzynka i inne karty z listy */
+    #inboxList > article { transition: box-shadow .35s var(--ease-out), border-color .35s; }
+    #inboxList > article:hover { border-color: rgb(var(--c-indigo-400) / .5); box-shadow: 0 18px 38px -24px rgb(var(--shadow-color) / .4); }
+
+    /* Status w rejestrze umów: pulsująca kropka przy pilnych terminach */
+    .status-red { position: relative; padding-left: 18px !important; }
+    .status-red::before { content: ""; position: absolute; left: 7px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: rgb(var(--c-red-600)); animation: fxPing 1.6s ease-out infinite; }
+
+    /* Pierścień wyniku (symulator rozmowy) – wypełnia się animacją */
+    @property --fx-p { syntax: '<number>'; inherits: false; initial-value: 0; }
+    .fx-ring { --fx-p: var(--target); width: 104px; height: 104px; flex: none; border-radius: 50%; display: grid; place-items: center; text-align: center;
+      background: radial-gradient(closest-side, rgb(var(--c-canvas)) 80%, transparent 81% 100%), conic-gradient(var(--ring) calc(var(--fx-p) * 1%), rgb(var(--c-slate-200)) 0);
+      animation: fxRing 1.2s var(--ease-out) both; filter: drop-shadow(0 8px 16px rgb(var(--shadow-color) / .12)); }
+
+    /* Status API: pulsująca kropka */
+    .pulse-dot { animation: fxPingScale 1.8s cubic-bezier(0, 0, .2, 1) infinite; }
+
+    /* Powiadomienia: wjazd z prawej, ikona i pasek czasu */
+    .fx-toast { position: relative; overflow: hidden; display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px 12px 11px !important; border-radius: 12px !important;
+      box-shadow: 0 18px 38px -16px rgb(0 0 0 / .5), inset 0 1px 0 rgb(255 255 255 / .2) !important; animation: fxToastIn .5s var(--ease-spring) both; }
+    .fx-toast.bg-emerald-600 { background-image: linear-gradient(135deg, rgb(var(--fx-g1)), rgb(var(--fx-g3))); }
+    .fx-toast.bg-red-600 { background-image: linear-gradient(135deg, rgb(var(--fx-d1)), rgb(var(--fx-d3))); }
+    .fx-toast.bg-amber-600 { background-image: linear-gradient(135deg, rgb(214 150 6), rgb(166 102 0)); }
+    .fx-toast.bg-navy-800 { background-image: linear-gradient(135deg, rgb(58 66 76), rgb(28 32 37)); }
+    .fx-toast-icon { flex: none; display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-top: -1px; border-radius: 999px; background: rgb(255 255 255 / .2); animation: fxIconPop .6s var(--ease-spring) .1s both; }
+    .fx-toast-bar { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: rgb(255 255 255 / .55); transform-origin: left; animation: fxToastBar linear forwards; }
+    .fx-toast.is-leaving { animation: fxToastOut .3s var(--ease-out) forwards; }
+
+    /* Fala po kliknięciu */
+    .fx-ripple-host { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+    .fx-ripple { position: absolute; border-radius: 50%; background: currentColor; opacity: .16; transform: scale(0); animation: fxRipple .65s var(--ease-out) forwards; }
+    :is(button.bg-primary, button.bg-emerald-600, button.bg-red-600, .submit-btn) .fx-ripple { background: #fff; opacity: .35; }
+
+    .scroll-thin::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-slate-400)); }
+
+    /* Przełączenie motywu: kolisty „przelew” od przycisku */
+    ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+    ::view-transition-new(root) { animation: fxThemeReveal .65s var(--ease-out); }
+
+    @keyframes fxFlow { from { background-position: 200% 0; } to { background-position: 0 0; } }
+    @keyframes fxBrandShine { 0%, 72% { transform: translateX(-130%); } 100% { transform: translateX(130%); } }
+    @keyframes fxTwinkle { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.12) rotate(8deg); } }
+    @keyframes fxSlideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+    @keyframes fxBarGrow { from { transform: scaleY(0); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+    @keyframes fxIconPop { 0% { transform: scale(.6) rotate(-12deg); } 60% { transform: scale(1.18) rotate(4deg); } 100% { transform: none; } }
+    @keyframes fxShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+    @keyframes fxShake { 0%, 100% { transform: none; } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+    @keyframes fxMenuIn { from { opacity: 0; transform: translateY(-6px) scale(.96); } to { opacity: 1; transform: none; } }
+    @keyframes fxFade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes fxDialogIn { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+    @keyframes fxRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @keyframes fxFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+    @keyframes fxIndeterminate { from { background-position: -100% 0; } to { background-position: 200% 0; } }
+    @keyframes fxWorkGlow { 0%, 100% { box-shadow: 0 0 0 1px rgb(var(--fx-brand-a) / .25), 0 20px 46px -24px rgb(var(--fx-brand-a) / .6); } 50% { box-shadow: 0 0 0 1px rgb(var(--fx-brand-b) / .35), 0 20px 50px -20px rgb(var(--fx-brand-b) / .55); } }
+    @keyframes fxCaret { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    @keyframes fxPing { 0% { box-shadow: 0 0 0 0 rgb(var(--c-red-600) / .55); } 100% { box-shadow: 0 0 0 7px rgb(var(--c-red-600) / 0); } }
+    @keyframes fxPingScale { 0% { transform: scale(1); opacity: .6; } 75%, 100% { transform: scale(2.3); opacity: 0; } }
+    @keyframes fxRing { from { --fx-p: 0; } }
+    @keyframes fxToastIn { from { opacity: 0; transform: translateX(28px) scale(.95); } to { opacity: 1; transform: none; } }
+    @keyframes fxToastOut { to { opacity: 0; transform: translateX(28px) scale(.95); } }
+    @keyframes fxToastBar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+    @keyframes fxRipple { to { transform: scale(1); opacity: 0; } }
+    @keyframes fxThemeReveal { from { clip-path: circle(0 at var(--vt-x, 100%) var(--vt-y, 0)); } to { clip-path: circle(150vmax at var(--vt-x, 100%) var(--vt-y, 0)); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+      .fx-ripple-host { display: none; }
+      .spinner { animation: spin 1.6s linear infinite !important; animation-duration: 1.6s !important; animation-iteration-count: infinite !important; }
+    }
   </style>
 </head>
 
@@ -411,7 +653,7 @@
     <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 -translate-x-full transform border-r border-slate-300 bg-slate-50 transition-transform duration-200 ease-out lg:static lg:translate-x-0 flex flex-col">
       <div class="flex items-center justify-between gap-2 px-4 h-14 shrink-0">
         <div class="flex items-center gap-2.5 min-w-0">
-          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-canvas">
+          <div class="brand-tile flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-canvas">
             <svg data-icon="sparkles" class="h-[18px] w-[18px]"></svg>
           </div>
           <div class="min-w-0 leading-tight">
@@ -466,7 +708,7 @@
     <div class="flex flex-1 flex-col min-w-0">
 
       <!-- Górny pasek -->
-      <header class="h-14 shrink-0 border-b border-slate-300 bg-canvas flex items-center gap-3 px-4 sm:px-6">
+      <header class="app-header h-14 shrink-0 border-b border-slate-300 bg-canvas flex items-center gap-3 px-4 sm:px-6">
         <button id="openSidebarBtn" class="lg:hidden rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Otwórz menu">
           <svg data-icon="bars" class="h-5 w-5"></svg>
         </button>
@@ -1015,7 +1257,7 @@
           </section>
 
           <!-- ===== Kolumna: Wynik ===== -->
-          <section class="rounded-2xl bg-canvas shadow-card border border-slate-300 flex flex-col min-h-[480px]">
+          <section id="resultCard" class="rounded-2xl bg-canvas shadow-card border border-slate-300 flex flex-col min-h-[480px]">
             <div class="flex items-center justify-between gap-3 rounded-t-2xl border-b border-slate-300 bg-slate-50 px-4 sm:px-5 py-3">
               <div class="min-w-0 flex-1">
                 <h2 class="font-semibold text-slate-900">Wynik</h2>
@@ -1064,6 +1306,7 @@
                 <p id="loadingStep" class="mt-1 text-sm text-slate-500">Przygotowuję zapytanie</p>
                 <p id="loadingTimer" class="mt-3 font-mono text-xs text-slate-400">0,0 s</p>
                 <p id="loadingHint" class="hidden mt-4 max-w-xs text-xs leading-relaxed text-slate-400">Przy dużym obciążeniu serwerów Google odpowiedź może potrwać dłużej. W razie potrzeby aplikacja sama ponowi zapytanie.</p>
+                <div class="fx-skeleton mt-7 w-full max-w-sm space-y-2.5" aria-hidden="true"><span></span><span style="width:92%"></span><span style="width:78%"></span><span style="width:60%"></span></div>
               </div>
 
               <!-- Błąd -->
@@ -3560,7 +3803,12 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0') + str.length.toString(36);
     }
 
-    async function callGemini({ apiKey, model, systemInstruction, userText, turns, temperature, thinkingLevel, responseSchema, attachments, codeExecution, maxOutputTokens, mediaResolution, onText, onStatus, signal, force }) {
+    // Każde zapytanie do Gemini zapala animowaną linię w górnym pasku
+    async function callGemini(opts) {
+      aiBusy(1);
+      try { return await callGeminiCore(opts); } finally { aiBusy(-1); }
+    }
+    async function callGeminiCore({ apiKey, model, systemInstruction, userText, turns, temperature, thinkingLevel, responseSchema, attachments, codeExecution, maxOutputTokens, mediaResolution, onText, onStatus, signal, force }) {
       let useThinking = true;
       let useSchema = !!responseSchema;
       let useCode = !!codeExecution;
@@ -3780,6 +4028,8 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
           </li>`;
       };
       menu.innerHTML = inboxItem + TOOL_GROUPS.map(g => groupLabel(g) + TOOL_ORDER.filter(id => (TOOLS[id] || VIEWS[id]).group === g).map(toolItem).join('')).join('');
+      const navNow = state.view === 'tools' ? state.activeTool : state.view;
+      if (navNow !== fxLastNav) { fxLastNav = navNow; const cur = menu.querySelector('[aria-current="page"]'); if (cur && !fxReduced()) cur.classList.add('nav-enter'); }
       if (typeof updateInboxBadge === 'function') updateInboxBadge();
       const adminBtn = document.getElementById('openAdminBtn');
       if (adminBtn) {
@@ -3812,6 +4062,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       $('#toolTitle').textContent = t.name;
       $('#toolSubtitle').textContent = t.subtitle;
       $('#formIcon').innerHTML = iconSvg(t.icon, 'h-5 w-5');
+      replayAnim($('#formIcon'), 'fx-pop', 700);
       $('#resultEmptyText').textContent = t.emptyText;
 
       $$('.tool-form').forEach(f => f.classList.toggle('hidden', f.dataset.tool !== id));
@@ -3903,6 +4154,8 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       $('#resultActions').innerHTML = '';
       $('#clearResultBtn').classList.toggle('hidden', r.status !== 'done' && r.status !== 'error');
       $('#cancelBtn').classList.toggle('hidden', r.status !== 'loading' && r.status !== 'streaming');
+      $('#resultCard').classList.toggle('is-working', r.status === 'loading' || r.status === 'streaming');
+      $('#resultBody').classList.toggle('is-streaming', r.status === 'streaming');
 
       if (r.status === 'loading') {
         show('#resultLoading');
@@ -3952,7 +4205,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
         notice.classList.toggle('hidden', !r.notice);
         $('#resultReuse').classList.toggle('hidden', !r.reused);
         if (r.reused) $('#resultReuseText').textContent = `Te same dane co w wyniku z ${fmtWhen(r.reused)} – pokazuję go ponownie bez wysyłania do Gemini, żeby nie zużywać limitu.`;
-        if (!keepScroll) $('#resultContent').scrollTop = 0;
+        if (!keepScroll) { $('#resultContent').scrollTop = 0; replayAnim($('#resultBody'), 'fx-reveal', 1100); }
         return;
       }
 
@@ -7522,7 +7775,7 @@ ZASADY
                 <td class="whitespace-nowrap px-3 py-2">${money(c)}</td>
                 <td class="whitespace-nowrap px-3 py-2">${c.czasNieokreslony ? 'czas nieokreślony' : c.dataZakonczenia ? fmtDatePl(c.dataZakonczenia) : '—'}${c.automatycznePrzedluzenie ? '<div class="text-xs text-amber-700">przedłuża się sama</div>' : ''}</td>
                 <td class="px-3 py-2 text-xs">${escapeHtml(c.okresWypowiedzenia || '—')}${n ? `<div class="mt-0.5 text-slate-700">do <strong>${fmtDatePl(n.date)}</strong>${n.computed ? ' <span class="text-amber-700">(wyliczony)</span>' : ''}</div>` : ''}</td>
-                <td class="px-3 py-2"><span class="whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${colors[s.level]}">${escapeHtml(s.text)}</span></td>
+                <td class="px-3 py-2"><span class="status-${s.level} whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${colors[s.level]}">${escapeHtml(s.text)}</span></td>
                 <td class="whitespace-nowrap px-3 py-2 text-right text-xs"><button type="button" data-ct-edit="${c.id}" class="font-medium text-indigo-600 hover:underline">Edytuj</button> · <button type="button" data-ct-del="${c.id}" class="font-medium text-red-600 hover:underline">Usuń</button></td>
               </tr>`;
             }).join('')}</tbody>
@@ -8076,13 +8329,14 @@ ZASADY
       // Ocena
       const fb = iv.feedback;
       const score = Math.max(0, Math.min(100, Math.round(+fb.wynik || 0)));
-      const tone = score >= 75 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : score >= 50 ? 'text-amber-800 bg-amber-50 border-amber-200' : 'text-red-700 bg-red-50 border-red-200';
+      const tone = score >= 75 ? 'text-emerald-700' : score >= 50 ? 'text-amber-700' : 'text-red-700';
+      const ringColor = score >= 75 ? 'rgb(var(--c-emerald-500))' : score >= 50 ? 'rgb(var(--c-amber-500))' : 'rgb(var(--c-red-500))';
       const weak = (fb.odpowiedzi || []).filter(x => x.ocena <= 3).map(x => x.nr - 1);
       const list = (xs) => (xs || []).map(x => `<li>${escapeHtml(x)}</li>`).join('');
       stage.innerHTML = `
         <section class="rounded-2xl border border-slate-300 bg-canvas p-5 shadow-card sm:p-6">
           <div class="flex flex-wrap items-center gap-5">
-            <div class="flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-2xl border ${tone}"><span class="text-3xl font-bold">${score}</span><span class="text-xs">na 100</span></div>
+            <div class="fx-ring ${tone}" style="--target:${score};--ring:${ringColor}"><div class="flex flex-col items-center leading-none"><span class="text-3xl font-bold">${score}</span><span class="mt-1 text-xs">na 100</span></div></div>
             <div class="min-w-0 flex-1">
               <h3 class="text-lg font-semibold text-slate-900">${escapeHtml(plan.stanowisko || 'Rozmowa kwalifikacyjna')}</h3>
               <p class="mt-1 text-sm text-slate-700">${escapeHtml(fb.werdykt || '')}</p>
@@ -8448,12 +8702,14 @@ ZASADY
         warning: 'bg-amber-600 text-white',
         info: 'bg-navy-800 text-white'
       };
+      const icons = { success: 'check', error: 'warning', warning: 'warning', info: 'sparkles' };
       const el = document.createElement('div');
-      el.className = `pointer-events-auto fade-in max-w-sm rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg ${colors[type] || colors.info}`;
+      el.className = `fx-toast pointer-events-auto max-w-sm text-sm font-medium ${colors[type] || colors.info}`;
       el.setAttribute('role', 'status');
-      el.textContent = message;
+      el.innerHTML = `<span class="fx-toast-icon">${iconSvg(icons[type] || icons.info, 'h-3.5 w-3.5')}</span><span class="fx-toast-msg min-w-0 flex-1 leading-snug"></span><span class="fx-toast-bar" style="animation-duration:${duration}ms"></span>`;
+      el.querySelector('.fx-toast-msg').textContent = message;
       $('#toastContainer').appendChild(el);
-      setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, duration);
+      setTimeout(() => { el.classList.add('is-leaving'); setTimeout(() => el.remove(), 320); }, duration);
     }
 
     /* =====================================================================
@@ -10961,11 +11217,14 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       $('#resetModelBtn').addEventListener('click', () => { $('#modelInput').value = DEFAULT_MODEL; });
 
       $('#openAdminBtn').addEventListener('click', () => showAdmin());
-      $('#themeToggle').addEventListener('click', () => {
+      $('#themeToggle').addEventListener('click', (e) => {
         const next = currentTheme() === 'dark' ? 'light' : 'dark';
-        document.documentElement.dataset.theme = next;
-        storageSet('officeflow_theme', next);
-        renderThemeToggle();
+        const apply = () => { document.documentElement.dataset.theme = next; storageSet('officeflow_theme', next); renderThemeToggle(); };
+        if (!document.startViewTransition || fxReduced()) { apply(); return; }
+        const r = e.currentTarget.getBoundingClientRect();
+        document.documentElement.style.setProperty('--vt-x', `${Math.round(r.left + r.width / 2)}px`);
+        document.documentElement.style.setProperty('--vt-y', `${Math.round(r.top + r.height / 2)}px`);
+        document.startViewTransition(apply);
       });
       if (window.matchMedia) {
         const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -11013,6 +11272,56 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       if (t === 'light' || t === 'dark') return t;
       return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
+    /* =====================================================================
+       EFEKTY INTERFEJSU: fala po kliknięciu, światło za kursorem,
+       linia „AI pracuje”, ponawianie animacji wejścia
+       ===================================================================== */
+    const FX_SOLID = 'button.bg-primary, button.bg-emerald-600, button.bg-red-600, .submit-btn';
+    let fxLastNav = null;
+    let aiBusyCount = 0;
+    function fxReduced() { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+    function replayAnim(el, cls, ms = 900) {
+      if (!el || fxReduced()) return;
+      el.classList.remove(cls);
+      void el.offsetWidth;   // wymusza ponowne uruchomienie animacji
+      el.classList.add(cls);
+      clearTimeout(el._fxTimer);
+      el._fxTimer = setTimeout(() => el.classList.remove(cls), ms);
+    }
+    function aiBusy(delta) {
+      aiBusyCount = Math.max(0, aiBusyCount + delta);
+      document.body.classList.toggle('ai-busy', aiBusyCount > 0);
+    }
+    function initUiEffects() {
+      // Fala rozchodząca się od miejsca kliknięcia
+      document.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 || fxReduced()) return;
+        const b = e.target.closest && e.target.closest('button, [role="menuitem"]');
+        if (!b || b.disabled) return;
+        const r = b.getBoundingClientRect();
+        if (!r.width || !r.height) return;
+        if (getComputedStyle(b).position === 'static') b.style.position = 'relative';
+        const size = Math.max(r.width, r.height) * 2.2;
+        const host = document.createElement('span');
+        host.className = 'fx-ripple-host';
+        host.setAttribute('aria-hidden', 'true');
+        const dot = document.createElement('span');
+        dot.className = 'fx-ripple';
+        dot.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX - r.left - size / 2}px;top:${e.clientY - r.top - size / 2}px`;
+        host.appendChild(dot);
+        b.appendChild(host);
+        setTimeout(() => host.remove(), 700);
+      }, { passive: true });
+      // Miękkie światło podążające za kursorem na przyciskach głównych
+      document.addEventListener('pointermove', (e) => {
+        const b = e.target.closest && e.target.closest(FX_SOLID);
+        if (!b) return;
+        const r = b.getBoundingClientRect();
+        b.style.setProperty('--mx', `${Math.round(e.clientX - r.left)}px`);
+        b.style.setProperty('--my', `${Math.round(e.clientY - r.top)}px`);
+      }, { passive: true });
+    }
+
     function renderThemeToggle() {
       const dark = currentTheme() === 'dark';
       const btn = $('#themeToggle');
@@ -11036,6 +11345,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       initSubmitButtons();
       bindEvents();
       bindNewFeatures();
+      initUiEffects();
       bindLetterhead();
       bindContracts();
       bindTasksPanel();
