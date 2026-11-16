@@ -100,6 +100,8 @@ Panel technika pokazuje dzisiejsze i miesięczne zapytania do Gemini, tokeny i s
 Instrukcja krok po kroku jest też w aplikacji: **Panel technika → Skrzynki pocztowe → Skonfiguruj**.
 
 ### Gmail
+Na telefonach i w Safari (oraz gdy okienko Google nie przekaże zgody) logowanie odbywa się przez przekierowanie na stronę Google i powrót. Dodaj wtedy w kliencie OAuth także **Autoryzowany identyfikator URI przekierowania** – adres strony z ukośnikiem na końcu, np. `https://officeflow-ai.onrender.com/`.
+
 1. [Google Cloud Console](https://console.cloud.google.com/projectcreate) → utwórz projekt.
 2. Włącz [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com) oraz [Google Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com) (kalendarz – wolne terminy i spotkania).
 3. [Google Auth Platform](https://console.cloud.google.com/auth/overview) → *Get started*, typ odbiorców **External**; w *Audience* dodaj swój adres jako **Test user**.

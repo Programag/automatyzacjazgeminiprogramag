@@ -9280,6 +9280,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       const clientId = gmailClientId();
       if (!clientId) { openMailSetup('gmail'); return; }
       if (!/^https?:$/.test(location.protocol)) { openMailSetup('gmail'); toast('Logowanie do Gmaila działa tylko na stronie otwartej przez http(s), np. na Render.', 'error'); return; }
+      if (preferGoogleRedirect() || inbox.gmailRedirect) { startGoogleRedirect('gmail', `${GMAIL_SCOPE} ${GCAL_SCOPE}`, { prompt: inbox.gmail.email ? 'select_account' : 'consent', loginHint: inbox.gmail.email }); return; }
       if (!(window.google && google.accounts && google.accounts.oauth2)) {
         loadScript(GIS_URL).then(() => toast('Biblioteka Google gotowa – kliknij „Połącz” jeszcze raz.', 'info')).catch(e => toast(e.message, 'error'));
         return;
@@ -9305,7 +9306,8 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
           checkMail({ manual: false });
         },
         error_callback: (err) => {
-          const msg = err && err.type === 'popup_closed' ? 'Okno logowania Google zostało zamknięte przed udzieleniem zgody. Jeśli Google pokazał „Ta aplikacja nie została zweryfikowana” – to normalne w wersji testowej: przewiń w dół, kliknij „Kontynuuj” i zaznacz wszystkie uprawnienia. Jeśli pokazał „Dostęp zablokowany” – poproś technika o dodanie Twojego adresu e-mail do użytkowników testowych.'
+          if (err && err.type === 'popup_closed') inbox.gmailRedirect = true;
+          const msg = err && err.type === 'popup_closed' ? 'Okno Google zamknęło się bez przekazania zgody do aplikacji. Kliknij „Połącz” jeszcze raz – połączę bez okienka, przez przejście na stronę Google i powrót. (Ekran „Ta aplikacja nie została zweryfikowana” jest normalny w wersji testowej – kliknij „Kontynuuj” i zaznacz wszystkie uprawnienia.)'
             : err && err.type === 'popup_failed_to_open' ? 'Przeglądarka zablokowała okno logowania Google – zezwól na wyskakujące okienka dla tej strony.'
             : `Gmail: ${(err && (err.message || err.type)) || 'błąd logowania'}`;
           toast(msg, 'error');
@@ -12080,6 +12082,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     async function googleSignIn() {
       const cid = gmailClientId();
       if (!cid || !/^https?:$/.test(location.protocol)) { $('#obGoogleSetup').classList.remove('hidden'); $('#obClientId').focus(); return; }
+      if (preferGoogleRedirect() || ob.redirect) { startGoogleRedirect('signin', 'openid email profile'); return; }
       const btn = $('#obGoogle [data-ob="google"]');
       btn.disabled = true;
       try {
@@ -12099,7 +12102,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         if (!p.email) throw new Error('Google nie przekazał adresu e-mail');
         startAccountDraft({ provider: 'google', sub: p.sub, email: p.email, name: p.name || p.email, givenName: p.given_name || '', picture: p.picture || '' });
       } catch (e) {
-        if (/zamknięto/.test(e.message)) toast('Okno Google zamknięto przed zgodą. Jeśli widać było „Ta aplikacja nie została zweryfikowana” – to normalne w wersji testowej: kliknij „Kontynuuj”.', 'info', 8000);
+        if (/zamknięto/.test(e.message)) { ob.redirect = true; toast('Okno Google zamknęło się bez przekazania danych. Kliknij „Zaloguj się przez Google” jeszcze raz – zaloguję bez okienka, przez przejście na stronę Google i powrót.', 'info', 9000); }
       else toast(`Logowanie przez Google nie powiodło się: ${e.message}`, 'error', 6000);
       } finally { btn.disabled = false; }
     }
@@ -12187,6 +12190,68 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       $('#obNip').addEventListener('input', () => { $('#obNip').classList.remove('invalid'); $('#obNip').nextElementSibling.textContent = ''; });
     }
 
+    /* =====================================================================
+       LOGOWANIE GOOGLE PRZEZ PRZEKIEROWANIE (bez okienka) – działa także na
+       iPhonie i przy blokadzie ciasteczek, gdy okienko nie przekazuje wyniku
+       ===================================================================== */
+    const GOOGLE_REDIRECT_KEY = 'officeflow_google_redirect';
+    const googleRedirect = { done: null };
+    function googleRedirectUri() { return location.origin + location.pathname; }
+    // Telefony i Safari: okienko Google często nie wraca do strony – od razu przekierowanie
+    function preferGoogleRedirect() { return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (/Safari/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.test(navigator.userAgent)); }
+    function startGoogleRedirect(purpose, scope, opts = {}) {
+      const cid = gmailClientId();
+      if (!cid) { toast('Najpierw ustaw identyfikator klienta Google.', 'error'); return; }
+      const state = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      try { sessionStorage.setItem(GOOGLE_REDIRECT_KEY, JSON.stringify({ state, purpose, at: Date.now() })); } catch (e) { /* bez zapamiętania stanu nie da się bezpiecznie wrócić */ }
+      const q = new URLSearchParams({ client_id: cid, redirect_uri: googleRedirectUri(), response_type: 'token', scope, state, include_granted_scopes: 'true', prompt: opts.prompt || 'select_account' });
+      if (opts.loginHint) q.set('login_hint', opts.loginHint);
+      location.assign(`https://accounts.google.com/o/oauth2/v2/auth?${q}`);
+    }
+    // Powrót z Google: token w części # adresu – odczytywany przed resztą startu aplikacji
+    function readGoogleRedirect() {
+      if (!/[#&](access_token|error)=/.test(location.hash)) return;
+      const h = new URLSearchParams(location.hash.slice(1));
+      let saved = null;
+      try { saved = JSON.parse(sessionStorage.getItem(GOOGLE_REDIRECT_KEY) || 'null'); sessionStorage.removeItem(GOOGLE_REDIRECT_KEY); } catch (e) { saved = null; }
+      history.replaceState(null, '', location.pathname + location.search);
+      if (!saved || saved.state !== h.get('state') || Date.now() - saved.at > 15 * 60e3) { googleRedirect.done = { error: 'Nie udało się dokończyć logowania Google (wygasła sesja logowania) – spróbuj ponownie.' }; return; }
+      if (h.get('error')) { googleRedirect.done = { error: h.get('error') === 'access_denied' ? 'Nie udzielono zgody w Google.' : `Google: ${h.get('error')}` }; return; }
+      const token = h.get('access_token'), scopes = (h.get('scope') || '').split(' ');
+      const expiresAt = Date.now() + (parseInt(h.get('expires_in'), 10) || 3600) * 1000;
+      if (saved.purpose === 'gmail') {
+        if (!scopes.includes(GMAIL_SCOPE)) { googleRedirect.done = { error: 'Nie udzielono dostępu do Gmaila – w oknie Google zaznacz zgodę na odczyt i wysyłanie poczty.' }; return; }
+        try { sessionStorage.setItem(INBOX_KEYS.gmailToken, JSON.stringify({ token, expiresAt, email: '', calendar: scopes.includes(GCAL_SCOPE) })); } catch (e) { /* brak */ }
+      }
+      googleRedirect.done = { purpose: saved.purpose, token };
+    }
+    // Po starcie aplikacji: dokończenie połączenia Gmaila albo zakładania konta
+    async function finishGoogleRedirect() {
+      const d = googleRedirect.done;
+      googleRedirect.done = null;
+      if (!d) return;
+      if (d.error) { toast(d.error, 'error', 7000); return; }
+      if (d.purpose === 'gmail') {
+        setActiveTool('inbox');
+        try { const p = await gmailFetch('/profile'); inbox.gmail.email = p.emailAddress || ''; } catch (e) { /* adres nieobowiązkowy */ }
+        persistGmailSession();
+        renderConnections();
+        if (!inbox.gmail.calendar) toast('Połączono bez dostępu do kalendarza – propozycje terminów i dodawanie spotkań będą niedostępne.', 'info');
+        toast(`Połączono z Gmail${inbox.gmail.email ? ': ' + inbox.gmail.email : ''}`, 'success');
+        checkMail({ manual: false });
+      } else if (d.purpose === 'signin') {
+        try {
+          const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${d.token}` } });
+          if (!res.ok) throw new Error(`błąd ${res.status}`);
+          const p = await res.json();
+          try { await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(d.token)}`, { method: 'POST' }); } catch (e) { /* token i tak wygaśnie */ }
+          if (!p.email) throw new Error('Google nie przekazał adresu e-mail');
+          if (!getAccount()) { $('#onboard').classList.remove('hidden'); renderGoogleButton(); }
+          startAccountDraft({ provider: 'google', sub: p.sub, email: p.email, name: p.name || p.email, givenName: p.given_name || '', picture: p.picture || '' });
+        } catch (e) { toast(`Logowanie przez Google nie powiodło się: ${e.message}`, 'error', 6000); }
+      }
+    }
+
     function renderThemeToggle() {
       const dark = currentTheme() === 'dark';
       const btn = $('#themeToggle');
@@ -12195,6 +12260,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     }
 
     function init() {
+      readGoogleRedirect();
       if (window.marked && typeof window.marked.setOptions === 'function') {
         window.marked.setOptions({ gfm: true, breaks: true });
       }
@@ -12237,6 +12303,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       } else if (ensureAccount() && !getApiKey() && isTech()) {
         setTimeout(() => openSettings('Witaj w OfficeFlow AI! Aby rozpocząć, wklej swój klucz API Google Gemini. Klucz zostanie zapisany wyłącznie w tej przeglądarce.'), 400);
       }
+      finishGoogleRedirect();
     }
 
     // Okno logowania Microsoft (MSAL) wraca na ten adres z kodem w adresie URL.
