@@ -789,6 +789,29 @@
     @keyframes fxAngle { to { --fx-a: 360deg; } }
     @keyframes fxPingGreen { 0% { box-shadow: 0 0 0 0 rgb(var(--ai-3) / .6); } 100% { box-shadow: 0 0 0 8px rgb(var(--ai-3) / 0); } }
     @keyframes fxBurst { from { transform: translate(0, 0) scale(1); opacity: 1; } to { transform: translate(var(--bx), var(--by)) scale(.2); opacity: 0; } }
+
+    /* ===== Zakładanie konta i profil ===== */
+    .ob-bg { position: fixed; inset: 0; overflow: hidden; background: rgb(var(--c-canvas)); }
+    .ob-bg .hero-aurora { opacity: .75; }
+    .ob-panel { position: relative; width: min(560px, calc(100vw - 32px)); margin: max(5vh, 24px) auto; padding: 36px 28px 28px; text-align: center; border-radius: 28px; background: rgb(var(--c-canvas) / .82); -webkit-backdrop-filter: blur(20px) saturate(1.3); backdrop-filter: blur(20px) saturate(1.3); box-shadow: 0 40px 90px -40px rgb(var(--shadow-color) / .55), 0 0 0 1px rgb(var(--c-slate-300) / .7); animation: fxDialogIn .5s var(--ease-spring); }
+    .ob-title { margin-top: 22px; font-size: clamp(26px, 5vw, 34px); font-weight: 650; letter-spacing: -.03em; line-height: 1.1; color: var(--fg); }
+    .ob-sub { margin-top: 8px; font-size: 15px; color: rgb(var(--c-slate-500)); }
+    .ob-google { display: flex; justify-content: center; min-height: 44px; margin-top: 24px; }
+    .ob-info { width: 100%; padding: 12px 14px; border-radius: 16px; font-size: 13px; line-height: 1.5; text-align: left; color: rgb(var(--c-slate-600)); background: rgb(var(--c-slate-500) / .08); }
+    .ob-or { display: flex; align-items: center; gap: 12px; margin: 20px 0 14px; font-size: 12px; color: rgb(var(--c-slate-400)); }
+    .ob-or::before, .ob-or::after { content: ""; flex: 1; height: 1px; background: var(--border-muted); }
+    .ob-note { margin-top: 16px; font-size: 12px; line-height: 1.5; color: rgb(var(--c-slate-500)); }
+    .ob-hello { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 20px; font-size: 16px; color: var(--fg); text-align: left; }
+    .ob-types { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+    .ob-type { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px; border-radius: 20px; text-align: left; background: rgb(var(--c-canvas)); box-shadow: inset 0 0 0 1px rgb(var(--c-slate-300)); }
+    .ob-type:hover { box-shadow: inset 0 0 0 1px rgb(var(--btn-pri) / .5), 0 12px 26px -16px rgb(var(--btn-pri) / .6); transform: translateY(-2px); }
+    .ob-type[aria-pressed="true"] { box-shadow: inset 0 0 0 2px rgb(var(--btn-pri)), 0 12px 26px -16px rgb(var(--btn-pri) / .6); background: rgb(var(--btn-pri) / .05); }
+    .ob-type b { font-size: 16px; font-weight: 650; color: var(--fg); }
+    .ob-type .ob-desc { font-size: 12.5px; line-height: 1.45; color: rgb(var(--c-slate-500)); }
+    .ob-type-icon { display: grid; place-items: center; width: 38px; height: 38px; margin-bottom: 4px; border-radius: 12px; color: #fff; }
+    .ob-type-mini { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 12px; border-radius: 999px; font-size: 14px; font-weight: 500; color: var(--fg); box-shadow: inset 0 0 0 1px rgb(var(--c-slate-300)); }
+    .ob-type-mini[aria-pressed="true"] { box-shadow: inset 0 0 0 2px rgb(var(--btn-pri)); background: rgb(var(--btn-pri) / .07); }
+    @media (max-width: 520px) { .ob-types { grid-template-columns: 1fr; } .ob-panel { padding: 28px 18px 20px; } }
   </style>
 </head>
 
@@ -839,6 +862,7 @@
       </nav>
 
       <div class="border-t border-slate-300 px-4 py-3 shrink-0">
+        <button type="button" id="profileBtn" class="nav-item hidden mb-1" title="Moje konto"></button>
         <button id="openAdminBtn" data-tech-only class="nav-item">
           <svg data-icon="wrench" class="nav-icon h-4 w-4"></svg>
           <span class="flex-1 text-left">Panel technika</span>
@@ -2121,6 +2145,59 @@
   </div>
 
   <!-- Toasty -->
+  <!-- ============ ZAKŁADANIE KONTA ============ -->
+  <div id="onboard" class="fixed inset-0 z-[75] hidden overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="obTitle">
+    <div class="ob-bg" aria-hidden="true"><div class="hero-aurora"></div></div>
+    <div class="ob-panel">
+      <div class="ai-orb" style="--s: 84px" aria-hidden="true"><div class="ai-orb-core"><i></i><i></i><i></i></div><div class="ai-orb-shine"></div></div>
+      <div id="obStep1">
+        <h2 id="obTitle" class="ob-title">Witaj w <span class="grad-text">OfficeFlow AI</span></h2>
+        <p class="ob-sub">Załóż konto, aby zacząć. Zajmie to chwilę.</p>
+        <div id="obGoogle" class="ob-google"></div>
+        <div class="ob-or"><span>albo</span></div>
+        <form id="obLocal" class="flex flex-col gap-2 sm:flex-row" novalidate>
+          <input id="obName" type="text" maxlength="80" autocomplete="name" class="field-input !rounded-full" placeholder="Imię i nazwisko" aria-label="Imię i nazwisko" />
+          <button type="submit" class="btn-default shrink-0 px-4 py-2 text-sm font-medium">Kontynuuj bez Google</button>
+        </form>
+        <p class="ob-note">Wersja testowa: konto zapisuje się tylko w tej przeglądarce i nie jest wysyłane na żaden serwer.</p>
+      </div>
+      <div id="obStep2" class="hidden">
+        <div id="obHello" class="ob-hello"></div>
+        <div class="ob-types">
+          <button type="button" data-ob-type="company" aria-pressed="false" class="ob-type">
+            <span class="ob-type-icon" style="background:#2f6fd6"><svg data-icon="briefcase" class="h-5 w-5"></svg></span>
+            <b>Firma</b>
+            <span class="ob-desc">Wszystkie narzędzia: skrzynka AI, oferty, faktury i KSeF, windykacja, raporty dla zarządu, zespół.</span>
+          </button>
+          <button type="button" data-ob-type="personal" aria-pressed="false" class="ob-type">
+            <span class="ob-type-icon" style="background:#d6436a"><svg data-icon="user" class="h-5 w-5"></svg></span>
+            <b>Osoba prywatna</b>
+            <span class="ob-desc">Sprawy osobiste: pisma, umowy i ich haczyki, CV, rozmowa kwalifikacyjna, notatki, korekta tekstów.</span>
+          </button>
+        </div>
+        <div id="obCompany" class="hidden mt-4 grid grid-cols-1 gap-3 text-left sm:grid-cols-2">
+          <div><label for="obCompanyName" class="field-label">Nazwa firmy</label><input id="obCompanyName" maxlength="120" class="field-input" placeholder="np. MebloBiuro Sp. z o.o." /></div>
+          <div><label for="obNip" class="field-label">NIP <span class="font-normal text-slate-500">(opcjonalnie)</span></label><input id="obNip" maxlength="13" inputmode="numeric" class="field-input" placeholder="584-526-01-82" /><p class="mt-1 text-xs text-red-600"></p></div>
+        </div>
+        <div class="mt-6 flex items-center gap-2">
+          <button type="button" data-ob="back" class="rounded-full px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100">Wróć</button>
+          <button type="button" id="obFinish" disabled class="bg-primary ml-auto inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white">Załóż konto<svg data-icon="send" class="h-4 w-4"></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PROFIL ============ -->
+  <div id="profileModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-label="Moje konto">
+    <div data-pf-backdrop class="absolute inset-0 bg-navy-950/60 backdrop-blur-sm"></div>
+    <div class="relative flex min-h-full items-center justify-center p-4 pointer-events-none">
+      <div class="pointer-events-auto relative w-full max-w-md rounded-2xl bg-canvas p-6 shadow-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">Moje konto</h2>
+        <div id="profileBody"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ WYSZUKIWARKA NARZĘDZI (Ctrl+K) ============ -->
   <div id="cmdk" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true" aria-label="Wyszukaj narzędzie">
     <div class="cmdk-backdrop"></div>
@@ -4236,7 +4313,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
             </button>
           </li>`;
       };
-      menu.innerHTML = toolItem('home') + inboxItem + TOOL_GROUPS.map(g => groupLabel(g) + TOOL_ORDER.filter(id => (TOOLS[id] || VIEWS[id]).group === g).map(toolItem).join('')).join('');
+      menu.innerHTML = toolItem('home') + inboxItem + TOOL_GROUPS.map(g => { const ids = TOOL_ORDER.filter(id => (TOOLS[id] || VIEWS[id]).group === g && toolAllowed(id)); return ids.length ? groupLabel(g) + ids.map(toolItem).join('') : ''; }).join('');
       const navNow = state.view === 'tools' ? state.activeTool : state.view;
       if (navNow !== fxLastNav) { fxLastNav = navNow; const cur = menu.querySelector('[aria-current="page"]'); if (cur && !fxReduced()) cur.classList.add('nav-enter'); }
       if (typeof updateInboxBadge === 'function') updateInboxBadge();
@@ -4258,6 +4335,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
     }
 
     function setActiveTool(id) {
+      if (typeof toolAllowed === 'function' && !toolAllowed(id)) id = 'home';
       if (id === 'inbox') { showInbox(); return; }
       if (id === 'admin') { showAdmin(); return; }
       if (VIEWS[id]) { showView(id); return; }
@@ -11602,7 +11680,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
 
     /* ---------- inteligentne dopasowanie narzędzia do opisu ---------- */
     function normPl(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ł/g, 'l').replace(/[^a-z0-9 ]+/g, ' '); }
-    function homeToolIds() { return ['inbox', ...TOOL_ORDER]; }
+    function homeToolIds() { return ['inbox', ...TOOL_ORDER].filter(toolAllowed); }
     function matchTools(query) {
       const words = normPl(query).split(/\s+/).filter(w => w.length >= 3);
       if (!words.length) return [];
@@ -11634,15 +11712,19 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     function renderHomeGrid() {
       const grid = document.getElementById('homeGrid');
       if (!grid) return;
+      if (home.filter !== 'all' && !homeToolIds().some(x => toolInfo(x).group === home.filter)) home.filter = 'all';
       const ids = homeToolIds().filter(id => home.filter === 'all' || toolInfo(id).group === home.filter);
       grid.innerHTML = ids.map(homeCardHtml).join('');
-      $$('#homeSeg [data-home-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.homeFilter === home.filter)));
+      $$('#homeSeg [data-home-filter]').forEach(b => {
+        b.classList.toggle('hidden', b.dataset.homeFilter !== 'all' && !homeToolIds().some(x => toolInfo(x).group === b.dataset.homeFilter));
+        b.setAttribute('aria-pressed', String(b.dataset.homeFilter === home.filter));
+      });
       observeReveal(grid);
     }
     function renderHomeSuggest(q) {
       const box = document.getElementById('heroChips');
       if (!box) return;
-      const list = q && q.trim() ? matchTools(q).slice(0, 4).map(x => x.id) : ['email', 'report', 'invoices', 'meeting', 'interview'];
+      const list = q && q.trim() ? matchTools(q).slice(0, 4).map(x => x.id) : (isPersonal() ? ['letters', 'contract', 'cv', 'interview', 'meeting'] : ['email', 'report', 'invoices', 'meeting', 'interview']);
       box.innerHTML = list.length ? list.map((id, i) => `<button type="button" class="hero-chip${q && i === 0 ? ' best' : ''}" data-tool-link="${id}" style="animation-delay:${i * 45}ms"><span class="dot" style="background:${toolArt(id).solid}"></span>${escapeHtml(toolInfo(id).short)}</button>`).join('')
         : '<span class="text-sm text-slate-500">Nie znalazłem pasującego narzędzia – wybierz z listy poniżej albo naciśnij Ctrl+K.</span>';
     }
@@ -11666,7 +11748,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     }
     function renderHome() {
       const hour = new Date().getHours();
-      $('#heroGreeting').textContent = hour < 5 ? 'Dobranoc' : hour < 12 ? 'Dzień dobry' : hour < 18 ? 'Dzień dobry' : 'Dobry wieczór';
+      const fn = firstName(getAccount());
+      $('#heroGreeting').textContent = (hour < 5 ? 'Dobranoc' : hour < 18 ? 'Dzień dobry' : 'Dobry wieczór') + (fn ? `, ${fn}` : '');
       countUp($('#statUsage'), usageToday());
       countUp($('#statInbox'), typeof inboxCounts === 'function' ? inboxCounts().ready : 0);
       countUp($('#statContracts'), ctAttention());
@@ -11769,6 +11852,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     function cmdkActions() {
       return [
         { id: 'home', label: 'Strona startowa', sub: 'Wszystkie narzędzia i ostatnie wyniki', icon: 'sparkles', run: () => setActiveTool('home') },
+        { id: 'act:account', label: 'Moje konto', sub: 'Typ konta (firma / osoba prywatna), dane firmy, wylogowanie', icon: 'user', run: () => openProfile() },
         { id: 'act:theme', label: 'Przełącz motyw jasny / ciemny', sub: 'Wygląd aplikacji', icon: 'moon', run: () => $('#themeToggle').click() },
         ...(isTech() ? [
           { id: 'act:admin', label: 'Panel technika', sub: 'Klucz AI, skrzynki, baza wiedzy, papier firmowy', icon: 'wrench', run: () => showAdmin() },
@@ -11883,6 +11967,193 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       });
     }
 
+    /* =====================================================================
+       KONTA (wersja testowa – zapisane tylko w tej przeglądarce):
+       logowanie przez Google, konto firmowe albo prywatne, inny zestaw narzędzi
+       ===================================================================== */
+    const ACCOUNT_KEY = 'officeflow_account';
+    // Konto prywatne: narzędzia do spraw osobistych (bez windykacji, KSeF, ofert, raportów i zespołu)
+    const PERSONAL_TOOLS = new Set(['home', 'inbox', 'admin', 'letters', 'rewrite', 'analyzer', 'chat', 'compare', 'contract', 'contracts', 'meeting', 'cv', 'interview']);
+    const ob = { step: 1, draft: null };
+    function getAccount() { const a = loadJson(ACCOUNT_KEY, null); return a && (a.type === 'company' || a.type === 'personal') ? a : null; }
+    function saveAccount(a) { saveJson(ACCOUNT_KEY, a); }
+    function isPersonal() { const a = getAccount(); return !!a && a.type === 'personal'; }
+    function toolAllowed(id) { return !isPersonal() || PERSONAL_TOOLS.has(id); }
+    function firstName(a) { return String((a && (a.givenName || a.name)) || '').trim().split(/\s+/)[0] || ''; }
+    function initials(a) { const p = String((a && a.name) || '').trim().split(/\s+/).filter(Boolean); return ((p[0] || '?')[0] + (p[1] ? p[1][0] : '')).toUpperCase(); }
+    function avatarHtml(a, cls = 'h-8 w-8') {
+      return a && a.picture
+        ? `<img src="${escapeHtml(a.picture)}" alt="" referrerpolicy="no-referrer" class="${cls} shrink-0 rounded-full object-cover" />`
+        : `<span class="${cls} grid shrink-0 place-items-center rounded-full text-xs font-semibold text-white" style="background:${a && a.type === 'personal' ? '#d6436a' : '#2f6fd6'}">${escapeHtml(initials(a))}</span>`;
+    }
+    function decodeJwt(token) {
+      try { const p = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'); return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(p + '==='.slice((p.length + 3) % 4)), c => c.charCodeAt(0)))); }
+      catch (e) { return null; }
+    }
+
+    /* ---------- profil w menu ---------- */
+    function renderProfile() {
+      const a = getAccount();
+      const btn = document.getElementById('profileBtn');
+      if (!btn) return;
+      btn.classList.toggle('hidden', !a);
+      if (!a) return;
+      btn.innerHTML = `${avatarHtml(a, 'h-7 w-7')}<span class="min-w-0 flex-1 text-left leading-tight"><span class="block truncate text-sm font-medium text-slate-900">${escapeHtml(a.name || 'Moje konto')}</span><span class="block truncate text-xs text-slate-500">${a.type === 'personal' ? 'Konto prywatne' : `Konto firmowe${a.company && a.company.name ? ` · ${escapeHtml(a.company.name)}` : ''}`}</span></span>`;
+      const inv = document.getElementById('adminInviteSection');
+      if (inv) inv.classList.toggle('hidden', a.type === 'personal');
+    }
+    function applyAccount() {
+      renderProfile();
+      if (!toolAllowed(state.view === 'tools' ? state.activeTool : state.view)) setActiveTool('home');
+      else { renderMenu(); if (state.view === 'home') renderHome(); }
+    }
+    function openProfile() {
+      const a = getAccount();
+      if (!a) return;
+      $('#profileBody').innerHTML = `
+        <div class="flex items-center gap-3">${avatarHtml(a, 'h-12 w-12')}<div class="min-w-0"><p class="truncate font-semibold text-slate-900">${escapeHtml(a.name || '')}</p><p class="truncate text-sm text-slate-500">${escapeHtml(a.email || 'konto lokalne (bez Google)')}</p></div></div>
+        <p class="mt-5 field-label">Typ konta</p>
+        <div class="grid grid-cols-2 gap-2">${['company', 'personal'].map(t => `<button type="button" data-pf-type="${t}" aria-pressed="${a.type === t}" class="ob-type-mini">${iconSvg(t === 'company' ? 'briefcase' : 'user', 'h-4 w-4')}${t === 'company' ? 'Firma' : 'Osoba prywatna'}</button>`).join('')}</div>
+        <div id="pfCompany" class="${a.type === 'company' ? '' : 'hidden'} mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div><label for="pfCompanyName" class="field-label">Nazwa firmy</label><input id="pfCompanyName" class="field-input" maxlength="120" value="${escapeHtml((a.company && a.company.name) || '')}" /></div>
+          <div><label for="pfNip" class="field-label">NIP <span class="font-normal text-slate-500">(opcjonalnie)</span></label><input id="pfNip" class="field-input" maxlength="13" inputmode="numeric" value="${escapeHtml((a.company && a.company.nip) || '')}" /><p class="field-error mt-1 text-xs text-red-600"></p></div>
+        </div>
+        <p class="mt-4 text-xs leading-relaxed text-slate-500">${a.type === 'personal' ? 'Konto prywatne pokazuje narzędzia do spraw osobistych: pisma, korektę, umowy, CV, symulator rozmowy, rozmowę z dokumentem i notatki.' : 'Konto firmowe ma wszystkie narzędzia, w tym windykację, faktury i KSeF, oferty dostawców, raporty dla zarządu i zapraszanie pracowników.'}</p>
+        <div class="mt-6 flex flex-wrap items-center gap-2">
+          <button type="button" data-pf="save" class="bg-primary inline-flex items-center px-4 py-2 text-sm font-semibold text-white">Zapisz</button>
+          <button type="button" data-pf="close" class="btn-default px-4 py-2 text-sm font-medium">Anuluj</button>
+          <button type="button" data-pf="logout" class="ml-auto rounded-full px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">Wyloguj</button>
+        </div>`;
+      $('#profileModal').classList.remove('hidden');
+    }
+    function closeProfile() { $('#profileModal').classList.add('hidden'); }
+
+    /* ---------- zakładanie konta ---------- */
+    function showOnboarding() {
+      ob.step = 1; ob.draft = null;
+      $('#onboard').classList.remove('hidden');
+      renderOnboarding();
+      renderGoogleButton();
+    }
+    function renderOnboarding() {
+      $('#obStep1').classList.toggle('hidden', ob.step !== 1);
+      $('#obStep2').classList.toggle('hidden', ob.step !== 2);
+      if (ob.step === 2) {
+        const d = ob.draft;
+        $('#obHello').innerHTML = `${avatarHtml(d, 'h-9 w-9')}<span>Cześć${firstName(d) ? `, <b>${escapeHtml(firstName(d))}</b>` : ''}! Jak będziesz korzystać z OfficeFlow?</span>`;
+        $$('#obStep2 [data-ob-type]').forEach(b => b.setAttribute('aria-pressed', String(d.type === b.dataset.obType)));
+        $('#obCompany').classList.toggle('hidden', d.type !== 'company');
+        $('#obFinish').disabled = !d.type;
+      }
+    }
+    async function renderGoogleButton() {
+      const box = $('#obGoogle');
+      const cid = gmailClientId();
+      if (!cid || !/^https?:$/.test(location.protocol)) {
+        box.innerHTML = `<div class="ob-info">Logowanie przez Google wymaga identyfikatora klienta Google (OAuth Client ID) – tego samego co do Gmaila.
+          <details class="mt-2"><summary class="cursor-pointer font-medium text-slate-700">Mam identyfikator – wklej</summary>
+          <div class="mt-2 flex gap-2"><input id="obClientId" class="field-input !rounded-full text-sm" placeholder="123…apps.googleusercontent.com" /><button type="button" data-ob="cid" class="btn-default shrink-0 px-3 text-sm font-medium">Zapisz</button></div></details></div>`;
+        return;
+      }
+      box.innerHTML = '<div class="ob-info">Wczytuję logowanie Google…</div>';
+      try {
+        await loadScript(GIS_URL);
+        if (!window.google || !google.accounts || !google.accounts.id) throw new Error('brak modułu logowania');
+        google.accounts.id.initialize({ client_id: cid, callback: onGoogleCredential, ux_mode: 'popup', auto_select: false, context: 'signup', itp_support: true });
+        box.innerHTML = '';
+        google.accounts.id.renderButton(box, { theme: currentTheme() === 'dark' ? 'filled_black' : 'outline', size: 'large', shape: 'pill', text: 'continue_with', locale: 'pl', width: 300, logo_alignment: 'left' });
+      } catch (e) {
+        box.innerHTML = `<div class="ob-info">Nie udało się wczytać logowania Google (${escapeHtml(e.message || String(e))}). Możesz kontynuować bez Google.</div>`;
+      }
+    }
+    function onGoogleCredential(resp) {
+      // Wersja testowa: token z Google jest tylko odczytywany w przeglądarce (bez serwera, który by go weryfikował)
+      const p = decodeJwt(resp && resp.credential);
+      if (!p || !p.email) { toast('Logowanie przez Google nie powiodło się – spróbuj ponownie.', 'error'); return; }
+      startAccountDraft({ provider: 'google', sub: p.sub, email: p.email, name: p.name || p.email, givenName: p.given_name || '', picture: p.picture || '' });
+    }
+    function startAccountDraft(base) {
+      ob.draft = Object.assign({ type: isManaged() ? 'company' : '', company: { name: '', nip: '' } }, base);
+      ob.step = 2;
+      renderOnboarding();
+    }
+    function finishOnboarding() {
+      const d = ob.draft;
+      if (!d || !d.type) return;
+      if (d.type === 'company') {
+        const nip = $('#obNip').value.replace(/\D/g, '');
+        if (nip && !validNip(nip)) { $('#obNip').classList.add('invalid'); $('#obNip').nextElementSibling.textContent = 'Nieprawidłowy NIP (zła suma kontrolna).'; return; }
+        d.company = { name: $('#obCompanyName').value.trim(), nip };
+        if (d.company.name && !getLetterheadCfg().name.trim()) saveLetterheadCfg({ name: d.company.name, footer: getLetterheadCfg().footer || (nip ? `NIP ${nip}` : '') });
+      } else d.company = null;
+      d.createdAt = Date.now();
+      saveAccount(d);
+      $('#onboard').classList.add('hidden');
+      applyAccount();
+      setActiveTool('home');
+      toast(d.type === 'personal' ? 'Konto prywatne gotowe – narzędzia dobrane do spraw osobistych' : 'Konto firmowe gotowe – masz dostęp do wszystkich narzędzi', 'success', 4500);
+      if (!getApiKey() && isTech()) setTimeout(() => openSettings('Ostatni krok: wklej swój klucz API Google Gemini. Klucz zostanie zapisany wyłącznie w tej przeglądarce.'), 500);
+    }
+    // Istniejący użytkownicy (z kluczem lub z linku firmy) dostają konto firmowe bez zakładania – mogą je zmienić w profilu
+    function ensureAccount() {
+      if (getAccount()) { renderProfile(); return true; }
+      if (getApiKey() || isManaged()) {
+        saveAccount({ provider: 'local', type: 'company', name: '', company: { name: (getOrg() && getOrg().company) || '', nip: '' }, createdAt: Date.now(), migrated: true });
+        renderProfile();
+        return true;
+      }
+      showOnboarding();
+      return false;
+    }
+    function bindAccounts() {
+      $('#profileBtn').addEventListener('click', openProfile);
+      $('#profileModal').addEventListener('click', (e) => {
+        if (e.target.matches('[data-pf-backdrop]') || e.target.closest('[data-pf="close"]')) { closeProfile(); return; }
+        const t = e.target.closest('[data-pf-type]');
+        if (t) { $$('#profileBody [data-pf-type]').forEach(b => b.setAttribute('aria-pressed', String(b === t))); $('#pfCompany').classList.toggle('hidden', t.dataset.pfType !== 'company'); return; }
+        if (e.target.closest('[data-pf="save"]')) {
+          const a = getAccount();
+          const type = ($('#profileBody [data-pf-type][aria-pressed="true"]') || {}).dataset.pfType || a.type;
+          const nip = ($('#pfNip').value || '').replace(/\D/g, '');
+          if (type === 'company' && nip && !validNip(nip)) { $('#pfNip').classList.add('invalid'); $('#pfNip').nextElementSibling.textContent = 'Nieprawidłowy NIP (zła suma kontrolna).'; return; }
+          Object.assign(a, { type, company: type === 'company' ? { name: $('#pfCompanyName').value.trim(), nip } : null });
+          delete a.migrated;
+          saveAccount(a);
+          closeProfile();
+          applyAccount();
+          toast('Zapisano konto', 'success');
+          return;
+        }
+        if (e.target.closest('[data-pf="logout"]')) {
+          if (!confirm('Wylogować? Konto zostanie usunięte z tej przeglądarki – klucz, historia i dokumenty zostają.')) return;
+          storageRemove(ACCOUNT_KEY);
+          try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch (err) { /* brak modułu */ }
+          closeProfile();
+          renderProfile();
+          showOnboarding();
+        }
+      });
+      $('#onboard').addEventListener('click', (e) => {
+        const t = e.target.closest('[data-ob-type]');
+        if (t && ob.draft) { ob.draft.type = t.dataset.obType; renderOnboarding(); if (t.dataset.obType === 'company') setTimeout(() => $('#obCompanyName').focus(), 50); return; }
+        if (e.target.closest('[data-ob="back"]')) { ob.step = 1; renderOnboarding(); renderGoogleButton(); return; }
+        if (e.target.closest('[data-ob="cid"]')) {
+          const v = ($('#obClientId').value || '').trim();
+          if (!/\.apps\.googleusercontent\.com$/.test(v)) { toast('To nie wygląda na identyfikator klienta Google (…apps.googleusercontent.com).', 'error'); return; }
+          storageSet(INBOX_KEYS.googleClientId, v);
+          renderGoogleButton();
+        }
+      });
+      $('#obLocal').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = $('#obName').value.trim();
+        if (!name) { $('#obName').classList.add('invalid'); $('#obName').focus(); return; }
+        startAccountDraft({ provider: 'local', name, email: '', picture: '' });
+      });
+      $('#obFinish').addEventListener('click', finishOnboarding);
+      $('#obNip').addEventListener('input', () => { $('#obNip').classList.remove('invalid'); $('#obNip').nextElementSibling.textContent = ''; });
+    }
+
     function renderThemeToggle() {
       const dark = currentTheme() === 'dark';
       const btn = $('#themeToggle');
@@ -11908,6 +12179,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       bindNewFeatures();
       initUiEffects();
       bindHome();
+      bindAccounts();
       bindLetterhead();
       bindContracts();
       bindTasksPanel();
@@ -11929,7 +12201,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       } else if (location.hash.includes('setup=')) {
         clearSetupFromUrl();
         toast('Link konfiguracyjny jest niekompletny lub uszkodzony – poproś technika o nowy.', 'error');
-      } else if (!getApiKey() && isTech()) {
+      } else if (ensureAccount() && !getApiKey() && isTech()) {
         setTimeout(() => openSettings('Witaj w OfficeFlow AI! Aby rozpocząć, wklej swój klucz API Google Gemini. Klucz zostanie zapisany wyłącznie w tej przeglądarce.'), 400);
       }
     }

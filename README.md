@@ -10,6 +10,12 @@ Wdróż `index.html` jako Static Site (np. na Render) albo otwórz go w przeglą
 
 ## Moduły
 
+### Konto (wersja testowa)
+- **Zakładanie konta** przy pierwszym uruchomieniu: **Kontynuuj z Google** (Google Identity Services – wymaga tego samego Client ID co Gmail, z adresem strony w *Authorized JavaScript origins*) albo konto lokalne z imieniem.
+- **Firma albo osoba prywatna**: konto firmowe ma wszystkie narzędzia, a nazwa firmy i NIP (sprawdzana suma kontrolna) trafiają do papieru firmowego. Konto prywatne pokazuje narzędzia do spraw osobistych: Skrzynka AI, pisma, korekta, analizator, rozmowa z dokumentem, porównanie dokumentów, haczyki w umowie, rejestr umów, notatki, CV i symulator rozmowy – bez windykacji, faktur, ofert, marketingu, raportów, rekrutacji, przetwarzania list i zapraszania pracowników.
+- **Moje konto** (na dole menu albo Ctrl+K): zmiana typu konta, dane firmy, wylogowanie (klucz, historia i dokumenty zostają).
+- Konto jest zapisane tylko w tej przeglądarce; token z Google jest jedynie odczytywany lokalnie (bez serwera, który by go weryfikował), więc to rozwiązanie do testów, a nie zabezpieczenie dostępu. Dotychczasowi użytkownicy (z kluczem lub z linku firmy) dostają automatycznie konto firmowe.
+
 ### Strona startowa
 - **Opisz zadanie** – wpisz po swojemu, np. „przygotuj raport sprzedaży dla zarządu” albo „odpisz klientowi na reklamację”, a aplikacja dobierze narzędzie (podpowiedzi pojawiają się w trakcie pisania). Dopasowanie działa w przeglądarce, bez zapytań do Gemini. W Marketingu, Raporcie dla zarządu i Porównaniu ofert dłuższy opis trafia od razu do formularza.
 - **Karty narzędzi** z abstrakcyjnymi grafikami w kolorach grup (generowanymi w przeglądarce), filtrem grup, przechyleniem 3D i światłem podążającym za kursorem.
