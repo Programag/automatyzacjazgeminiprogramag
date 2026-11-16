@@ -12032,10 +12032,10 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     function showOnboarding() {
       ob.step = 1; ob.draft = null;
       $('#onboard').classList.remove('hidden');
-      renderOnboarding();
+      renderAccountSetup();
       renderGoogleButton();
     }
-    function renderOnboarding() {
+    function renderAccountSetup() {
       $('#obStep1').classList.toggle('hidden', ob.step !== 1);
       $('#obStep2').classList.toggle('hidden', ob.step !== 2);
       if (ob.step === 2) {
@@ -12075,7 +12075,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     function startAccountDraft(base) {
       ob.draft = Object.assign({ type: isManaged() ? 'company' : '', company: { name: '', nip: '' } }, base);
       ob.step = 2;
-      renderOnboarding();
+      renderAccountSetup();
     }
     function finishOnboarding() {
       const d = ob.draft;
@@ -12135,8 +12135,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       });
       $('#onboard').addEventListener('click', (e) => {
         const t = e.target.closest('[data-ob-type]');
-        if (t && ob.draft) { ob.draft.type = t.dataset.obType; renderOnboarding(); if (t.dataset.obType === 'company') setTimeout(() => $('#obCompanyName').focus(), 50); return; }
-        if (e.target.closest('[data-ob="back"]')) { ob.step = 1; renderOnboarding(); renderGoogleButton(); return; }
+        if (t && ob.draft) { ob.draft.type = t.dataset.obType; renderAccountSetup(); if (t.dataset.obType === 'company') setTimeout(() => $('#obCompanyName').focus(), 50); return; }
+        if (e.target.closest('[data-ob="back"]')) { ob.step = 1; renderAccountSetup(); renderGoogleButton(); return; }
         if (e.target.closest('[data-ob="cid"]')) {
           const v = ($('#obClientId').value || '').trim();
           if (!/\.apps\.googleusercontent\.com$/.test(v)) { toast('To nie wygląda na identyfikator klienta Google (…apps.googleusercontent.com).', 'error'); return; }
