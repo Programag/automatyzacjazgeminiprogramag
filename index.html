@@ -747,7 +747,7 @@
             <div class="flex items-center justify-between gap-3 rounded-t-2xl border-b border-slate-300 bg-slate-50 px-4 sm:px-5 py-3">
               <div class="min-w-0 flex-1">
                 <h2 class="font-semibold text-slate-900">Wynik</h2>
-                <p id="resultMeta" class="truncate text-xs text-slate-500">Tu pojawi się wygenerowana treść</p>
+                <p id="resultMeta" class="truncate text-xs text-slate-500" role="status" aria-live="polite">Tu pojawi się wygenerowana treść</p>
               </div>
               <div class="flex shrink-0 items-center gap-2">
                 <button type="button" id="clearResultBtn" class="hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition" title="Wyczyść wynik" aria-label="Wyczyść wynik">
@@ -757,6 +757,12 @@
                   <svg data-icon="x" class="h-4 w-4"></svg><span>Zatrzymaj</span>
                 </button>
                 <div class="relative">
+                  <button type="button" id="historyBtn" aria-haspopup="menu" aria-expanded="false" title="Historia wyników" aria-label="Historia wyników" class="btn-default inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium">
+                    <svg data-icon="clock" class="h-4 w-4"></svg><span class="hidden 2xl:inline">Historia</span>
+                  </button>
+                  <div id="historyMenu" role="menu" class="hidden absolute right-0 z-30 mt-1 w-80 max-w-[85vw] rounded-xl border border-slate-300 bg-canvas p-1 shadow-lg"></div>
+                </div>
+                <div class="relative">
                   <button type="button" id="exportBtn" disabled aria-haspopup="menu" aria-expanded="false" class="btn-default inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50">
                     <svg data-icon="download" class="h-4 w-4"></svg><span class="hidden sm:inline">Eksportuj</span><svg data-icon="chevronDown" class="h-3.5 w-3.5 text-slate-500"></svg>
                   </button>
@@ -764,7 +770,7 @@
                 </div>
                 <button type="button" id="copyBtn" disabled class="btn-default inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 transition">
                   <svg data-icon="clipboard" class="h-4 w-4"></svg>
-                  <span class="hidden sm:inline">Kopiuj do schowka</span><span class="sm:hidden">Kopiuj</span>
+                  <span>Kopiuj</span>
                 </button>
               </div>
             </div>
@@ -816,6 +822,16 @@
                 <div id="resultNotice" class="hidden mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"></div>
                 <article id="resultBody" class="md-output fade-in"></article>
               </div>
+            </div>
+
+            <!-- Poprawki wyniku -->
+            <div id="refineBar" class="hidden rounded-b-2xl border-t border-slate-300 bg-slate-50 px-4 sm:px-5 py-3">
+              <form id="refineForm" class="flex flex-col sm:flex-row gap-2" novalidate>
+                <label for="refineInput" class="sr-only">Poprawka wyniku</label>
+                <input id="refineInput" type="text" maxlength="500" autocomplete="off" class="field-input bg-canvas" placeholder="Popraw wynik, np. „dodaj zdanie o gwarancji”, „krótsze akapity”, „ton bardziej stanowczy”" />
+                <button type="submit" class="btn-default inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"><svg data-icon="refresh" class="h-4 w-4"></svg>Popraw wynik</button>
+              </form>
+              <div id="refineChips" class="mt-2 flex flex-wrap gap-1.5"></div>
             </div>
           </section>
         </div>
@@ -914,6 +930,13 @@
 
           <div id="inboxDigest"></div>
           <div id="inboxOnboarding"></div>
+          <div id="inboxFilters" class="hidden flex flex-col sm:flex-row sm:items-center gap-2">
+            <div id="inboxFilterChips" class="flex flex-wrap gap-1.5" role="tablist" aria-label="Filtr wiadomości"></div>
+            <div class="relative sm:ml-auto sm:w-64">
+              <svg data-icon="search" class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></svg>
+              <input id="inboxSearch" type="search" autocomplete="off" class="field-input !pl-8" placeholder="Szukaj: nadawca, temat, sprawa" aria-label="Szukaj w skrzynce" />
+            </div>
+          </div>
           <div id="inboxList" class="space-y-4"></div>
         </div>
 
@@ -962,6 +985,15 @@
           <section class="rounded-2xl bg-canvas border border-slate-300 p-5 sm:p-6">
             <h3 class="flex items-center gap-2 font-semibold text-slate-900"><svg data-icon="chart" class="h-5 w-5 text-slate-500"></svg>Zużycie AI</h3>
             <div id="adminUsage" class="mt-3"></div>
+          </section>
+
+          <section class="rounded-2xl bg-canvas border border-slate-300 p-5 sm:p-6">
+            <h3 class="flex items-center gap-2 font-semibold text-slate-900"><svg data-icon="lock" class="h-5 w-5 text-slate-500"></svg>Dane w tej przeglądarce</h3>
+            <p class="mt-1 text-sm text-slate-500">OfficeFlow nie ma własnego serwera – klucz AI, konfiguracja, logowania do poczty, historia wyników, przypomnienia i statystyki są zapisane tylko w tej przeglądarce. Na wspólnym komputerze usuń je po zakończeniu pracy.</p>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button type="button" data-clear="work" class="btn-default rounded-lg px-3 py-1.5 text-sm font-medium">Usuń historię wyników i wersje robocze</button>
+              <button type="button" data-clear="all" class="rounded-lg border border-red-300 bg-canvas px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50">Usuń wszystkie dane OfficeFlow</button>
+            </div>
           </section>
         </div>
       </main>
@@ -1160,6 +1192,7 @@
       chart: 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z',
       tag: 'M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3ZM6 6h.008v.008H6V6Z',
       plus: 'M12 4.5v15m7.5-7.5h-15',
+      search: 'm21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z',
       inbox: 'M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 0 0-2.15-1.588H6.911a2.25 2.25 0 0 0-2.15 1.588L2.35 13.177a2.25 2.25 0 0 0-.1.661Z',
       refresh: 'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99',
       send: 'M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5',
@@ -2127,7 +2160,11 @@ ZASADY
       let obj;
       try { obj = JSON.parse(data); } catch (e) { return; }
       if (Array.isArray(obj)) obj = obj[0] || {};
-      if (obj.error) throw mapApiError(obj.error.code || 500, obj, data);
+      handleChunk(obj, acc, onText, data);
+    }
+    function handleChunk(obj, acc, onText, raw) {
+      if (!obj || typeof obj !== 'object') return;
+      if (obj.error) throw mapApiError(obj.error.code || 500, obj, raw);
       if (obj.promptFeedback && obj.promptFeedback.blockReason) acc.blockReason = obj.promptFeedback.blockReason;
       const cand = (obj.candidates || [])[0];
       if (cand) {
@@ -2181,7 +2218,18 @@ ZASADY
         }
 
         let buf = '';
+        let plainJson = null; // null = jeszcze nie wiadomo, true = zwykły JSON zamiast strumienia SSE
         const flush = (final) => {
+          if (plainJson === null && buf.trim()) plainJson = /^\s*[\[{]/.test(buf);
+          if (plainJson) {
+            // Zwykły JSON zamiast strumienia (np. gdy firmowy serwer pośredniczący buforuje odpowiedź)
+            if (!final) return;
+            let obj = null;
+            try { obj = JSON.parse(buf); } catch (e) { obj = null; }
+            if (obj) (Array.isArray(obj) ? obj : [obj]).forEach(o => handleChunk(o, acc, onText, buf));
+            buf = '';
+            return;
+          }
           buf = buf.replace(/\r\n/g, '\n');
           let idx;
           while ((idx = buf.indexOf('\n\n')) !== -1) {
@@ -2262,11 +2310,16 @@ ZASADY
         generationConfig.topP = 0.95;
       }
       return {
-        systemInstruction: { parts: [{ text: systemInstruction }] },
+        systemInstruction: { parts: [{ text: systemInstruction + LANGUAGE_STANDARD }] },
         contents: [{ role: 'user', parts: [...attachmentParts(attachments), { text: userText }] }],
         generationConfig
       };
     }
+    // Wspólny standard dla wszystkich narzędzi i Skrzynki AI (testy na żywym modelu pokazały
+    // pojedyncze literówki i kwoty w formacie angielskim „98 500.5 zł”)
+    const LANGUAGE_STANDARD = `
+
+STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i liczby w polskim formacie – spacja oddziela tysiące, przecinek części dziesiętne (np. 98 500,50 zł), daty jako DD.MM.RRRR. Pola liczbowe w JSON zwracaj jako zwykłe liczby. Zanim oddasz odpowiedź, przeczytaj ją jeszcze raz i popraw literówki oraz błędy odmiany i ortografii – tekst trafia bezpośrednio do klientów i kontrahentów.`;
 
     // Pliki (PDF, zdjęcia, TXT) trafiają do Gemini jako inlineData – przed treścią polecenia, każdy z podpisem
     function attachmentParts(attachments) {
@@ -2327,6 +2380,17 @@ ZASADY
               if (onStatus) onStatus(`Dzienny limit ${current} wyczerpany – przełączam na ${alt}…`);
               continue;
             }
+          }
+          // Limit na minutę (darmowy plan: kilka zapytań/min) – w narzędziach czekamy i ponawiamy sami;
+          // Skrzynka AI (bez onStatus) ma własną kolejkę, która wstrzymuje się do odnowienia limitu
+          if (e.httpStatus === 429 && !e.dailyQuota && onStatus && e.retryAfter <= 90 && attempt < MAX_ATTEMPTS && !(signal && signal.aborted)) {
+            const until = Date.now() + (e.retryAfter + 1) * 1000;
+            for (let left = Math.ceil((until - Date.now()) / 1000); left > 0; left = Math.ceil((until - Date.now()) / 1000)) {
+              onStatus(`Limit zapytań na minutę (darmowy plan Gemini) – ponawiam automatycznie za ${left} s…`);
+              await sleep(Math.min(1000, until - Date.now()), signal);
+            }
+            onStatus(`Próba ${attempt + 1} z ${MAX_ATTEMPTS} – czekam na odpowiedź ${current}…`);
+            continue;
           }
           if (!e.transient || attempt >= MAX_ATTEMPTS || (signal && signal.aborted)) {
             if (e.dailyQuota) {
@@ -2590,6 +2654,8 @@ ZASADY
       $('#copyBtn').disabled = r.status !== 'done';
       $('#exportBtn').disabled = r.status !== 'done';
       if (r.status !== 'done') toggleExportMenu(false);
+      toggleHistoryMenu(false);
+      renderRefineBar();
       $('#clearResultBtn').classList.toggle('hidden', r.status !== 'done' && r.status !== 'error');
       $('#cancelBtn').classList.toggle('hidden', r.status !== 'loading' && r.status !== 'streaming');
 
@@ -2711,6 +2777,7 @@ ZASADY
         if (el) { el.value = value; clearFieldError(el); updateCounter(el); }
       });
       if (id === 'analyzer') updateAnalyzerHint();
+      saveDraftNow(id);
       toast('Wstawiono przykładowe dane', 'info');
     }
 
@@ -2718,6 +2785,7 @@ ZASADY
       const form = $(`#form-${state.activeTool}`);
       form.reset();
       $$('[data-file-field]', form).forEach(el => { formFiles[el.dataset.fileField] = []; renderFileField(el); });
+      clearDraft(state.activeTool);
       $$('input, textarea, select', form).forEach(el => { clearFieldError(el); updateCounter(el); });
       if (state.activeTool === 'analyzer') updateAnalyzerHint();
     }
@@ -2725,13 +2793,15 @@ ZASADY
     /* =====================================================================
        GŁÓWNA AKCJA: GENEROWANIE
        ===================================================================== */
-    async function runTool(toolId) {
+    async function runTool(toolId, opts = {}) {
       const form = $(`#form-${toolId}`);
       const tool = TOOLS[toolId];
       const r = state.results[toolId];
       if (r.status === 'loading' || r.status === 'streaming') return;
+      const refine = String(opts.refine || '').trim();
+      if (refine && !(r.status === 'done' && r.prompt)) return;
 
-      if (!validateForm(form, toolId)) {
+      if (!refine && !validateForm(form, toolId)) {
         if (!TOOLS[toolId].validate) toast('Uzupełnij wymagane pola formularza', 'error');
         return;
       }
@@ -2742,11 +2812,16 @@ ZASADY
         return;
       }
 
-      const data = getFormData(form);
-      const files = collectToolFiles(toolId);
+      // Poprawka: ten sam kontekst + poprzedni wynik + polecenie (pliki nie są wysyłane ponownie)
+      const previous = refine ? { markdown: r.markdown, data: r.data, notice: r.notice, meta: r.meta } : null;
+      const data = refine ? r.input : getFormData(form);
+      const files = refine ? {} : collectToolFiles(toolId);
       const fileList = Object.values(files).flat();
       const attachments = fileList.flatMap(f => [f, ...(f.extraParts || []).map(x => Object.assign({ label: f.label }, x))]);
       const fileWarnings = fileList.flatMap(f => (f.warnings || []).map(w => `${f.name}: ${w}`));
+      const basePrompt = refine ? r.prompt : tool.buildPrompt(data, files);
+      const userText = refine ? refinePrompt(r, refine) : basePrompt;
+      const hadFiles = refine ? !!r.hadFiles : fileList.length > 0;
       const controller = new AbortController();
       Object.assign(r, { status: 'loading', error: null, notice: '', markdown: '', data: null, statusText: '', startedAt: Date.now(), controller });
       setFormBusy(toolId, true);
@@ -2761,7 +2836,7 @@ ZASADY
           model: getModel(),
           thinkingLevel: getThinkingLevel(),
           systemInstruction: tool.systemInstruction,
-          userText: tool.buildPrompt(data, files),
+          userText,
           temperature: tool.temperature,
           responseSchema: tool.responseSchema,
           attachments,
@@ -2791,11 +2866,20 @@ ZASADY
           const pp = tool.postprocess(out.text);
           markdown = pp.markdown; resultData = pp.data; ppNotice = pp.notice || '';
         }
-        Object.assign(r, { status: 'done', markdown, data: resultData, notice: [fallbackNotice, out.notice, ppNotice, fileWarnings.length ? `Nie wszystko z dołączonych plików trafiło do AI – ${fileWarnings.join(' ')}` : ''].filter(Boolean).join(' '), meta: `${timeNow()} · ${out.modelUsed} · ${secs} s${tokens}` });
+        Object.assign(r, {
+          status: 'done', markdown, data: resultData, prompt: basePrompt, input: data, hadFiles,
+          notice: [fallbackNotice, out.notice, ppNotice, fileWarnings.length ? `Nie wszystko z dołączonych plików trafiło do AI – ${fileWarnings.join(' ')}` : ''].filter(Boolean).join(' '),
+          meta: `${timeNow()} · ${out.modelUsed} · ${secs} s${tokens}${refine ? ' · po poprawce' : ''}`
+        });
+        addHistory(toolId, { markdown, data: resultData, notice: r.notice, prompt: basePrompt, input: data, hadFiles, refine, model: out.modelUsed });
         if (!isActive()) toast(`Gotowe: ${tool.short}`, 'success');
       } catch (e) {
         const err = e instanceof GeminiError ? e : new GeminiError({ title: 'Nieoczekiwany błąd', message: 'Wystąpił nieoczekiwany błąd aplikacji.', details: String(e && e.stack || e) });
-        if (err.cancelled) {
+        if (previous && !(err.cancelled && r.markdown.trim())) {
+          // Nieudana poprawka nie kasuje poprzedniego wyniku
+          Object.assign(r, previous, { status: 'done' });
+          if (!err.cancelled) toast(`Nie udało się poprawić wyniku: ${err.title}. ${err.message}`, 'error', 6000);
+        } else if (err.cancelled) {
           if (r.markdown.trim()) {
             Object.assign(r, { status: 'done', notice: 'Generowanie zostało zatrzymane – wynik może być niekompletny.', meta: `${timeNow()} · przerwano` });
           } else {
@@ -3773,7 +3857,7 @@ ZASADY
       const limit = kind === 'mailto' ? 1800 : 6000;
       if (body.length > limit) {
         body = body.slice(0, limit) + '\n[…]';
-        toast('Treść była długa i została skrócona – pełną wersję wklej przyciskiem „Kopiuj do schowka”.', 'info');
+        toast('Treść była długa i została skrócona – pełną wersję wklej przyciskiem „Kopiuj” przy wyniku.', 'info');
       }
       const q = (k, v) => `${k}=${encodeURIComponent(v)}`;
       const urls = {
@@ -3784,6 +3868,174 @@ ZASADY
       };
       if (kind === 'mailto') location.href = urls.mailto;
       else window.open(urls[kind], '_blank', 'noopener');
+    }
+
+    /* =====================================================================
+       HISTORIA WYNIKÓW, POPRAWKI I WERSJE ROBOCZE FORMULARZY
+       ===================================================================== */
+    const HISTORY_KEY = 'officeflow_history';
+    const HISTORY_PER_TOOL = 10;
+    const DRAFTS_KEY = 'officeflow_drafts';
+    const REFINE_CHIPS = ['Krócej', 'Bardziej formalnie', 'Prostszym językiem', 'Więcej szczegółów', 'Przetłumacz na angielski'];
+
+    function getHistory() {
+      const h = loadJson(HISTORY_KEY, {});
+      return h && typeof h === 'object' && !Array.isArray(h) ? h : {};
+    }
+    function historyTitle(e) {
+      // Najlepiej opisuje wynik: nagłówek („PRZEDSĄDOWE WEZWANIE…”), potem temat maila, a dopiero potem pierwsza linia
+      const lines = String(e.markdown || '').split('\n');
+      const clean = (l) => l.replace(/^[#>\-*\s|]+/, '').replace(/[*_`|]/g, '').trim();
+      const heading = lines.find(l => /^#{1,3}\s+\S/.test(l));
+      const subject = lines.find(l => /^\**Temat:?\**:?\s*\S/i.test(l.trim()));
+      const line = clean(heading || subject || '').replace(/^Temat:\s*/i, '') || lines.map(clean).find(Boolean) || '(pusty wynik)';
+      return line.length > 90 ? line.slice(0, 87) + '…' : line;
+    }
+    function addHistory(toolId, entry) {
+      const all = getHistory();
+      const list = (all[toolId] || []).filter(e => e.markdown !== entry.markdown);
+      list.unshift(Object.assign({ id: 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), at: Date.now() }, entry, {
+        markdown: String(entry.markdown || '').slice(0, 60000),
+        prompt: String(entry.prompt || '').slice(0, 60000)
+      }));
+      all[toolId] = list.slice(0, HISTORY_PER_TOOL);
+      // Gdy zabraknie miejsca w przeglądarce – usuwamy najstarsze wpisy z najdłuższych list
+      for (let i = 0; i < 60; i++) {
+        if (storageSet(HISTORY_KEY, JSON.stringify(all))) return;
+        const victim = Object.keys(all).filter(k => all[k].length > 1).sort((a, b) => all[b].length - all[a].length)[0];
+        if (!victim) return;
+        all[victim].pop();
+      }
+    }
+    function fmtWhen(ts) {
+      const d = new Date(ts), today = new Date();
+      return d.toDateString() === today.toDateString()
+        ? `dziś, ${d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}`
+        : d.toLocaleString('pl-PL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+    function renderHistoryMenu() {
+      const list = getHistory()[state.activeTool] || [];
+      $('#historyMenu').innerHTML = list.length ? `
+        <div class="px-2.5 pb-1 pt-1.5 text-xs font-semibold text-slate-500">Ostatnie wyniki – ${escapeHtml(TOOLS[state.activeTool].short)}</div>
+        <div class="max-h-80 overflow-y-auto scroll-thin">
+          ${list.map(e => `
+            <button type="button" role="menuitem" data-history="${e.id}" class="block w-full rounded-lg px-2.5 py-2 text-left hover:bg-slate-100">
+              <span class="block truncate text-sm text-slate-900">${escapeHtml(historyTitle(e))}</span>
+              <span class="block truncate text-xs text-slate-500">${escapeHtml(fmtWhen(e.at))}${e.refine ? ` · poprawka: „${escapeHtml(e.refine.slice(0, 40))}”` : ''}</span>
+            </button>`).join('')}
+        </div>
+        <div class="mt-1 border-t border-slate-200 pt-1">
+          <button type="button" data-history-clear class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm text-red-600 hover:bg-red-50">${iconSvg('trash', 'h-4 w-4')}Wyczyść historię tego narzędzia</button>
+          <button type="button" data-history-clear-all class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-slate-500 hover:bg-slate-100">Usuń historię wszystkich narzędzi i wersje robocze formularzy</button>
+        </div>`
+        : '<p class="px-3 py-3 text-sm text-slate-500">Brak zapisanych wyników. Każdy wygenerowany wynik zapisze się tutaj (ostatnie 10, tylko w tej przeglądarce).</p>';
+    }
+    function toggleHistoryMenu(open) {
+      const menu = $('#historyMenu');
+      const willOpen = open == null ? menu.classList.contains('hidden') : open;
+      if (willOpen) { renderHistoryMenu(); toggleExportMenu(false); }
+      menu.classList.toggle('hidden', !willOpen);
+      $('#historyBtn').setAttribute('aria-expanded', String(willOpen));
+    }
+    function fillFormFields(toolId, data) {
+      const form = document.getElementById(`form-${toolId}`);
+      if (!form || !data) return;
+      Object.entries(data).forEach(([name, value]) => {
+        const el = form.elements[name];
+        if (el && typeof value === 'string') { el.value = value; clearFieldError(el); updateCounter(el); }
+      });
+      if (toolId === 'analyzer') updateAnalyzerHint();
+    }
+    function restoreHistory(id) {
+      const toolId = state.activeTool;
+      const e = (getHistory()[toolId] || []).find(x => x.id === id);
+      toggleHistoryMenu(false);
+      if (!e) return;
+      const r = state.results[toolId];
+      if (r.status === 'loading' || r.status === 'streaming') { toast('Poczekaj na zakończenie generowania.', 'info'); return; }
+      Object.assign(r, { status: 'done', markdown: e.markdown, data: e.data || null, notice: e.notice || '', meta: `Z historii · ${fmtWhen(e.at)}${e.model ? ` · ${e.model}` : ''}`, prompt: e.prompt, input: e.input, error: null });
+      fillFormFields(toolId, e.input);
+      saveDraftNow(toolId);
+      renderResult();
+      toast('Przywrócono wynik i dane formularza' + (e.hadFiles ? ' (pliki trzeba dołączyć ponownie)' : ''), 'success');
+    }
+    function clearToolHistory() {
+      const all = getHistory();
+      delete all[state.activeTool];
+      saveJson(HISTORY_KEY, all);
+      toggleHistoryMenu(false);
+      toast('Wyczyszczono historię tego narzędzia', 'info');
+    }
+
+    function refinePrompt(r, instruction) {
+      return [
+        r.prompt,
+        r.hadFiles ? '(Dołączone wcześniej pliki zostały już uwzględnione w poprzednim wyniku.)' : '',
+        '### POPRZEDNI WYNIK (Twoja wcześniejsza odpowiedź)', '"""', r.markdown, '"""',
+        '### POPRAWKA OD UŻYTKOWNIKA', instruction,
+        'Popraw poprzedni wynik zgodnie z poprawką. Zachowaj wymagany format oraz wszystkie fakty i dane, których poprawka nie dotyczy. Zwróć pełny, poprawiony wynik – bez komentarzy o wprowadzonych zmianach.'
+      ].filter(Boolean).join('\n\n');
+    }
+    function renderRefineBar() {
+      const r = state.results[state.activeTool];
+      const tool = TOOLS[state.activeTool];
+      const show = state.view === 'tools' && r.status === 'done' && !!r.prompt && !tool.responseSchema;
+      $('#refineBar').classList.toggle('hidden', !show);
+    }
+
+    let draftTimer = null;
+    function saveDraftNow(toolId) {
+      const form = document.getElementById(`form-${toolId}`);
+      if (!form) return;
+      const all = loadJson(DRAFTS_KEY, {});
+      all[toolId] = getFormData(form);
+      saveJson(DRAFTS_KEY, all);
+    }
+    function scheduleDraftSave(toolId) {
+      clearTimeout(draftTimer);
+      draftTimer = setTimeout(() => saveDraftNow(toolId), 400);
+    }
+    function clearDraft(toolId) {
+      const all = loadJson(DRAFTS_KEY, {});
+      delete all[toolId];
+      saveJson(DRAFTS_KEY, all);
+    }
+    function restoreDrafts() {
+      const all = loadJson(DRAFTS_KEY, {});
+      Object.entries(all || {}).forEach(([toolId, data]) => { if (TOOLS[toolId]) fillFormFields(toolId, data); });
+      updateAnalyzerHint();
+    }
+
+    /* =====================================================================
+       DANE W TEJ PRZEGLĄDARCE
+       ===================================================================== */
+    function clearWorkData() {
+      if (!confirm('Usunąć historię wyników i wersje robocze formularzy z tej przeglądarki?')) return;
+      [HISTORY_KEY, DRAFTS_KEY].forEach(storageRemove);
+      Object.keys(TOOLS).forEach(id => { const f = document.getElementById(`form-${id}`); if (f) { f.reset(); $$('[data-file-field]', f).forEach(el => { formFiles[el.dataset.fileField] = []; renderFileField(el); }); } });
+      toast('Usunięto historię wyników i wersje robocze', 'success');
+    }
+    function clearAllData() {
+      if (!confirm('Usunąć WSZYSTKIE dane OfficeFlow z tej przeglądarki?\n\nZostaną usunięte: klucz AI, konfiguracja skrzynek, logowania do poczty, ustawienia, biblioteka fragmentów, historia, przypomnienia i statystyki. Tej operacji nie można cofnąć.')) return;
+      try { localStorage.clear(); } catch (e) { /* brak dostępu */ }
+      try { sessionStorage.clear(); } catch (e) { /* brak dostępu */ }
+      location.reload();
+    }
+
+    /* =====================================================================
+       DOSTĘPNOŚĆ: fokus nie wychodzi poza otwarte okno dialogowe
+       ===================================================================== */
+    function trapModalFocus(e) {
+      if (e.key !== 'Tab') return;
+      const modal = ['#settingsModal', '#mailSetupModal', '#orgSetupModal'].map(sel => $(sel)).find(m => m && !m.classList.contains('hidden'));
+      if (!modal) return;
+      const focusable = $$('a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])', modal)
+        .filter(el => el.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
 
     /* =====================================================================
@@ -5383,6 +5635,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       btn.innerHTML = inbox.checking
         ? `<span class="h-4 w-4 rounded-full border-2 border-white/40 border-t-white" style="animation: spin .8s linear infinite"></span><span>Sprawdzam…</span>`
         : `${iconSvg('refresh', 'h-4 w-4')}<span>Sprawdź teraz</span>`;
+      renderInboxFilters();
       const c = inboxCounts();
       const parts = [];
       if (inbox.lastCheck) parts.push(`Ostatnie sprawdzenie: ${inbox.lastCheck.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}`);
@@ -5662,10 +5915,48 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     }
 
     const STATE_ORDER = { 'pending-send': 0, sending: 0, drafting: 0, ready: 1, followup: 2, error: 3, analyzing: 4, queued: 5, noreply: 6, sent: 7, drafted: 7 };
+    const INBOX_FILTERS = [
+      ['all', 'Wszystkie', () => true],
+      ['ready', 'Do zatwierdzenia', i => ['ready', 'pending-send', 'sending', 'drafting'].includes(i.state)],
+      ['followup', 'Przypomnienia', i => i.kind === 'followup' && !['sent', 'drafted'].includes(i.state)],
+      ['pending', 'W trakcie', i => ['queued', 'analyzing', 'error'].includes(i.state)],
+      ['noreply', 'Bez odpowiedzi', i => i.state === 'noreply'],
+      ['done', 'Obsłużone', i => ['sent', 'drafted'].includes(i.state)]
+    ];
+    const fold = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
+    function inboxMatches(item) {
+      const f = INBOX_FILTERS.find(x => x[0] === (inbox.filter || 'all')) || INBOX_FILTERS[0];
+      if (!f[2](item)) return false;
+      const q = fold(inbox.search).trim();
+      if (!q) return true;
+      const a = item.analysis || {};
+      return fold([item.fromName, item.fromEmail, item.replyToEmail, item.subject, a.summary, a.category].join(' ')).includes(q);
+    }
+    function renderInboxFilters() {
+      const box = document.getElementById('inboxFilters');
+      if (!box) return;
+      const items = Array.from(inbox.items.values());
+      box.classList.toggle('hidden', !items.length);
+      if (!items.length) return;
+      $('#inboxFilterChips').innerHTML = INBOX_FILTERS.map(([id, label, test]) => {
+        const n = items.filter(test).length;
+        if (!n && id !== 'all' && id !== inbox.filter) return '';
+        const active = (inbox.filter || 'all') === id;
+        return `<button type="button" role="tab" aria-selected="${active}" data-inbox-filter="${id}" class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${active ? 'border-slate-900 bg-slate-900 text-canvas' : 'border-slate-300 bg-canvas text-slate-700 hover:bg-slate-100'}">${label}<span class="rounded-full ${active ? 'bg-canvas/20' : 'bg-slate-500/15'} px-1.5 text-xs font-semibold">${n}</span></button>`;
+      }).join('');
+    }
+
     function renderInboxList() {
       const list = $('#inboxList');
-      const items = Array.from(inbox.items.values()).sort((a, b) =>
+      renderInboxFilters();
+      const all = Array.from(inbox.items.values());
+      const items = all.filter(inboxMatches).sort((a, b) =>
         (STATE_ORDER[a.state] - STATE_ORDER[b.state]) || ((b.date || 0) - (a.date || 0)));
+      if (!items.length && all.length) {
+        list.innerHTML = `<div class="rounded-2xl border border-dashed border-slate-300 px-6 py-8 text-center text-sm text-slate-500">Brak wiadomości w tym widoku${inbox.search ? ` dla „${escapeHtml(inbox.search)}”` : ''}. <button type="button" data-inbox-filter="all" data-clear-search class="font-medium text-indigo-600 hover:underline">Pokaż wszystkie</button></div>`;
+        updateInboxBadge();
+        return;
+      }
       if (!items.length) {
         const any = gmailConnected() || outlookConnected();
         list.innerHTML = `
@@ -5795,6 +6086,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       renderMailSetup();
       $('#mailSetupModal').classList.remove('hidden');
       document.body.style.overflow = 'hidden';
+      setTimeout(() => { const f = $('#mailSetupBody input'); if (f) f.focus(); }, 30);
     }
     function closeMailSetup() {
       $('#mailSetupModal').classList.add('hidden');
@@ -5885,6 +6177,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         <p class="mt-3 text-xs leading-relaxed text-slate-500">Akceptuj tylko link otrzymany od technika lub przełożonego w Twojej firmie. Ustawienia zostaną zapisane wyłącznie w tej przeglądarce.</p>`;
       $('#orgSetupModal').classList.remove('hidden');
       document.body.style.overflow = 'hidden';
+      setTimeout(() => $('#orgSetupAccept').focus(), 30);
     }
     function closeOrgSetup() {
       pendingSetup = null;
@@ -6256,6 +6549,21 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       renderSnippetEditor('mySnippets', 'personal');
       bindSnippetEditor('mySnippets', 'personal');
       bindSnippetEditor('adminSnippets', 'company');
+      const onFilter = (e) => {
+        const b = e.target.closest('[data-inbox-filter]');
+        if (!b) return;
+        inbox.filter = b.dataset.inboxFilter;
+        if (b.hasAttribute('data-clear-search')) { inbox.search = ''; $('#inboxSearch').value = ''; }
+        renderInboxList();
+      };
+      $('#inboxFilters').addEventListener('click', onFilter);
+      $('#inboxList').addEventListener('click', onFilter);
+      let searchTimer = null;
+      $('#inboxSearch').addEventListener('input', (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => { inbox.search = e.target.value; renderInboxList(); }, 150);
+      });
+
       $('#inboxDigestBtn').addEventListener('click', () => generateDigest({ manual: true }));
       $('#inboxDigest').addEventListener('click', (e) => {
         const b = e.target.closest('[data-digest]');
@@ -6286,6 +6594,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       $('#view-admin').addEventListener('click', (e) => {
         const b = e.target.closest('[data-admin-setup]');
         if (b) openMailSetup(b.dataset.adminSetup);
+        const c = e.target.closest('[data-clear]');
+        if (c) c.dataset.clear === 'all' ? clearAllData() : clearWorkData();
       });
       $('#previewEmployeeBtn').addEventListener('click', () => {
         setRole('employee');
@@ -6347,6 +6657,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
 
       $$('.tool-form').forEach(form => {
         form.addEventListener('submit', (e) => { e.preventDefault(); runTool(form.dataset.tool); });
+        form.addEventListener('input', () => scheduleDraftSave(form.dataset.tool));
+        form.addEventListener('change', () => scheduleDraftSave(form.dataset.tool));
         form.addEventListener('keydown', (e) => {
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runTool(form.dataset.tool); }
         });
@@ -6360,7 +6672,25 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       $('#fillExampleBtn').addEventListener('click', fillExample);
       $('#resetFormBtn').addEventListener('click', resetForm);
       $('#copyBtn').addEventListener('click', copyResult);
-      $('#exportBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleExportMenu(); });
+      $('#exportBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleHistoryMenu(false); toggleExportMenu(); });
+      $('#historyBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleHistoryMenu(); });
+      $('#historyMenu').addEventListener('click', (e) => {
+        const item = e.target.closest('[data-history]');
+        if (item) { restoreHistory(item.dataset.history); return; }
+        if (e.target.closest('[data-history-clear]')) clearToolHistory();
+        if (e.target.closest('[data-history-clear-all]')) { toggleHistoryMenu(false); clearWorkData(); }
+      });
+      document.addEventListener('click', (e) => { if (!e.target.closest('#historyMenu') && !e.target.closest('#historyBtn')) toggleHistoryMenu(false); });
+      $('#refineChips').innerHTML = REFINE_CHIPS.map(c => `<button type="button" data-refine="${escapeHtml(c)}" class="rounded-full border border-slate-300 bg-canvas px-2.5 py-0.5 text-xs text-slate-700 hover:bg-slate-100">${escapeHtml(c)}</button>`).join('');
+      $('#refineChips').addEventListener('click', (e) => { const b = e.target.closest('[data-refine]'); if (b) runTool(state.activeTool, { refine: b.dataset.refine }); });
+      $('#refineForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const v = $('#refineInput').value.trim();
+        if (!v) { toast('Napisz, co poprawić w wyniku.', 'info'); $('#refineInput').focus(); return; }
+        $('#refineInput').value = '';
+        runTool(state.activeTool, { refine: v });
+      });
+      document.addEventListener('keydown', trapModalFocus);
       $('#exportMenu').addEventListener('click', (e) => { const b = e.target.closest('[data-export]'); if (b) runExport(b.dataset.export); });
       document.addEventListener('click', (e) => { if (!e.target.closest('#exportMenu') && !e.target.closest('#exportBtn')) toggleExportMenu(false); });
       $('#cancelBtn').addEventListener('click', () => {
@@ -6417,7 +6747,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
 
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-          if (!$('#exportMenu').classList.contains('hidden')) toggleExportMenu(false);
+          if (!$('#historyMenu').classList.contains('hidden')) toggleHistoryMenu(false);
+          else if (!$('#exportMenu').classList.contains('hidden')) toggleExportMenu(false);
           else if (!$('#settingsModal').classList.contains('hidden')) closeSettings();
           else if (!$('#mailSetupModal').classList.contains('hidden')) closeMailSetup();
           else closeSidebar();
@@ -6448,6 +6779,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       hydrateIcons();
       $('#letters-date').setAttribute('value', dayKey());
       initFileFields();
+      restoreDrafts();
       renderUsageBadge();
       renderThemeToggle();
       initSubmitButtons();

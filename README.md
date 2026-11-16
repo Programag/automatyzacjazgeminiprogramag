@@ -19,6 +19,7 @@ Czyta nieprzeczytane maile, pomija newslettery, powiadomienia i podejrzane wiado
 - **Poranne podsumowanie** – przy pierwszym sprawdzeniu poczty po 6:00: najważniejsze sprawy, kto czeka na odpowiedź, kalendarz na dziś.
 - **Biblioteka gotowych odpowiedzi** – fragmenty firmowe (z Panelu technika, trafiają do linku zaproszenia) i osobiste; AI je wykorzystuje, a do odpowiedzi wstawisz je jednym kliknięciem.
 - **Powiadomienia przeglądarki** – o nowych propozycjach, braku odpowiedzi i podsumowaniu dnia, gdy karta jest w tle.
+- **Filtry i wyszukiwarka** – widoki *Do zatwierdzenia*, *Przypomnienia*, *W trakcie*, *Bez odpowiedzi*, *Obsłużone* z licznikami oraz wyszukiwanie po nadawcy, temacie i streszczeniu (bez względu na polskie znaki).
 - Sprawdzanie automatyczne co 3 min działa, gdy karta z aplikacją jest otwarta.
 
 ### Narzędzia
@@ -40,6 +41,11 @@ Narzędzia z polem pliku przyjmują PDF-y, zdjęcia, TXT/CSV oraz **Word (.docx)
 - pola tekstowe w arkuszach.
 
 Jeśli coś nie trafi do AI w całości (arkusz ponad 1000 wierszy lub 60 kolumn, ponad 30 arkuszy, bardzo długi dokument, obrazy EMF/WMF, limit 10 obrazów na plik), pracownik widzi to od razu: w powiadomieniu po dodaniu pliku, na liście plików, w uwadze przy wyniku, a w Skrzynce AI – na karcie maila. Stare formaty .doc/.xls trzeba zapisać jako .docx/.xlsx lub PDF.
+
+Praca z wynikiem:
+- **Popraw wynik** – pod wynikiem wpisz poprawkę („dodaj zdanie o gwarancji”) lub kliknij gotową (*Krócej*, *Bardziej formalnie*, *Prostszym językiem*, *Więcej szczegółów*, *Przetłumacz na angielski*). AI poprawia poprzednią wersję bez ponownego wysyłania plików; nieudana poprawka nie kasuje wyniku.
+- **Historia** – ostatnie 10 wyników każdego narzędzia (także po poprawkach); kliknięcie przywraca wynik i dane formularza.
+- **Wersje robocze** – wpisane dane formularzy zapisują się na bieżąco i wracają po odświeżeniu strony; „Wyczyść” usuwa wersję roboczą.
 
 Każdy wynik można **wyeksportować**: Word (.docx), PDF (przez okno drukowania), Markdown, tekst, nowa wiadomość w Gmailu / Outlooku / domyślnym programie pocztowym, a dla faktur – Excel (CSV).
 
@@ -88,6 +94,8 @@ Darmowy plan Gemini ma niski dzienny limit (np. 20 zapytań dziennie na model), 
 ## Prywatność
 
 Wszystko dzieje się w przeglądarce: klucz Gemini, identyfikatory aplikacji i tokeny logowania są przechowywane lokalnie, a treść maili (wraz z analizowanymi załącznikami) i dołączone pliki trafiają wyłącznie do Gmail/Microsoft Graph, Kalendarza oraz Gemini API – bez serwera pośredniczącego.
+
+Historia wyników i wersje robocze również zostają tylko w tej przeglądarce. Pracownik usuwa je z menu **Historia**, a technik w **Panelu technika → Dane w tej przeglądarce** może jednym przyciskiem usunąć wszystkie dane OfficeFlow (np. na wspólnym komputerze).
 
 ## Technologie
 
