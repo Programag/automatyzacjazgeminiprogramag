@@ -9305,7 +9305,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
           checkMail({ manual: false });
         },
         error_callback: (err) => {
-          const msg = err && err.type === 'popup_closed' ? 'Okno logowania Google zostało zamknięte. Jeśli Google pokazał „Dostęp zablokowany”, poproś technika o dodanie Twojego adresu e-mail do aplikacji.'
+          const msg = err && err.type === 'popup_closed' ? 'Okno logowania Google zostało zamknięte przed udzieleniem zgody. Jeśli Google pokazał „Ta aplikacja nie została zweryfikowana” – to normalne w wersji testowej: przewiń w dół, kliknij „Kontynuuj” i zaznacz wszystkie uprawnienia. Jeśli pokazał „Dostęp zablokowany” – poproś technika o dodanie Twojego adresu e-mail do użytkowników testowych.'
             : err && err.type === 'popup_failed_to_open' ? 'Przeglądarka zablokowała okno logowania Google – zezwól na wyskakujące okienka dla tej strony.'
             : `Gmail: ${(err && (err.message || err.type)) || 'błąd logowania'}`;
           toast(msg, 'error');
@@ -12099,7 +12099,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         if (!p.email) throw new Error('Google nie przekazał adresu e-mail');
         startAccountDraft({ provider: 'google', sub: p.sub, email: p.email, name: p.name || p.email, givenName: p.given_name || '', picture: p.picture || '' });
       } catch (e) {
-        if (!/zamknięto/.test(e.message)) toast(`Logowanie przez Google nie powiodło się: ${e.message}`, 'error', 6000);
+        if (/zamknięto/.test(e.message)) toast('Okno Google zamknięto przed zgodą. Jeśli widać było „Ta aplikacja nie została zweryfikowana” – to normalne w wersji testowej: kliknij „Kontynuuj”.', 'info', 8000);
+      else toast(`Logowanie przez Google nie powiodło się: ${e.message}`, 'error', 6000);
       } finally { btn.disabled = false; }
     }
     function startAccountDraft(base) {
