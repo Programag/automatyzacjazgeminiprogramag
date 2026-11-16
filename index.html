@@ -1524,6 +1524,7 @@
     const STORAGE_KEY = 'officeflow_gemini_api_key';
     const STORAGE_TOOL = 'officeflow_active_tool';
     const HEADERS_TIMEOUT_MS = 45000;   // maks. czas na rozpoczęcie odpowiedzi przez Gemini
+    const HEADERS_TIMEOUT_LONG_MS = 150000; // obliczenia kodem i nagrania: model najpierw liczy / słucha, potem odpowiada
     const OVERLOAD_COOLDOWN_MS = 15 * 60 * 1000; // jak długo omijać przeciążony model
     const IDLE_TIMEOUT_MS = 120000;     // maks. przerwa między kolejnymi fragmentami odpowiedzi
     const MAX_ATTEMPTS = 3;             // automatyczne ponawianie przy przeciążeniu serwerów Google
@@ -2788,7 +2789,7 @@ Na końcu kursywą: *To analiza informacyjna, nie porada prawna. Przy dużych kw
       }
     }
 
-    function networkError(e, reason) {
+    function networkError(e, reason, waitedMs) {
       const details = String((e && e.message) || e || reason || '');
       if (reason === 'cancel') {
         return Object.assign(new GeminiError({ title: 'Przerwano', message: 'Generowanie zostało przerwane.', details }), { cancelled: true });
@@ -2796,7 +2797,7 @@ Na końcu kursywą: *To analiza informacyjna, nie porada prawna. Przy dużych kw
       if (reason === 'timeout-headers') {
         return Object.assign(new GeminiError({
           title: 'Serwery Google nie odpowiadają',
-          message: `Gemini nie zaczął odpowiadać w ciągu ${Math.round(HEADERS_TIMEOUT_MS / 1000)} s. Google potwierdza, że przy dużym obciążeniu (zwłaszcza na darmowym planie) odpowiedzi nowych modeli bywają mocno opóźnione – to nie jest problem z Twoim internetem.`,
+          message: `Gemini nie zaczął odpowiadać w ciągu ${Math.round((waitedMs || HEADERS_TIMEOUT_MS) / 1000)} s. Google potwierdza, że przy dużym obciążeniu (zwłaszcza na darmowym planie) odpowiedzi nowych modeli bywają mocno opóźnione – to nie jest problem z Twoim internetem.`,
           hints: [
             'Spróbuj ponownie za kilka minut – przeciążenie zwykle jest chwilowe.',
             'Upewnij się, że w Ustawieniach API „Poziom rozumowania” jest ustawiony na „Niski” (najszybsze odpowiedzi).',
@@ -2881,7 +2882,7 @@ Na końcu kursywą: *To analiza informacyjna, nie porada prawna. Przy dużych kw
     }
 
     // Jedna próba: wysyła zapytanie i czyta strumień odpowiedzi (Server-Sent Events)
-    async function streamOnce({ url, apiKey, payload, onText, signal }) {
+    async function streamOnce({ url, apiKey, payload, onText, signal, headersTimeout = HEADERS_TIMEOUT_MS }) {
       const controller = new AbortController();
       let abortReason = null;
       let reader = null;
@@ -2895,7 +2896,7 @@ Na końcu kursywą: *To analiza informacyjna, nie porada prawna. Przy dużych kw
       if (signal) { if (signal.aborted) abort('cancel'); else signal.addEventListener('abort', onUserAbort); }
 
       // Osobne limity: na rozpoczęcie odpowiedzi oraz na przerwę między kolejnymi fragmentami
-      let timer = setTimeout(() => abort('timeout-headers'), HEADERS_TIMEOUT_MS);
+      let timer = setTimeout(() => abort('timeout-headers'), headersTimeout);
       const resetIdle = () => { clearTimeout(timer); timer = setTimeout(() => abort('timeout-idle'), IDLE_TIMEOUT_MS); };
       const acc = { text: '', finish: '', usage: null, blockReason: '', steps: [], images: [] };
 
@@ -2909,7 +2910,7 @@ Na końcu kursywą: *To analiza informacyjna, nie porada prawna. Przy dużych kw
             signal: controller.signal
           });
         } catch (e) {
-          throw networkError(e, abortReason);
+          throw networkError(e, abortReason, headersTimeout);
         }
         resetIdle();
 
@@ -2955,14 +2956,14 @@ Na końcu kursywą: *To analiza informacyjna, nie porada prawna. Przy dużych kw
               buf += decoder.decode(value, { stream: true });
               flush(false);
             }
-            if (abortReason) throw networkError(null, abortReason);
+            if (abortReason) throw networkError(null, abortReason, headersTimeout);
             buf += decoder.decode();
           } else {
             buf = await res.text();
           }
           flush(true);
         } catch (e) {
-          throw e instanceof GeminiError ? e : networkError(e, abortReason);
+          throw e instanceof GeminiError ? e : networkError(e, abortReason, headersTimeout);
         }
         return acc;
       } catch (e) {
@@ -3062,7 +3063,9 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
         const url = `${API_BASE}/${encodeURIComponent(current)}:streamGenerateContent?alt=sse`;
         const payload = buildPayload({ model: current, systemInstruction, userText, turns, temperature, thinkingLevel: useThinking ? thinkingLevel : null, responseSchema: useSchema ? responseSchema : null, attachments, codeExecution: useCode, maxOutputTokens, mediaResolution: useMediaRes });
         try {
-          const acc = await streamOnce({ url, apiKey, payload, onText, signal });
+          // Obliczenia kodem i nagrania dźwięku/wideo potrzebują więcej czasu przed pierwszym fragmentem odpowiedzi
+          const slow = !!payload.tools || (attachments || []).some(a => /^(audio|video)\//.test(a.mimeType || ''));
+          const acc = await streamOnce({ url, apiKey, payload, onText, signal, headersTimeout: slow ? HEADERS_TIMEOUT_LONG_MS : HEADERS_TIMEOUT_MS });
           const result = Object.assign(finalizeResponse(acc), { modelUsed: current });
           if (extraNotice) result.notice = [result.notice, extraNotice].filter(Boolean).join(' ');
           recordUsage(current, result.usage);
