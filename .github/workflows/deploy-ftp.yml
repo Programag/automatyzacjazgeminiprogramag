@@ -30,6 +30,7 @@ on:
       - regulamin.html
       - site.css
       - site.js
+      - 'img/**'
       - .htaccess
       - 'api/**'
       - '.github/scripts/**'
@@ -76,6 +77,7 @@ jobs:
           mkdir -p _site
           cp index.html o-aplikacji.html prywatnosc.html regulamin.html site.css site.js .htaccess _site/
           cp -r api _site/api
+          cp -r img _site/img
           rm -f _site/api/_config.php
           python3 .github/scripts/fill-pages.py _site
           test -s _site/index.html && test -s _site/api/index.php

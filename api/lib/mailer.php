@@ -17,12 +17,14 @@ function mime_addr(string $email, string $name = ''): string { return $name === 
 
 /** Prosty szablon wiadomości: nagłówek, akapity/HTML, przycisk. */
 function mail_layout(string $title, string $html, string $buttonText = '', string $buttonUrl = ''): string {
-    $btn = $buttonText ? '<p style="margin:24px 0"><a href="' . htmlspecialchars($buttonUrl) . '" style="background:#2f6fd6;color:#fff;text-decoration:none;padding:11px 20px;border-radius:999px;font-weight:600;display:inline-block">' . htmlspecialchars($buttonText) . '</a></p>' : '';
-    return '<!doctype html><html lang="pl"><body style="margin:0;background:#f4f6fb;font-family:Segoe UI,Arial,sans-serif;color:#1e293b">'
-        . '<div style="max-width:600px;margin:0 auto;padding:24px 16px"><div style="font-weight:700;font-size:18px;margin-bottom:16px;color:#0f172a">PaperlyAI</div>'
-        . '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:24px">'
-        . '<h1 style="font-size:20px;margin:0 0 12px">' . htmlspecialchars($title) . '</h1>' . $html . $btn . '</div>'
-        . '<p style="font-size:12px;color:#64748b;margin-top:16px">Wiadomość wysłana automatycznie przez PaperlyAI (' . htmlspecialchars(base_url()) . '). Powiadomienia wyłączysz w aplikacji: Profil → Powiadomienia e-mail.</p>'
+    $btn = $buttonText ? '<p style="margin:24px 0"><a href="' . htmlspecialchars($buttonUrl) . '" style="background:#a400e3;color:#fff;text-decoration:none;padding:11px 22px;border-radius:999px;font-weight:600;display:inline-block">' . htmlspecialchars($buttonText) . '</a></p>' : '';
+    $logo = base_url() . app_path() . '/img/logo.png';
+    return '<!doctype html><html lang="pl"><body style="margin:0;background:#f6f2fc;font-family:Segoe UI,Arial,sans-serif;color:#27005f">'
+        . '<div style="max-width:600px;margin:0 auto;padding:24px 16px">'
+        . '<div style="background:#27005f;border-radius:14px 14px 0 0;padding:14px 20px;border-bottom:3px solid #f9aa63"><img src="' . htmlspecialchars($logo) . '" alt="" width="28" height="28" style="vertical-align:middle;background:#fff;border-radius:8px;padding:3px"> <span style="vertical-align:middle;font-weight:700;font-size:17px;color:#fff;margin-left:6px">PaperlyAI</span></div>'
+        . '<div style="background:#fff;border:1px solid #e4def2;border-top:0;border-radius:0 0 14px 14px;padding:24px">'
+        . '<h1 style="font-size:20px;margin:0 0 12px;color:#27005f">' . htmlspecialchars($title) . '</h1>' . $html . $btn . '</div>'
+        . '<p style="font-size:12px;color:#645880;margin-top:16px">Wiadomość wysłana automatycznie przez PaperlyAI (' . htmlspecialchars(base_url()) . '). Powiadomienia wyłączysz w aplikacji: Profil → Powiadomienia e-mail.</p>'
         . '</div></body></html>';
 }
 

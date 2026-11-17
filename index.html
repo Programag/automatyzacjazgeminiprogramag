@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PaperlyAI</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f2328'/%3E%3Cpath fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' d='M13.1 20.6 12 24.4l-1.1-3.8a6 6 0 0 0-4.1-4.1L3 15.4l3.8-1.1a6 6 0 0 0 4.1-4.1L12 6.4l1.1 3.8a6 6 0 0 0 4.1 4.1l3.8 1.1-3.8 1.1a6 6 0 0 0-4.1 4.1ZM24.3 11.6 24 13l-.3-1.4a4.5 4.5 0 0 0-3.3-3.3L19 8l1.4-.3a4.5 4.5 0 0 0 3.3-3.3L24 3l.3 1.4a4.5 4.5 0 0 0 3.3 3.3L29 8l-1.4.3a4.5 4.5 0 0 0-3.3 3.3Z'/%3E%3C/svg%3E" />
+  <link rel="icon" type="image/png" href="img/favicon.png" />
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
+  <meta name="theme-color" content="#27005f" />
   <meta name="description" content="PaperlyAI – automatyzacja pracy biurowej z Google Gemini w modelu BYOK (Bring Your Own Key)." />
 
   <script>
@@ -840,6 +842,71 @@
     input[type="date"], input[type="time"] { color-scheme: light; }
     @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) input[type="date"], :root:not([data-theme="light"]) input[type="time"] { color-scheme: dark; } }
     :root[data-theme="dark"] input[type="date"], :root[data-theme="dark"] input[type="time"] { color-scheme: dark; }
+
+    /* =====================================================================
+       PALETA MARKI PaperlyAI (z logo): fiolet #a400e3, granat #27005f,
+       brzoskwinia #f9aa63 + biel. Nadpisuje paletę bazową (zmienne CSS).
+       ===================================================================== */
+    :root {
+      --brand: 164 0 227; --brand-ink: 39 0 95; --brand-peach: 249 170 99;
+      --c-slate-50: 249 247 253; --c-slate-100: 241 237 250; --c-slate-200: 228 222 242; --c-slate-300: 218 210 237; --c-slate-400: 140 128 165;
+      --c-slate-500: 100 88 128; --c-slate-600: 82 70 112; --c-slate-700: 64 50 98; --c-slate-800: 50 30 90; --c-slate-900: 39 0 95; --c-slate-950: 26 0 64;
+      --c-indigo-50: 248 238 255; --c-indigo-100: 240 220 254; --c-indigo-200: 228 190 252; --c-indigo-300: 207 140 248; --c-indigo-400: 186 82 240;
+      --c-indigo-500: 172 30 234; --c-indigo-600: 164 0 227; --c-indigo-700: 130 0 182; --c-indigo-800: 96 0 140; --c-indigo-900: 62 0 110; --c-indigo-950: 39 0 95;
+      --c-navy-900: 39 0 95; --c-navy-950: 39 0 95;
+      --c-primary: 164 0 227; --c-primary-hover: 140 0 196; --c-primary-disabled: 214 160 240;
+      --btn-pri: 164 0 227; --btn-pri-hover: 140 0 196; --btn-pri-active: 118 0 168;
+      --ai-1: 164 0 227; --ai-2: 249 170 99; --ai-3: 214 64 190; --ai-4: 255 205 150; --ai-5: 120 40 220; --hero-line: 164 0 227;
+      --fx-brand-a: 164 0 227; --fx-brand-b: 249 170 99;
+      --shadow-overlay: 39 0 95;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --c-slate-50: 30 14 56; --c-slate-100: 40 22 70; --c-slate-200: 54 34 88; --c-slate-300: 68 46 104; --c-slate-400: 112 96 145;
+        --c-slate-500: 160 146 190; --c-slate-600: 184 172 210; --c-slate-700: 210 200 232; --c-slate-800: 230 222 245; --c-slate-900: 245 240 255; --c-slate-950: 255 255 255;
+        --c-indigo-50: 40 14 70; --c-indigo-100: 56 18 98; --c-indigo-200: 82 26 138; --c-indigo-300: 120 40 190; --c-indigo-400: 196 110 250;
+        --c-indigo-500: 200 120 255; --c-indigo-600: 200 120 255; --c-indigo-700: 214 150 255; --c-indigo-800: 228 185 255; --c-indigo-900: 240 215 255; --c-indigo-950: 248 236 255;
+        --c-navy-900: 245 240 255; --c-navy-950: 8 0 20; --c-canvas: 21 8 42;
+        --c-primary: 176 60 240; --c-primary-hover: 190 90 250; --c-primary-disabled: 80 30 120;
+        --btn-pri: 176 60 240; --btn-pri-hover: 190 90 250; --btn-pri-active: 150 40 210;
+        --ai-1: 190 90 250; --hero-line: 200 120 255; --shadow-color: 4 0 12; --shadow-overlay: 4 0 12;
+      }
+    }
+    :root[data-theme="dark"] {
+      --c-slate-50: 30 14 56; --c-slate-100: 40 22 70; --c-slate-200: 54 34 88; --c-slate-300: 68 46 104; --c-slate-400: 112 96 145;
+      --c-slate-500: 160 146 190; --c-slate-600: 184 172 210; --c-slate-700: 210 200 232; --c-slate-800: 230 222 245; --c-slate-900: 245 240 255; --c-slate-950: 255 255 255;
+      --c-indigo-50: 40 14 70; --c-indigo-100: 56 18 98; --c-indigo-200: 82 26 138; --c-indigo-300: 120 40 190; --c-indigo-400: 196 110 250;
+      --c-indigo-500: 200 120 255; --c-indigo-600: 200 120 255; --c-indigo-700: 214 150 255; --c-indigo-800: 228 185 255; --c-indigo-900: 240 215 255; --c-indigo-950: 248 236 255;
+      --c-navy-900: 245 240 255; --c-navy-950: 8 0 20; --c-canvas: 21 8 42;
+      --c-primary: 176 60 240; --c-primary-hover: 190 90 250; --c-primary-disabled: 80 30 120;
+      --btn-pri: 176 60 240; --btn-pri-hover: 190 90 250; --btn-pri-active: 150 40 210;
+      --ai-1: 190 90 250; --hero-line: 200 120 255; --shadow-color: 4 0 12; --shadow-overlay: 4 0 12;
+    }
+    /* Menu boczne w kolorze granatu z logo – akcent brzoskwiniowy */
+    #sidebar {
+      color-scheme: dark;
+      --c-slate-50: 39 0 95; --c-slate-100: 56 12 122; --c-slate-200: 70 24 138; --c-slate-300: 78 34 146; --c-slate-400: 170 150 210;
+      --c-slate-500: 196 182 230; --c-slate-600: 214 202 240; --c-slate-700: 232 224 250; --c-slate-800: 244 238 255; --c-slate-900: 255 255 255;
+      --c-canvas: 52 10 118;
+      --c-indigo-50: 70 24 138; --c-indigo-100: 78 34 146; --c-indigo-600: 249 170 99; --c-indigo-700: 252 196 145;
+      --btn-pri: 249 170 99; --btn-pri-hover: 251 186 128; --btn-pri-active: 236 150 80;
+      --c-emerald-50: 18 38 30; --c-emerald-100: 21 48 31; --c-emerald-200: 31 74 43; --c-emerald-300: 46 160 67; --c-emerald-400: 63 185 80; --c-emerald-500: 63 185 80; --c-emerald-600: 35 134 54; --c-emerald-700: 63 185 80; --c-emerald-800: 86 211 100; --c-emerald-900: 126 231 135; --c-emerald-950: 175 245 180; --c-red-50: 37 23 28; --c-red-100: 52 27 32; --c-red-200: 93 35 41; --c-red-300: 142 21 25; --c-red-400: 248 81 73; --c-red-500: 248 81 73; --c-red-600: 218 54 51; --c-red-700: 255 123 114; --c-red-800: 255 161 152; --c-red-900: 255 193 186; --c-red-950: 255 220 215; --c-amber-50: 39 33 21; --c-amber-100: 46 38 20; --c-amber-200: 75 59 22; --c-amber-300: 158 106 3; --c-amber-400: 187 128 9; --c-amber-500: 210 153 34; --c-amber-600: 210 153 34; --c-amber-700: 227 179 65; --c-amber-800: 242 204 96; --c-amber-900: 248 227 161; --c-amber-950: 251 239 197; --c-sky-50: 18 29 47; --c-sky-100: 23 44 77; --c-sky-200: 31 63 110; --c-sky-300: 42 90 160; --c-sky-400: 68 147 248; --c-sky-500: 68 147 248; --c-sky-600: 68 147 248; --c-sky-700: 88 166 255; --c-sky-800: 121 192 255; --c-sky-900: 165 214 255; --c-sky-950: 202 232 255;
+      background: rgb(39 0 95) !important;
+      background-image: radial-gradient(120% 60% at 0% 0%, rgb(164 0 227 / .35), transparent 60%), radial-gradient(90% 50% at 100% 100%, rgb(249 170 99 / .14), transparent 65%) !important;
+      border-color: rgb(39 0 95) !important;
+    }
+    #sidebar .nav-item[aria-current="page"] { color: #fff; }
+    #sidebar a { color: inherit; }
+    .brand-logo { display: grid; place-items: center; background: #fff !important; box-shadow: 0 6px 18px -8px rgb(249 170 99 / .8); }
+    .brand-logo img { width: 26px; height: 26px; object-fit: contain; }
+    .ob-logo { width: 92px; height: 92px; margin: 0 auto 6px; display: grid; place-items: center; border-radius: 26px; background: #fff; box-shadow: 0 18px 40px -18px rgb(164 0 227 / .7), 0 0 0 1px rgb(var(--brand-ink) / .06); animation: fxLogoFloat 6s ease-in-out infinite; }
+    .ob-logo img { width: 70px; height: 70px; object-fit: contain; }
+    @keyframes fxLogoFloat { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-6px) rotate(-2deg); } }
+    @media (prefers-reduced-motion: reduce) { .ob-logo { animation: none; } }
+    /* Akcenty brzoskwiniowe */
+    .app-header::after { background: linear-gradient(90deg, rgb(var(--brand)), rgb(var(--brand-peach)), rgb(var(--brand))) !important; background-size: 200% 100% !important; }
+    ::selection { background: rgb(249 170 99 / .45); }
+    .grad-text { background-image: linear-gradient(90deg, rgb(164 0 227), rgb(214 64 190) 35%, rgb(249 170 99) 65%, rgb(164 0 227)) !important; background-size: 200% auto !important; }
   </style>
 </head>
 
@@ -852,8 +919,8 @@
     <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 -translate-x-full transform border-r border-slate-300 bg-slate-50 transition-transform duration-200 ease-out lg:static lg:translate-x-0 flex flex-col">
       <div class="flex items-center justify-between gap-2 px-4 h-14 shrink-0">
         <div class="flex cursor-pointer items-center gap-2.5 min-w-0" data-tool-link="home" title="Strona startowa">
-          <div class="brand-tile flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-canvas">
-            <svg data-icon="sparkles" class="h-[18px] w-[18px]"></svg>
+          <div class="brand-logo h-9 w-9 shrink-0 rounded-xl">
+            <img src="img/logo.png" alt="PaperlyAI" width="26" height="26" />
           </div>
           <div class="min-w-0 leading-tight">
             <div class="truncate text-[15px] font-semibold text-slate-900">PaperlyAI</div>
@@ -2203,7 +2270,7 @@
   <div id="onboard" class="fixed inset-0 z-[75] hidden overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="obTitle">
     <div class="ob-bg" aria-hidden="true"><div class="hero-aurora"></div></div>
     <div class="ob-panel">
-      <div class="ai-orb" style="--s: 84px" aria-hidden="true"><div class="ai-orb-core"><i></i><i></i><i></i></div><div class="ai-orb-shine"></div></div>
+      <div class="ob-logo"><img src="img/logo.png" alt="PaperlyAI" width="70" height="70" /></div>
       <div id="obStep1">
         <h2 id="obTitle" class="ob-title">Witaj w <span class="grad-text">PaperlyAI</span></h2>
         <p class="ob-sub">Załóż konto, aby zacząć. Zajmie to chwilę.</p>
@@ -2226,12 +2293,12 @@
         <div id="obHello" class="ob-hello"></div>
         <div class="ob-types">
           <button type="button" data-ob-type="company" aria-pressed="false" class="ob-type">
-            <span class="ob-type-icon" style="background:#2f6fd6"><svg data-icon="briefcase" class="h-5 w-5"></svg></span>
+            <span class="ob-type-icon" style="background:#a400e3"><svg data-icon="briefcase" class="h-5 w-5"></svg></span>
             <b>Firma</b>
             <span class="ob-desc">Wszystkie narzędzia: skrzynka AI, oferty, faktury i KSeF, windykacja, raporty dla zarządu, zespół.</span>
           </button>
           <button type="button" data-ob-type="personal" aria-pressed="false" class="ob-type">
-            <span class="ob-type-icon" style="background:#d6436a"><svg data-icon="user" class="h-5 w-5"></svg></span>
+            <span class="ob-type-icon" style="background:#e8853a"><svg data-icon="user" class="h-5 w-5"></svg></span>
             <b>Osoba prywatna</b>
             <span class="ob-desc">Sprawy osobiste: pisma, umowy i ich haczyki, CV, rozmowa kwalifikacyjna, notatki, korekta tekstów.</span>
           </button>
@@ -12663,7 +12730,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       Automatyzacja: ['#8e2de2', '#00c6ff', '#c471f5', '#efe7ff']
     };
     // Jednolite kolory grup – dobrane do grafik, z czytelną białą ikoną
-    const GROUP_SOLID = { Start: '#5b4ce9', Poczta: '#2f6fd6', Pisanie: '#d6436a', Dokumenty: '#3b5bdb', Finanse: '#0f8a5f', 'Kadry i kariera': '#cf5a28', Automatyzacja: '#7c3aed' };
+    const GROUP_SOLID = { Start: '#a400e3', Poczta: '#7a2ff0', Pisanie: '#c4268f', Dokumenty: '#4b0fa8', Finanse: '#e07a2b', 'Kadry i kariera': '#d0563d', Automatyzacja: '#27005f' };
     const TOOL_KEYWORDS = {
       inbox: 'poczta skrzynka gmail outlook maile wiadomosci odpowiedzi automatyczne',
       email: 'mail email odpowiedz odpisz klient kontrahent reklamacja wiadomosc korespondencja zapytanie',
@@ -13024,7 +13091,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     function avatarHtml(a, cls = 'h-8 w-8') {
       return a && a.picture
         ? `<img src="${escapeHtml(a.picture)}" alt="" referrerpolicy="no-referrer" class="${cls} shrink-0 rounded-full object-cover" />`
-        : `<span class="${cls} grid shrink-0 place-items-center rounded-full text-xs font-semibold text-white" style="background:${a && a.type === 'personal' ? '#d6436a' : '#2f6fd6'}">${escapeHtml(initials(a))}</span>`;
+        : `<span class="${cls} grid shrink-0 place-items-center rounded-full text-xs font-semibold text-white" style="background:${a && a.type === 'personal' ? '#e8853a' : '#a400e3'}">${escapeHtml(initials(a))}</span>`;
     }
 
     /* ---------- profil w menu ---------- */
