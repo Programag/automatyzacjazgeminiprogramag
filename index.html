@@ -667,6 +667,11 @@
     .spinner::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 32% 28%, rgb(255 255 255 / .9), transparent 34%), radial-gradient(circle, transparent 55%, rgb(0 0 0 / .18) 100%); }
 
     /* Duża kula AI na stronie startowej */
+    .ai-core { --s: 230px; position: relative; width: var(--s); height: var(--s); margin: 0 auto; isolation: isolate; transform: translate(calc(var(--px, 0) * 14px), calc(var(--py, 0) * 10px)); transition: transform .8s var(--ease-out); }
+    .ai-core::before { content: ""; position: absolute; inset: -22%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, rgb(164 0 227 / .30), rgb(249 170 99 / .14) 55%, transparent 75%); filter: blur(10px); animation: fxBreath 5s ease-in-out infinite; }
+    body.ai-busy .ai-core::before { animation-duration: 1.3s; background: radial-gradient(closest-side, rgb(164 0 227 / .42), rgb(249 170 99 / .24) 55%, transparent 75%); }
+    .ai-core canvas { display: block; width: 100%; height: 100%; }
+    @media (max-width: 640px) { .ai-core { --s: 180px; } }
     .ai-orb { --s: 132px; position: relative; width: var(--s); height: var(--s); margin: 0 auto; isolation: isolate; transform: translate(calc(var(--px, 0) * 16px), calc(var(--py, 0) * 12px)); transition: transform .8s var(--ease-out); }
     .ai-orb::before { content: ""; position: absolute; inset: -38%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, rgb(var(--ai-1) / .5), rgb(var(--ai-2) / .28) 50%, transparent 74%); filter: blur(14px); animation: fxBreath 5s ease-in-out infinite; }
     .ai-orb-core { position: absolute; inset: 0; overflow: hidden; border-radius: 50%; clip-path: circle(50% at 50% 50%); -webkit-mask-image: radial-gradient(circle, #000 69%, transparent 70.5%); mask-image: radial-gradient(circle, #000 69%, transparent 70.5%); will-change: transform; background: conic-gradient(rgb(var(--ai-1)), rgb(var(--ai-2)), rgb(var(--ai-3)), rgb(var(--ai-4)), rgb(var(--ai-5)), rgb(var(--ai-1))); animation: spin 10s linear infinite; }
@@ -1929,7 +1934,7 @@
           <section id="homeHero" class="home-hero">
             <div class="hero-aurora" aria-hidden="true"></div>
             <canvas id="heroField" aria-hidden="true"></canvas>
-            <div class="ai-orb" aria-hidden="true"><div class="ai-orb-core"><i></i><i></i><i></i></div><div class="ai-orb-shine"></div></div>
+            <div class="ai-core" aria-hidden="true"><canvas id="aiCore"></canvas></div>
             <div class="hero-eyebrow"><b></b>Asystent AI dla biura · Google Gemini</div>
             <h1 class="hero-title"><span id="heroGreeting">Dzień dobry</span>. Co dziś <span class="grad-text">zautomatyzujemy</span>?</h1>
             <p class="hero-sub">Na przykład: <span id="heroTyped" class="typed"></span></p>
@@ -12897,6 +12902,113 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       } else toast(`Otwieram: ${toolInfo(best.id).short}`, 'info');
     }
 
+    /* ---------- rdzeń AI: obracająca się sieć punktów z impulsami sygnału ---------- */
+    const core = { pts: null, links: [], pulses: [], ay: 0, ax: .4, tx: 0, ty: 0, tm: 0, size: 0 };
+    function coreBuild() {
+      const N = 150, ga = Math.PI * (3 - Math.sqrt(5)), pts = [];
+      for (let i = 0; i < N; i++) { const y = 1 - (i / (N - 1)) * 2, r = Math.sqrt(1 - y * y), th = ga * i; pts.push({ x: Math.cos(th) * r, y, z: Math.sin(th) * r, k: i / N }); }
+      const seen = new Set(), links = [];
+      pts.forEach((a, i) => {
+        pts.map((b, j) => ({ j, d: j === i ? 9 : Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) })).sort((u, v) => u.d - v.d).slice(0, 3).forEach(n => {
+          if (n.d > .52) return;
+          const key = i < n.j ? i + '-' + n.j : n.j + '-' + i;
+          if (!seen.has(key)) { seen.add(key); links.push([i, n.j]); }
+        });
+      });
+      core.pts = pts; core.links = links;
+    }
+    const CORE_P = [164, 0, 227], CORE_M = [214, 64, 190], CORE_A = [249, 170, 99];
+    const coreMix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+    function coreColor(k, dark) {
+      let c = k < .5 ? coreMix(CORE_P, CORE_M, k * 2) : coreMix(CORE_M, CORE_A, (k - .5) * 2);
+      if (dark) c = coreMix(c, [255, 255, 255], .28);
+      return c;
+    }
+    function coreFrame(canvas, dpr, busy, dark, mouse, w, h, t) {
+      const S = canvas.clientWidth;
+      if (!S) return;
+      if (core.size !== S) { canvas.width = canvas.height = Math.round(S * dpr); core.size = S; }
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, S, S);
+      if (!core.pts) coreBuild();
+      const cx = S / 2, cy = S / 2, R = S * .27, k = S / 190;
+      // ruch: obrót + nachylenie za kursorem
+      core.tm += ((mouse ? (mouse.x / w - .5) * 2 : 0) - core.tm) * .05;
+      core.ty += ((mouse ? (mouse.y / h - .35) * 2 : 0) - core.ty) * .05;
+      core.ay += busy ? .02 : .0042;
+      core.ax += ((.38 + core.ty * .35) - core.ax) * .06;
+      const ay = core.ay + core.tm * .7, sy = Math.sin(ay), cyy = Math.cos(ay), sx = Math.sin(core.ax), cxx = Math.cos(core.ax);
+      const proj = (x, y, z) => {
+        const x1 = x * cyy + z * sy, z1 = -x * sy + z * cyy, y1 = y * cxx - z1 * sx, z2 = y * sx + z1 * cxx, f = 1 / (1 - z2 * .2);
+        return { x: cx + x1 * R * f, y: cy + y1 * R * f, z: z2, f };
+      };
+      // poświata za rdzeniem
+      const pulse = .5 + .5 * Math.sin(t / (busy ? 220 : 900));
+      let g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.3);
+      g.addColorStop(0, `rgba(249,170,99,${(dark ? .42 : .34) + pulse * (busy ? .25 : .1)})`);
+      g.addColorStop(.45, `rgba(164,0,227,${dark ? .26 : .18})`);
+      g.addColorStop(1, 'rgba(164,0,227,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.3, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = dark ? 'rgba(220,170,255,.16)' : 'rgba(110,0,170,.16)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, cy, R * 1.02, 0, Math.PI * 2); ctx.stroke();
+      // orbity (dwie pochylone elipsy) – część za kulą rysowana przed nią
+      const rings = [{ r: 1.3, tilt: 1.15, spin: .6, ph: 0 }, { r: 1.45, tilt: -.7, spin: -.4, ph: 2 }];
+      const ringPt = (rg, a) => { const ca = Math.cos(a), sa = Math.sin(a); return proj(ca * rg.r, sa * Math.cos(rg.tilt) * rg.r, sa * Math.sin(rg.tilt) * rg.r); };
+      const drawRing = (rg, front) => {
+        ctx.lineWidth = 1.1 * k;
+        let prev = null;
+        for (let i = 0; i <= 72; i++) {
+          const p = ringPt(rg, i / 72 * Math.PI * 2 + t * .0002 * rg.spin);
+          if (prev && (p.z + prev.z > 0) === front) { ctx.strokeStyle = dark ? `rgba(249,190,140,${front ? .5 : .2})` : `rgba(210,110,30,${front ? .45 : .18})`; ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(p.x, p.y); ctx.stroke(); }
+          prev = p;
+        }
+      };
+      rings.forEach(rg => drawRing(rg, false));
+      // sieć punktów
+      const pr = core.pts.map(p => proj(p.x, p.y, p.z));
+      ctx.lineWidth = .9 * k;
+      for (const [i, j] of core.links) {
+        const a = pr[i], b = pr[j], d = ((a.z + b.z) / 2 + 1) / 2, c = coreColor((core.pts[i].k + core.pts[j].k) / 2, dark);
+        ctx.strokeStyle = `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${.07 + d * .42})`;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+      // impulsy biegnące po połączeniach
+      const maxP = busy ? 9 : 3;
+      if (core.pulses.length < maxP && Math.random() < (busy ? .35 : .04)) core.pulses.push({ l: core.links[(Math.random() * core.links.length) | 0], u: 0, v: (busy ? .035 : .014) + Math.random() * .01 });
+      core.pulses = core.pulses.filter(p => (p.u += p.v) < 1);
+      for (const p of core.pulses) {
+        const a = pr[p.l[0]], b = pr[p.l[1]], x = a.x + (b.x - a.x) * p.u, y = a.y + (b.y - a.y) * p.u, al = Math.sin(p.u * Math.PI);
+        const gg = ctx.createRadialGradient(x, y, 0, x, y, 7 * k);
+        gg.addColorStop(0, `rgba(255,236,210,${al})`); gg.addColorStop(.35, `rgba(249,170,99,${al * .7})`); gg.addColorStop(1, 'rgba(249,170,99,0)');
+        ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(x, y, 7 * k, 0, Math.PI * 2); ctx.fill();
+      }
+      // punkty (od najdalszych)
+      core.pts.map((p, i) => [p, pr[i]]).sort((u, v) => u[1].z - v[1].z).forEach(([p, q]) => {
+        const d = (q.z + 1) / 2, c = coreColor(p.k, dark), rad = (1 + 1.9 * d) * k * q.f;
+        if (d > .62) { const hg = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, rad * 3.2); hg.addColorStop(0, `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${.35 * d})`); hg.addColorStop(1, `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},0)`); ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(q.x, q.y, rad * 3.2, 0, Math.PI * 2); ctx.fill(); }
+        ctx.fillStyle = `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${.3 + d * .7})`;
+        ctx.beginPath(); ctx.arc(q.x, q.y, rad, 0, Math.PI * 2); ctx.fill();
+      });
+      rings.forEach(rg => drawRing(rg, true));
+      // satelity na orbitach
+      rings.forEach((rg, i) => {
+        const p = ringPt(rg, t * (busy ? .0034 : .0011) * (i ? -1 : 1) + rg.ph), d = (p.z + 1) / 2;
+        const sg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 9 * k);
+        sg.addColorStop(0, 'rgba(255,255,255,.95)'); sg.addColorStop(.3, `rgba(249,170,99,${.6 + d * .4})`); sg.addColorStop(1, 'rgba(249,170,99,0)');
+        ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(p.x, p.y, 9 * k, 0, Math.PI * 2); ctx.fill();
+      });
+      // iskra w środku (czterokierunkowa gwiazdka AI)
+      const sz = R * (.3 + pulse * (busy ? .16 : .06)), sp = sz * .22;
+      let sg2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, sz * 1.5);
+      sg2.addColorStop(0, 'rgba(255,255,255,.95)'); sg2.addColorStop(.35, 'rgba(255,214,170,.6)'); sg2.addColorStop(1, 'rgba(249,170,99,0)');
+      ctx.fillStyle = sg2; ctx.beginPath(); ctx.arc(cx, cy, sz * 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - sz); ctx.quadraticCurveTo(cx + sp, cy - sp, cx + sz, cy); ctx.quadraticCurveTo(cx + sp, cy + sp, cx, cy + sz);
+      ctx.quadraticCurveTo(cx - sp, cy + sp, cx - sz, cy); ctx.quadraticCurveTo(cx - sp, cy - sp, cx, cy - sz); ctx.fill();
+    }
+
     /* ---------- sieć cząsteczek w tle nagłówka strony startowej ---------- */
     function heroStop() {
       cancelAnimationFrame(home.raf); home.raf = 0;
@@ -12924,10 +13036,13 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       if ('ResizeObserver' in window) { home.ro = new ResizeObserver(resize); home.ro.observe(hero); }
       const col = () => getComputedStyle(document.documentElement).getPropertyValue('--hero-line').trim().split(/\s+/).join(',') || '106,90,249';
       let rgb = col(), frame = 0;
-      const draw = () => {
+      const coreCanvas = document.getElementById('aiCore');
+      let dark = currentTheme() === 'dark';
+      const draw = (ts) => {
         if (state.view !== 'home') { heroStop(); return; }
-        if (++frame % 60 === 0) rgb = col();
+        if (++frame % 60 === 0) { rgb = col(); dark = currentTheme() === 'dark'; }
         const busy = document.body.classList.contains('ai-busy');
+        if (coreCanvas) coreFrame(coreCanvas, dpr, busy, dark, home.mouse, home.w || 1, home.h || 1, ts || performance.now());
         const sp = busy ? 2.6 : 1;
         const pts = home.pts, m = home.mouse, w = home.w, h = home.h;
         ctx.clearRect(0, 0, w, h);
