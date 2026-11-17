@@ -103,6 +103,7 @@ jobs:
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
           MAIL_FROM_NAME: ${{ secrets.MAIL_FROM_NAME }}
           GUS_KEY: ${{ secrets.GUS_KEY }}
+          MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
         run: |
           python3 .github/scripts/make-config.py _site/api/_config.php
           php -l _site/api/_config.php > /dev/null && echo "Konfiguracja serwera poprawna"

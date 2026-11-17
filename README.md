@@ -165,6 +165,7 @@ Katalog `api/` (PHP 8 + MySQL, bez dodatkowych bibliotek) jest wykrywany automat
 | Funkcja | Jak działa |
 |---|---|
 | **Konta i zespół** | Logowanie Google weryfikowane przez serwer (token musi być wydany dla Twojego Client ID). Pierwsza osoba zostaje administratorem serwera; kolejne zakładają konto tylko z zaproszenia (można to zmienić). Role: właściciel, technik, pracownik. Zaproszenia imienne (jednorazowe, wysyłane e-mailem) albo link dla wielu osób. |
+| **Tryb prosty** | Konto prywatne na serwerze z kluczem AI firmy nie widzi żadnych ustawień technicznych (Panel technika, klucze, modele, Google Cloud): AI działa od razu, Gmail łączy się jednym kliknięciem, podpis w odpowiedziach to imię i nazwisko z konta Google. |
 | **Wspólne dane** | Baza wiedzy, rejestr umów, papier firmowy, biblioteka odpowiedzi, informacje o firmie, kategorie kosztów i ustawienia windykacji synchronizują się w zespole; historia wyników i ustawienia – między komputerami danej osoby. Pracownik nie zmieni danych firmy (serwer odrzuca), ale dopisze umowy do rejestru. Przy pierwszym logowaniu dane z przeglądarki trafiają na konto. |
 | **Klucz AI firmy** | Klucz Gemini zapisany na serwerze (`gemini.php` przekazuje zapytania i pliki) – nie trafia do przeglądarek. Dzienny limit zapytań na osobę (domyślny serwera, firmy i indywidualny), zużycie z ostatnich 30 dni w Panelu technika. Po limicie zapytanie nie jest wysyłane. Każdy może wybrać własny klucz w ustawieniach AI. |
 | **Gmail na stałe** | Łączenie przez `api/oauth.php` (dostęp offline); zaszyfrowany token odświeżania zostaje na serwerze, więc po odświeżeniu strony nie trzeba logować się ponownie. Treść poczty nadal pobiera przeglądarka – serwer jej nie zapisuje. |
@@ -185,6 +186,7 @@ Katalog `api/` (PHP 8 + MySQL, bez dodatkowych bibliotek) jest wykrywany automat
 | `GEMINI_API_KEY`, `DAILY_LIMIT` | klucz AI firmy i domyślny limit zapytań na osobę dziennie (domyślnie 150) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `MAIL_FROM_NAME` | e-maile z własnej domeny (port 465 = SSL, 587 = STARTTLS) |
 | `GUS_KEY` | opcjonalnie: klucz do API rejestru REGON |
+| `MS_CLIENT_ID` | opcjonalnie: identyfikator aplikacji Microsoft (Entra) – Outlook łączy się jednym kliknięciem, bez konfiguracji u użytkownika |
 | `OPERATOR_NAME`, `OPERATOR_ADDRESS`, `OPERATOR_NIP`, `CONTACT_EMAIL`, `SITE_HOST` | dane administratora w polityce prywatności i regulaminie |
 | `CRON_SECRET`, `PUBLIC_URL` | opcjonalnie: własny klucz adresu crona, stały adres strony |
 

@@ -985,7 +985,7 @@
         </button>
         <div data-tech-only class="mt-1.5 px-2 text-xs leading-relaxed text-slate-500">Model: <span id="sidebarModel" class="font-mono"></span><br><span id="sidebarUsage"></span></div>
         <div data-employee-only class="px-2 py-1 text-xs leading-relaxed text-slate-500">
-          Problem z aplikacją? Skontaktuj się z technikiem.
+          <span id="employeeHelp">Problem z aplikacją? Skontaktuj się z technikiem.</span>
           <button type="button" id="techModeBtn" class="mt-1 block text-indigo-600 hover:underline">Tryb technika</button>
         </div>
         <div class="mt-2 px-2 text-[11px] leading-relaxed text-slate-400"><a href="o-aplikacji.html" class="hover:text-slate-600 hover:underline">O aplikacji</a> · <a href="prywatnosc.html" class="hover:text-slate-600 hover:underline">Prywatność</a> · <a href="regulamin.html" class="hover:text-slate-600 hover:underline">Regulamin</a></div>
@@ -3793,6 +3793,7 @@ ZASADY
         srv.on = true;
         srv.me = j.me || null;
         if (j.googleClientId && storageGet('officeflow_google_client_id') !== j.googleClientId) storageSet('officeflow_google_client_id', j.googleClientId);
+        if (j.msClientId && storageGet('officeflow_ms_client_id') !== j.msClientId) storageSet('officeflow_ms_client_id', j.msClientId);
       } catch (e) { /* brak serwera – tryb przeglądarkowy */ } finally { clearTimeout(timer); }
     }
     // Parametry z linków: ?invite= (zaproszenie), ?google= (powrót z łączenia Gmaila), ?open= (link z e-maila)
@@ -3821,6 +3822,7 @@ ZASADY
       });
       storageSet(ROLE_KEY, w.role === 'employee' ? 'employee' : 'tech');
       document.body.dataset.role = getRole();
+      if (!isTech() && state.view === 'admin') setActiveTool('home');
     }
     function srvStartLogin() {
       if (!gmailClientId()) { toast('Serwer nie ma ustawionego identyfikatora klienta Google (sekret GOOGLE_CLIENT_ID).', 'error', 8000); return; }
@@ -3845,6 +3847,9 @@ ZASADY
         srvApplyMe(me);
         $('#onboard').classList.add('hidden');
         applyAccount();
+        applyRoleUi();   // rola mogła się zmienić (np. konto prywatne = tryb prosty) – przerysuj skrzynki, menu i wybór modelu
+        const sg = document.getElementById('inboxSignature');
+        if (sg && !sg.value) sg.value = getInboxPrefs().signature;
         renderApiStatus();
         renderSrvChrome();
         toast(`Zalogowano: ${me.user.email} · ${srvWs().name} (${srvRoleName(srvWs().role)})`, 'success', 5000);
@@ -4116,7 +4121,7 @@ ZASADY
       const s = String((err && err.status) || '');
       const titles = { PAPERLY_LIMIT: 'Wykorzystano dzienny limit AI', PAPERLY_AUTH: 'Zaloguj się ponownie', PAPERLY_NO_KEY: 'Brak klucza AI firmy', PAPERLY_TOO_LARGE: 'Za duże pliki dla serwera', PAPERLY_NO_WORKSPACE: 'Brak konta firmy' };
       const hints = s === 'PAPERLY_LIMIT'
-        ? ['Limit dotyczy liczby zapytań do AI każdej osoby w ciągu dnia – technik ustawia go w Panelu technika → Konto firmy na serwerze.', 'Możesz też wpisać własny klucz Gemini w ustawieniach AI i zaznaczyć „Używaj mojego klucza”.']
+        ? (simpleMode() ? ['Dzienny limit odnowi się o północy.'] : ['Limit dotyczy liczby zapytań do AI każdej osoby w ciągu dnia – technik ustawia go w Panelu technika → Konto firmy na serwerze.', 'Możesz też wpisać własny klucz Gemini w ustawieniach AI i zaznaczyć „Używaj mojego klucza”.'])
         : s === 'PAPERLY_AUTH' ? ['Kliknij swoje konto w menu i wybierz „Zaloguj się przez Google”.']
         : s === 'PAPERLY_TOO_LARGE' ? ['Wyślij mniej plików naraz albo zmniejsz ich rozmiar (np. zdjęcia w niższej rozdzielczości).'] : [];
       if (s === 'PAPERLY_AUTH') srvLostSession();
@@ -4215,6 +4220,9 @@ ZASADY
       if (sec) sec.classList.toggle('hidden', !srv.on);
       const tm = document.getElementById('techModeBtn');
       if (tm) tm.classList.toggle('hidden', signed);
+      const help = document.getElementById('employeeHelp');
+      if (help) help.innerHTML = simpleMode() ? 'Wszystko działa bez ustawień. Pomoc: <a href="o-aplikacji.html#faq" target="_blank" rel="noopener" class="underline underline-offset-2">najczęstsze pytania</a>.' : 'Problem z aplikacją? Skontaktuj się z technikiem.';
+      document.body.dataset.role = getRole();
       const hint = document.getElementById('obSrvHint');
       if (hint) hint.classList.toggle('hidden', !srvFeature('googleLogin'));
       const note = document.querySelector('#obStep1 .ob-note');
@@ -10237,7 +10245,12 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       try { const v = JSON.parse(storageGet(key) || 'null'); return v == null ? def : v; } catch (e) { return def; }
     }
     function saveJson(key, value) { storageSet(key, JSON.stringify(value)); }
-    function getInboxPrefs() { return Object.assign({}, INBOX_DEFAULT_PREFS, loadJson(INBOX_KEYS.prefs, {})); }
+    function getInboxPrefs() {
+      const p = Object.assign({}, INBOX_DEFAULT_PREFS, loadJson(INBOX_KEYS.prefs, {}));
+      // Bez wpisanego podpisu – imię i nazwisko z konta (Google), żeby odpowiedzi nie kończyły się polem [Imię i nazwisko]
+      if (!String(p.signature || '').trim()) { const a = getAccount(); if (a && a.name && a.provider === 'google') p.signature = a.name; }
+      return p;
+    }
     function saveInboxPrefs(patch) { saveJson(INBOX_KEYS.prefs, Object.assign(getInboxPrefs(), patch)); }
 
     const scriptPromises = {};
@@ -12322,7 +12335,14 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
 
     /* ---------- tryby: technik / pracownik ---------- */
     const ROLE_KEY = 'officeflow_role';
+    // Tryb prosty: konto prywatne zalogowane na serwerze z kluczem AI – nie ma technika, więc nie pokazujemy
+    // żadnych ustawień technicznych (Panel technika, klucze, modele, Google Cloud). Wszystko działa od razu.
+    function simpleMode() {
+      const a = getAccount();
+      return !!a && a.type === 'personal' && srvSignedIn() && srvGeminiOn();
+    }
     function getRole() {
+      if (simpleMode()) return 'employee';
       const r = storageGet(ROLE_KEY);
       if (r === 'tech' || r === 'employee') return r;
       return isManaged() ? 'employee' : 'tech';
@@ -12344,7 +12364,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     function hintsForRole(hints) {
       if (isTech()) return hints || [];
       const simple = (hints || []).filter(h => !/ustawieni|model|klucz|google cloud|ai studio|billing|projekcie|api|ogranicze/i.test(h));
-      return [...simple, 'Jeśli problem się powtarza, przekaż ten komunikat technikowi.'];
+      return [...simple, simpleMode() ? 'Jeśli problem się powtarza, spróbuj ponownie za kilka minut.' : 'Jeśli problem się powtarza, przekaż ten komunikat technikowi.'];
     }
 
     /* ---------- Panel technika ---------- */
