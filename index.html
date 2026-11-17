@@ -2293,12 +2293,7 @@
         <div id="obGoogleSetup" class="hidden ob-info mt-3">Logowanie przez Google nie jest jeszcze włączone na tej stronie. Trzeba raz dodać identyfikator klienta Google (Client ID) – ten sam co do Gmaila – z adresem tej strony w <em>Authorized JavaScript origins</em> w Google Cloud.
           <div class="mt-2 flex gap-2"><input id="obClientId" class="field-input !rounded-full text-sm" placeholder="123…apps.googleusercontent.com" aria-label="Identyfikator klienta Google" /><button type="button" data-ob="cid" class="btn-default shrink-0 px-3 text-sm font-medium">Zapisz</button></div>
         </div>
-        <div class="ob-or"><span>albo</span></div>
-        <form id="obLocal" class="flex flex-col gap-2 sm:flex-row" novalidate>
-          <input id="obName" type="text" maxlength="80" autocomplete="name" class="field-input !rounded-full" placeholder="Imię i nazwisko" aria-label="Imię i nazwisko" />
-          <button type="submit" class="btn-default shrink-0 px-4 py-2 text-sm font-medium">Kontynuuj bez Google</button>
-        </form>
-        <p class="ob-note">Wersja testowa: konto zapisuje się tylko w tej przeglądarce i nie jest wysyłane na żaden serwer.</p>
+        <p class="ob-note">Do korzystania z PaperlyAI potrzebne jest konto Google. Aplikacja odczytuje tylko Twoje imię, adres e-mail i zdjęcie profilowe.</p>
         <p class="mt-3 text-sm text-slate-600">Przenosisz się z innego adresu? <button type="button" data-ob="import" class="font-medium text-indigo-600 hover:underline">Wczytaj plik z danymi</button></p>
         <p class="mt-3 text-xs text-slate-500">Korzystając z PaperlyAI, akceptujesz <a href="regulamin.html" target="_blank" rel="noopener" class="underline underline-offset-2 hover:text-slate-700">Regulamin</a> i <a href="prywatnosc.html" target="_blank" rel="noopener" class="underline underline-offset-2 hover:text-slate-700">Politykę prywatności</a>.</p>
       </div>
@@ -3868,7 +3863,7 @@ ZASADY
       el.classList.remove('hidden');
       el.innerHTML = srv.me.canCreate
         ? `Konto zapisze się na serwerze <b>${escapeHtml(location.host)}</b>${srv.me.user.isAdmin ? ' (jesteś jego administratorem)' : ''}. Dane zapisane dotąd w tej przeglądarce – baza wiedzy, umowy, papier firmowy – trafią na konto.`
-        : `Na tym serwerze nowe konta zakłada się z zaproszenia. Poproś firmę o link zaproszenia albo <button type="button" data-ob="srv-local" class="font-medium text-indigo-600 hover:underline">korzystaj bez konta na serwerze</button>.`;
+        : `Na tym serwerze nowe konta zakłada się z zaproszenia. Poproś firmę o link zaproszenia i otwórz go w tej przeglądarce.`;
     }
     async function srvFinishOnboarding() {
       const d = ob.draft;
@@ -4214,7 +4209,7 @@ ZASADY
       const hint = document.getElementById('obSrvHint');
       if (hint) hint.classList.toggle('hidden', !srvFeature('googleLogin'));
       const note = document.querySelector('#obStep1 .ob-note');
-      if (note && srv.on) note.textContent = 'Konto Google zapisze się na serwerze tej strony. Bez logowania dane zostają tylko w tej przeglądarce.';
+      if (note && srv.on) note.textContent = 'Zaloguj się kontem Google – konto zapisze się na serwerze tej strony. Aplikacja odczytuje tylko Twoje imię, adres e-mail i zdjęcie profilowe.';
       $$('[data-gus]').forEach(b => b.classList.toggle('hidden', !srvSignedIn()));
       renderSrvOnboardNote();
       renderKsefPanel();
@@ -4472,13 +4467,6 @@ ZASADY
           else if (a === 'add') ksefAddSelected();
           else if (a === 'setup') showAdmin();
           return;
-        }
-        if (e.target.closest('[data-ob="srv-local"]')) {
-          const me = srv.me;
-          try { await srvApi('logout', {}); } catch (err) { /* sesja wygasła */ }
-          srv.me = null;
-          startAccountDraft({ provider: 'local', name: (me && me.user.name) || '', email: '', picture: '' });
-          renderSrvChrome();
         }
       });
       document.addEventListener('change', (e) => {
@@ -13309,7 +13297,14 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       } finally { if (btn) btn.disabled = false; }
     }
     function startAccountDraft(base) {
-      ob.draft = Object.assign({ type: isManaged() ? 'company' : '', company: { name: '', nip: '' } }, base);
+      // Dotychczasowe konto bez Google (sprzed wymogu logowania) podpowiada typ konta i dane firmy
+      const prev = ob.prev || {};
+      ob.draft = Object.assign({ type: prev.type || (isManaged() ? 'company' : ''), company: Object.assign({ name: '', nip: '' }, prev.company || {}) }, base);
+      if (!ob.draft.type && prev.type) ob.draft.type = prev.type;
+      if (ob.draft.company && (ob.draft.company.name || ob.draft.company.nip)) {
+        if (!$('#obCompanyName').value) $('#obCompanyName').value = ob.draft.company.name || '';
+        if (!$('#obNip').value) $('#obNip').value = ob.draft.company.nip || '';
+      }
       ob.step = 2;
       renderAccountSetup();
     }
@@ -13337,12 +13332,10 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         if (srvWs()) { srvApplyMe(srv.me); $('#onboard').classList.add('hidden'); renderProfile(); return true; }
         showOnboarding(); srvDraftFromMe(); return false;
       }
-      if (getAccount()) { renderProfile(); return true; }
-      if (getApiKey() || isManaged()) {
-        saveAccount({ provider: 'local', type: 'company', name: '', company: { name: (getOrg() && getOrg().company) || '', nip: '' }, createdAt: Date.now(), migrated: true });
-        renderProfile();
-        return true;
-      }
+      // Logowanie tylko przez Google: na stronie z serwerem – konto na serwerze, bez serwera – konto Google w tej przeglądarce
+      const a = getAccount();
+      if (a && a.provider === 'google' && !srvFeature('googleLogin')) { renderProfile(); return true; }
+      if (a && a.provider !== 'google') { const d = Object.assign({}, a); delete d.provider; ob.prev = d; }
       showOnboarding();
       return false;
     }
@@ -13389,12 +13382,6 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
           renderGoogleButton();
           googleSignIn();
         }
-      });
-      $('#obLocal').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const name = $('#obName').value.trim();
-        if (!name) { $('#obName').classList.add('invalid'); $('#obName').focus(); return; }
-        startAccountDraft({ provider: 'local', name, email: '', picture: '' });
       });
       $('#obFinish').addEventListener('click', finishOnboarding);
       $('#obNip').addEventListener('input', () => { $('#obNip').classList.remove('invalid'); $('#obNip').nextElementSibling.textContent = ''; });
