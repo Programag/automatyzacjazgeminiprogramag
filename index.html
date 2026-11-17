@@ -848,6 +848,12 @@
     @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) input[type="date"], :root:not([data-theme="light"]) input[type="time"] { color-scheme: dark; } }
     :root[data-theme="dark"] input[type="date"], :root[data-theme="dark"] input[type="time"] { color-scheme: dark; }
 
+
+    /* Wybór modelu AI przy generowaniu */
+    .model-pick { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; border: 1px solid rgb(var(--c-slate-300)); background: rgb(var(--c-canvas)); color: rgb(var(--brand, 164 0 227)); transition: border-color .15s, box-shadow .15s; }
+    .model-pick:hover, .model-pick:focus-within { border-color: rgb(var(--btn-pri) / .6); box-shadow: 0 0 0 3px rgb(var(--btn-pri) / .12); }
+    .model-pick select { appearance: none; -webkit-appearance: none; border: 0; background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23a400e3'%3E%3Cpath d='M5.2 7.5 10 12.3l4.8-4.8'/%3E%3C/svg%3E") no-repeat right 4px center / 14px; padding: 2px 22px 2px 0; font-size: 12px; font-weight: 600; color: rgb(var(--c-slate-800)); cursor: pointer; outline: none; max-width: 230px; text-overflow: ellipsis; }
+    .model-pick select option { color: #27005f; background: #fff; }
     /* =====================================================================
        PALETA MARKI PaperlyAI (z logo): fiolet #a400e3, granat #27005f,
        brzoskwinia #f9aa63 + biel. Nadpisuje paletę bazową (zmienne CSS).
@@ -1543,8 +1549,9 @@
               <div class="pt-1"><button type="submit" class="submit-btn"></button></div>
             </form>
             <div class="mt-auto border-t border-slate-100 px-5 sm:px-6 py-3 text-[11px] text-slate-400 flex items-center justify-between gap-2">
-              <span>Skrót: <kbd class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">Ctrl</kbd> + <kbd class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">Enter</kbd> – generuj</span>
-              <button type="button" id="resetFormBtn" class="hover:text-slate-600 underline-offset-2 hover:underline">Wyczyść formularz</button>
+              <label class="model-pick" title="Model AI, który przygotuje odpowiedź"><svg data-icon="sparkles" class="h-3.5 w-3.5"></svg><span class="sr-only">Model AI</span><select data-model-pick aria-label="Model AI"></select></label>
+              <span class="hidden 2xl:inline whitespace-nowrap">Skrót: <kbd class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">Ctrl</kbd> + <kbd class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">Enter</kbd> – generuj</span>
+              <button type="button" id="resetFormBtn" class="whitespace-nowrap hover:text-slate-600 underline-offset-2 hover:underline">Wyczyść formularz</button>
             </div>
           </section>
 
@@ -1772,7 +1779,8 @@
                   <h2 class="font-semibold text-slate-900">Rozmowa</h2>
                   <p class="hidden truncate text-xs text-slate-500 sm:block">Enter – wyślij · Shift + Enter – nowa linia</p>
                 </div>
-                <div class="flex shrink-0 gap-2">
+                <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  <label class="model-pick" title="Model AI, który przygotuje odpowiedź"><svg data-icon="sparkles" class="h-3.5 w-3.5"></svg><span class="sr-only">Model AI</span><select data-model-pick aria-label="Model AI"></select></label>
                   <button type="button" id="chatClearBtn" class="btn-default rounded-lg px-2.5 py-1.5 text-sm font-medium disabled:opacity-50">Nowa rozmowa</button>
                   <button type="button" id="chatExportBtn" class="btn-default inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium disabled:opacity-50" title="Pobierz rozmowę jako plik Word"><svg data-icon="download" class="h-4 w-4"></svg><span class="hidden sm:inline">Word</span></button>
                 </div>
@@ -4457,6 +4465,13 @@ ZASADY
 
     /* ---------- zdarzenia ---------- */
     function bindServer() {
+      document.addEventListener('change', (e) => {
+        const sel = e.target.closest && e.target.closest('select[data-model-pick]');
+        if (!sel) return;
+        if (sel.value === '__custom') { sel.value = getModel(); openSettings('Wpisz nazwę modelu Gemini (bez prefiksu „models/”) i zapisz.'); setTimeout(() => { const m = document.getElementById('modelInput'); if (m) m.focus(); }, 80); return; }
+        saveModel(sel.value);
+        toast(`Odpowiedzi przygotuje: ${MODEL_LABELS[getModel()] || getModel()}`, 'info', 3000);
+      });
       document.addEventListener('click', async (e) => {
         const g = e.target.closest('[data-gus]');
         if (g) { srvGusLookup(g); return; }
@@ -4605,9 +4620,23 @@ ZASADY
       if (!storageSet(STORAGE_THINKING, v)) state.memoryThinking = v;
       return v;
     }
+    // Modele do wyboru przy generowaniu (nazwy przyjazne dla użytkownika)
+    const MODEL_LABELS = {
+      'gemini-3.8-flash': 'Gemini 3.8 Flash – najnowszy',
+      'gemini-3.7-flash': 'Gemini 3.7 Flash',
+      'gemini-3.6-flash': 'Gemini 3.6 Flash – oszczędny'
+    };
+    function renderModelPickers() {
+      const cur = getModel();
+      const ids = [...new Set([...MODEL_SUGGESTIONS, cur])];
+      const html = ids.map(id => `<option value="${escapeHtml(id)}" ${id === cur ? 'selected' : ''}>${escapeHtml(MODEL_LABELS[id] || id)}${id === DEFAULT_MODEL ? ' (domyślny)' : ''}</option>`).join('')
+        + (isTech() ? '<option value="__custom">Inny model…</option>' : '');
+      document.querySelectorAll('select[data-model-pick]').forEach(sel => { if (sel._html !== html) { sel.innerHTML = html; sel._html = html; } sel.value = cur; });
+    }
     function renderModelLabel() {
       const el = document.getElementById('sidebarModel');
       if (el) el.textContent = getModel();
+      renderModelPickers();
       if (typeof renderAdminIfVisible === 'function') renderAdminIfVisible();
     }
     function isGemini3Plus(model) {
@@ -12308,6 +12337,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       renderApiStatus();
       renderConnections();
       renderMenu();
+      renderModelPickers();
     }
     // Wskazówki techniczne (klucze, modele, Google Cloud) nie są dla pracownika – zamiast nich: „przekaż technikowi”
     function hintsForRole(hints) {
