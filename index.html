@@ -5397,19 +5397,55 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
     }
 
     let streamRenderPending = false;
+    /* Płynne „pisanie”: odpowiedź przychodzi z Gemini porcjami (a przez serwer czasem całością),
+       więc odsłaniamy ją znak po znaku – szybciej, gdy zaległość rośnie, wolniej, gdy jest mała. */
+    const typer = { raf: 0, last: 0 };
+    function typerSpeed(backlog, finishing) {
+      // znaków na sekundę: ~110 przy małej zaległości, rośnie z zaległością (opóźnienie nie przekracza kilku sekund)
+      const base = finishing ? 240 : 110;
+      return Math.max(base, backlog * (finishing ? 1.8 : 1.0));
+    }
     function scheduleStreamRender() {
-      if (streamRenderPending) return;
-      streamRenderPending = true;
-      requestAnimationFrame(() => {
-        streamRenderPending = false;
-        const r = state.results[state.activeTool];
-        if (r.status === 'streaming') renderStreamBody(r);
-      });
+      if (typer.raf) return;
+      typer.last = 0;
+      typer.raf = requestAnimationFrame(typerStep);
+    }
+    function typerStep(ts) {
+      typer.raf = 0;
+      const r = state.results[state.activeTool];
+      if (!r || r.status !== 'streaming') return;
+      const dt = typer.last ? Math.min(100, ts - typer.last) : 16;
+      typer.last = ts;
+      const total = (r.markdown || '').length;
+      let shown = r.twShown || 0;
+      if (shown < total) {
+        if (fxReduced()) shown = total;
+        else {
+          r.twCarry = (r.twCarry || 0) + typerSpeed(total - shown, !!r.twFinish) * dt / 1000;
+          const n = Math.floor(r.twCarry);
+          if (n > 0) { r.twCarry -= n; shown = Math.min(total, shown + n); }
+        }
+        // nie przecinamy pary zastępczej (emoji)
+        if (shown < total && /[\uD800-\uDBFF]/.test(r.markdown[shown - 1] || '')) shown++;
+        if (shown !== r.twShown) { r.twShown = shown; renderStreamBody(r); }
+      }
+      typer.raf = requestAnimationFrame(typerStep);
+    }
+    // Po zakończeniu generowania czekamy, aż wyświetlanie dogoni zaległy tekst (najwyżej kilka sekund)
+    async function typerDrain(r) {
+      r.twFinish = true;
+      if (document.hidden || fxReduced()) return;
+      const t0 = Date.now();
+      while (r.status === 'streaming' && (r.twShown || 0) < (r.markdown || '').length && Date.now() - t0 < 6000 && state.results[state.activeTool] === r) {
+        if (!typer.raf) scheduleStreamRender();
+        await new Promise(res => setTimeout(res, 40));
+      }
     }
     function renderStreamBody(r) {
       const box = $('#resultContent');
       const nearBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 60;
-      $('#resultBody').innerHTML = renderMarkdown(r.markdown);
+      const shown = r.twShown == null ? (r.markdown || '').length : r.twShown;
+      $('#resultBody').innerHTML = renderMarkdown((r.markdown || '').slice(0, shown));
       if (nearBottom) box.scrollTop = box.scrollHeight;
     }
 
@@ -5444,6 +5480,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
         $('#resultMeta').textContent = 'Generowanie… treść pojawia się na bieżąco';
         $('#resultNotice').classList.add('hidden');
         renderStreamBody(r);
+        scheduleStreamRender();
         return;
       }
 
@@ -5653,6 +5690,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
           onText: tool.responseSchema ? undefined : (text) => {
             const first = r.status !== 'streaming';
             streamed = true;
+            if (first) { r.twShown = 0; r.twCarry = 0; r.twFinish = false; }
             r.status = 'streaming';
             r.markdown = text;
             if (!isActive()) return;
@@ -5660,6 +5698,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
           },
           onStatus
         });
+        if (streamed && r.status === 'streaming') { r.markdown = out.text; await typerDrain(r); }
         const secs = ((Date.now() - r.startedAt) / 1000).toFixed(1).replace('.', ',');
         const tokens = out.usage && out.usage.totalTokenCount ? ` · ${out.usage.totalTokenCount.toLocaleString('pl-PL')} tokenów` : '';
         const requested = getModel();
@@ -8238,10 +8277,30 @@ ZASADY
     const chat = { messages: [], busy: false, controller: null };
     let chatRenderPending = false;
     function chatFiles() { return formFiles['chat:files'] || []; }
+    // Płynne pisanie odpowiedzi w rozmowie (jak w narzędziach): tekst odsłania się w tempie zależnym od zaległości
     function scheduleChatRender() {
       if (chatRenderPending) return;
       chatRenderPending = true;
-      requestAnimationFrame(() => { chatRenderPending = false; renderChat(); });
+      let last = 0;
+      const step = (ts) => {
+        const m = chat.messages.find(x => x.status === 'streaming');
+        if (!m) { chatRenderPending = false; renderChat(); return; }
+        const dt = last ? Math.min(100, ts - last) : 16; last = ts;
+        const total = m.text.length;
+        let shown = m.twShown || 0;
+        if (shown < total) {
+          if (fxReduced()) shown = total;
+          else {
+            m.twCarry = (m.twCarry || 0) + Math.max(m.twFinish ? 240 : 110, (total - shown) * (m.twFinish ? 1.8 : 1.0)) * dt / 1000;
+            const n = Math.floor(m.twCarry);
+            if (n > 0) { m.twCarry -= n; shown = Math.min(total, shown + n); }
+          }
+          if (shown < total && /[\uD800-\uDBFF]/.test(m.text[shown - 1] || '')) shown++;
+          if (shown !== m.twShown) { m.twShown = shown; renderChat(); }
+        }
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
     }
     function chatTurns(messages, intro) {
       // Tylko udane pary pytanie–odpowiedź; kolejne pytania bez odpowiedzi łączymy w jedną turę
@@ -8275,7 +8334,7 @@ ZASADY
               <div class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-canvas">${iconSvg('sparkles', 'h-4 w-4')}</div>
               <div class="min-w-0 flex-1">
                 ${m.status === 'loading' ? `<p class="flex items-center gap-2 text-sm text-slate-500"><span class="h-3.5 w-3.5 rounded-full border-2 border-slate-300 border-t-indigo-600" style="animation: spin .8s linear infinite"></span>${escapeHtml(m.statusText || 'Czytam dokumenty…')}</p>` : ''}
-                ${m.text ? `<article class="md-output">${renderMarkdown(m.text)}</article>` : ''}
+                ${m.text ? `<article class="md-output${m.status === 'streaming' ? ' is-streaming' : ''}">${renderMarkdown(m.status === 'streaming' ? m.text.slice(0, m.twShown == null ? m.text.length : m.twShown) : m.text)}</article>` : ''}
                 ${m.status === 'error' ? `<div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"><strong>${escapeHtml(m.error.title)}</strong> – ${escapeHtml(m.error.message)}${hintsForRole(m.error.hints || []).length ? `<br><span class="text-xs">${escapeHtml(hintsForRole(m.error.hints)[0])}</span>` : ''}</div>` : ''}
                 ${m.status === 'cancelled' ? '<p class="text-sm text-slate-500">Przerwano.</p>' : ''}
                 ${m.extras ? extrasHtml(m.extras) : ''}
@@ -8325,8 +8384,13 @@ ZASADY
           apiKey, model: getModel(), thinkingLevel: getThinkingLevel(), temperature: 0.2,
           systemInstruction: SYSTEM_CHAT, turns: chatTurns(chat.messages.slice(0, -1), intro), attachments,
           codeExecution: exact, signal, onStatus,
-          onText: (t) => { answer.text = t; answer.status = 'streaming'; scheduleChatRender(); }
+          onText: (t) => { if (answer.status !== 'streaming') { answer.twShown = 0; answer.twCarry = 0; answer.twFinish = false; } answer.text = t; answer.status = 'streaming'; scheduleChatRender(); }
         });
+        if (answer.status === 'streaming') {
+          answer.text = out.text; answer.twFinish = true;
+          const t0 = Date.now();
+          while (!document.hidden && !fxReduced() && (answer.twShown || 0) < answer.text.length && Date.now() - t0 < 6000) await new Promise(res => setTimeout(res, 40));
+        }
         Object.assign(answer, {
           text: out.text, status: 'done', notice: out.notice || '',
           extras: (out.steps && out.steps.length) || (out.images && out.images.length) ? { steps: out.steps, images: out.images } : null,
