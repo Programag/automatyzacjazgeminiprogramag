@@ -1,13 +1,21 @@
-# Wgrywa aplikację (index.html) na hosting przez FTP po każdej zmianie na wskazanych gałęziach
+# Wgrywa PaperlyAI na hosting przez FTP po każdej zmianie na wskazanych gałęziach
 # oraz na żądanie (Actions -> "Wgraj na FTP" -> Run workflow).
 #
-# Dane dostępowe NIE są w kodzie. Ustaw je raz w repozytorium:
+# Wgrywane pliki: aplikacja (index.html), strony informacyjne (o-aplikacji, prywatnosc, regulamin),
+# serwer PHP (api/) oraz api/_config.php tworzony z sekretów (nigdy nie trafia do repozytorium).
+#
+# Dane dostępowe NIE są w kodzie. Ustaw je w repozytorium:
 # Settings -> Secrets and variables -> Actions -> New repository secret
-#   FTP_SERVER    adres serwera FTP, np. ftp.paperlyai.pl (bez ftp://)
-#   FTP_USERNAME  login konta FTP
-#   FTP_PASSWORD  hasło konta FTP
-#   FTP_DIR       (opcjonalnie) folder strony na serwerze, np. /public_html/ – domyślnie /
-#   FTP_PROTOCOL  (opcjonalnie) ftp, ftps albo ftps-legacy – domyślnie ftps
+#   FTP_SERVER, FTP_USERNAME, FTP_PASSWORD   dostęp FTP (wymagane)
+#   FTP_DIR, FTP_PROTOCOL                    (opcjonalnie) folder strony i protokół (domyślnie / i ftps)
+# Serwer PaperlyAI (opcjonalnie – bez nich aplikacja działa w przeglądarce jak dotąd):
+#   DB_HOST, DB_NAME, DB_USER, DB_PASS       baza MySQL z panelu hostingu
+#   APP_SECRET                               losowy ciąg (min. 32 znaki) do szyfrowania tokenów
+#   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET   logowanie Google i Gmail bez ponownego logowania
+#   GEMINI_API_KEY, DAILY_LIMIT              klucz AI firmy i dzienny limit zapytań na osobę
+#   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM, MAIL_FROM_NAME   e-maile z własnej domeny
+#   GUS_KEY                                  klucz do rejestru REGON (bez niego: wykaz VAT MF)
+#   OPERATOR_NAME, OPERATOR_ADDRESS, OPERATOR_NIP, CONTACT_EMAIL, SITE_HOST  dane do polityki prywatności i regulaminu
 name: Wgraj na FTP
 
 on:
@@ -17,6 +25,14 @@ on:
       - claude/sleepy-galileo-wyv13q
     paths:
       - index.html
+      - o-aplikacji.html
+      - prywatnosc.html
+      - regulamin.html
+      - site.css
+      - site.js
+      - .htaccess
+      - 'api/**'
+      - '.github/scripts/**'
       - .github/workflows/deploy-ftp.yml
   workflow_dispatch:
 
@@ -50,10 +66,44 @@ jobs:
           fi
 
       - name: Przygotuj pliki do wgrania
+        env:
+          OPERATOR_NAME: ${{ secrets.OPERATOR_NAME }}
+          OPERATOR_ADDRESS: ${{ secrets.OPERATOR_ADDRESS }}
+          OPERATOR_NIP: ${{ secrets.OPERATOR_NIP }}
+          CONTACT_EMAIL: ${{ secrets.CONTACT_EMAIL }}
+          SITE_HOST: ${{ secrets.SITE_HOST || 'paperlyai.pl' }}
         run: |
           mkdir -p _site
-          cp index.html _site/index.html
-          test -s _site/index.html
+          cp index.html o-aplikacji.html prywatnosc.html regulamin.html site.css site.js .htaccess _site/
+          cp -r api _site/api
+          rm -f _site/api/_config.php
+          python3 .github/scripts/fill-pages.py _site
+          test -s _site/index.html && test -s _site/api/index.php
+
+      - name: Utwórz konfigurację serwera z sekretów
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PUBLIC_URL: ${{ secrets.PUBLIC_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DAILY_LIMIT: ${{ secrets.DAILY_LIMIT }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_FROM_NAME: ${{ secrets.MAIL_FROM_NAME }}
+          GUS_KEY: ${{ secrets.GUS_KEY }}
+        run: |
+          python3 .github/scripts/make-config.py _site/api/_config.php
+          php -l _site/api/_config.php > /dev/null && echo "Konfiguracja serwera poprawna"
 
       - name: Przygotuj dane logowania (usuń przypadkowe spacje i znaki nowej linii)
         id: creds

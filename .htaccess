@@ -1,0 +1,22 @@
+# PaperlyAI – ustawienia serwera WWW (Apache, np. home.pl)
+
+# Krótkie adresy stron informacyjnych: /prywatnosc, /regulamin, /o-aplikacji
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^prywatnosc/?$ prywatnosc.html [L]
+  RewriteRule ^polityka-prywatnosci/?$ prywatnosc.html [L]
+  RewriteRule ^regulamin/?$ regulamin.html [L]
+  RewriteRule ^o-aplikacji/?$ o-aplikacji.html [L]
+</IfModule>
+
+# Pliki pomocnicze wdrożenia nie są dostępne z przeglądarki
+<FilesMatch "^\.ftp-deploy-sync-state\.json$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

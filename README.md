@@ -2,6 +2,8 @@
 
 Jednoplikowa aplikacja webowa (SaaS, model **BYOK – Bring Your Own Key**) do automatyzacji pracy biurowej z wykorzystaniem Google Gemini API (domyślnie `gemini-3.8-flash`, z automatycznym przełączeniem na `gemini-3.6-flash` przy przeciążeniu; model można zmienić w Ustawieniach API).
 
+Aplikacja działa w samej przeglądarce. Na hostingu z PHP i MySQL (np. home.pl) dochodzi opcjonalny **serwer PaperlyAI** (`api/`): konta firm z zespołem, wspólne dane na każdym komputerze, klucz AI firmy z dziennymi limitami, Gmail bez ponownego logowania, powiadomienia e-mail z własnej domeny, dane firm po NIP i faktury z KSeF – opis w sekcji [Serwer PaperlyAI](#serwer-paperlyai). Strony informacyjne: `o-aplikacji.html`, `prywatnosc.html`, `regulamin.html`.
+
 ## Uruchomienie
 
 Wdróż `index.html` jako Static Site (np. na Render) albo otwórz go w przeglądarce. Przy pierwszym uruchomieniu wklej swój klucz API z [Google AI Studio](https://aistudio.google.com/app/apikey) – zostanie zapisany wyłącznie w `localStorage` Twojej przeglądarki.
@@ -10,11 +12,11 @@ Wdróż `index.html` jako Static Site (np. na Render) albo otwórz go w przeglą
 
 ## Moduły
 
-### Konto (wersja testowa)
+### Konto (bez serwera – wersja testowa)
 - **Zakładanie konta** przy pierwszym uruchomieniu: standardowy przycisk **Zaloguj się przez Google** (okno logowania Google; wymaga tego samego Client ID co Gmail, z adresem strony w *Authorized JavaScript origins* – bez niego kliknięcie pokazuje, co uzupełnić) albo konto lokalne z imieniem. Aplikacja odczytuje tylko imię, e-mail i zdjęcie, a dostęp od Google od razu wycofuje.
 - **Firma albo osoba prywatna**: konto firmowe ma wszystkie narzędzia, a nazwa firmy i NIP (sprawdzana suma kontrolna) trafiają do papieru firmowego. Konto prywatne pokazuje narzędzia do spraw osobistych: Skrzynka AI, pisma, korekta, analizator, rozmowa z dokumentem, porównanie dokumentów, haczyki w umowie, rejestr umów, notatki, CV i symulator rozmowy – bez windykacji, faktur, ofert, marketingu, raportów, rekrutacji, przetwarzania list i zapraszania pracowników.
 - **Moje konto** (na dole menu albo Ctrl+K): zmiana typu konta, dane firmy, wylogowanie (klucz, historia i dokumenty zostają).
-- Konto jest zapisane tylko w tej przeglądarce; token z Google jest jedynie odczytywany lokalnie (bez serwera, który by go weryfikował), więc to rozwiązanie do testów, a nie zabezpieczenie dostępu. Dotychczasowi użytkownicy (z kluczem lub z linku firmy) dostają automatycznie konto firmowe.
+- Konto jest zapisane tylko w tej przeglądarce; token z Google jest jedynie odczytywany lokalnie (bez serwera, który by go weryfikował), więc to rozwiązanie do testów, a nie zabezpieczenie dostępu. Dotychczasowi użytkownicy (z kluczem lub z linku firmy) dostają automatycznie konto firmowe. Na stronie z serwerem PaperlyAI logowanie Google tworzy prawdziwe konto weryfikowane przez serwer (sekcja [Serwer PaperlyAI](#serwer-paperlyai)).
 
 ### Strona startowa
 - **Opisz zadanie** – wpisz po swojemu, np. „przygotuj raport sprzedaży dla zarządu” albo „odpisz klientowi na reklamację”, a aplikacja dobierze narzędzie (podpowiedzi pojawiają się w trakcie pisania). Dopasowanie działa w przeglądarce, bez zapytań do Gemini. W Marketingu, Raporcie dla zarządu i Porównaniu ofert dłuższy opis trafia od razu do formularza.
@@ -150,13 +152,51 @@ Darmowy plan Gemini ma niski limit (np. 20 zapytań dziennie i 5 na minutę na m
 
 ## Prywatność
 
+Pełna treść: `prywatnosc.html` (z zasadą ograniczonego użycia danych z Google API) i `regulamin.html`. Opis poniżej dotyczy pracy bez serwera; z serwerem PaperlyAI dane zespołu, zaszyfrowane tokeny Google i KSeF oraz liczniki zużycia AI są przechowywane na serwerze firmy, a zapytania z kluczem firmy przechodzą przez serwer (bez zapisywania treści).
+
 Wszystko dzieje się w przeglądarce: klucz Gemini, identyfikatory aplikacji i tokeny logowania są przechowywane lokalnie, a treść maili (wraz z analizowanymi załącznikami), nagrania i dołączone pliki trafiają wyłącznie do Gmail/Microsoft Graph, Kalendarza oraz Gemini API – bez serwera pośredniczącego. Biała lista VAT (Ministerstwo Finansów) dostaje tylko numery NIP sprzedawców, a NBP – zapytanie o kurs EUR. Na darmowym planie Gemini Google może wykorzystywać przesłane treści do ulepszania swoich usług – do danych firmowych i osobowych używaj płatnego planu.
 
 Historia wyników, wersje robocze, baza wiedzy, rejestr umów i papier firmowy również zostają tylko w tej przeglądarce. Nagrania z symulatora rozmowy trafiają do Gemini dopiero przy ocenie, a większe nagrania przesłane przez Files API są usuwane z serwerów Google zaraz po niej. Pracownik usuwa je z menu **Historia**, a technik w **Panelu technika → Dane w tej przeglądarce** może jednym przyciskiem usunąć wszystkie dane Paperly (np. na wspólnym komputerze).
 
+## Serwer PaperlyAI
+
+Katalog `api/` (PHP 8 + MySQL, bez dodatkowych bibliotek) jest wykrywany automatycznie (`api/?a=health`). Bez niego – albo bez skonfigurowanej bazy – aplikacja działa w przeglądarce jak dotąd (np. na Render).
+
+| Funkcja | Jak działa |
+|---|---|
+| **Konta i zespół** | Logowanie Google weryfikowane przez serwer (token musi być wydany dla Twojego Client ID). Pierwsza osoba zostaje administratorem serwera; kolejne zakładają konto tylko z zaproszenia (można to zmienić). Role: właściciel, technik, pracownik. Zaproszenia imienne (jednorazowe, wysyłane e-mailem) albo link dla wielu osób. |
+| **Wspólne dane** | Baza wiedzy, rejestr umów, papier firmowy, biblioteka odpowiedzi, informacje o firmie, kategorie kosztów i ustawienia windykacji synchronizują się w zespole; historia wyników i ustawienia – między komputerami danej osoby. Pracownik nie zmieni danych firmy (serwer odrzuca), ale dopisze umowy do rejestru. Przy pierwszym logowaniu dane z przeglądarki trafiają na konto. |
+| **Klucz AI firmy** | Klucz Gemini zapisany na serwerze (`gemini.php` przekazuje zapytania i pliki) – nie trafia do przeglądarek. Dzienny limit zapytań na osobę (domyślny serwera, firmy i indywidualny), zużycie z ostatnich 30 dni w Panelu technika. Po limicie zapytanie nie jest wysyłane. Każdy może wybrać własny klucz w ustawieniach AI. |
+| **Gmail na stałe** | Łączenie przez `api/oauth.php` (dostęp offline); zaszyfrowany token odświeżania zostaje na serwerze, więc po odświeżeniu strony nie trzeba logować się ponownie. Treść poczty nadal pobiera przeglądarka – serwer jej nie zapisuje. |
+| **Zadania w tle** | `api/cron.php` (harmonogram hostingu co 15–30 min): przypomnienia o terminach umów e-mailem, powiadomienie o nowej poczcie (nadawca i temat) i poranne podsumowanie – według ustawień w **Moje konto → Powiadomienia e-mail**. Bez AI. |
+| **E-maile z domeny** | SMTP hostingu (np. `powiadomienia@paperlyai.pl`), a bez SMTP – funkcja `mail()`. |
+| **Dane firm po NIP** | Rejestr REGON (GUS, z kluczem `GUS_KEY`) albo wykaz podatników VAT MF – przyciski „Uzupełnij z rejestru” przy zakładaniu konta, w profilu i w papierze firmowym. |
+| **KSeF 2.0** | Technik wpisuje token KSeF (zaszyfrowany na serwerze) i środowisko; w narzędziu **Faktury** pojawia się lista faktur zakupowych z wybranego okresu – zaznaczone trafiają do analizy jako pliki XML. Uwierzytelnianie tokenem (RSA-OAEP SHA-256) zgodnie ze specyfikacją MF. |
+
+### Konfiguracja serwera (jednorazowo)
+
+1. **Baza MySQL** – w panelu hostingu utwórz bazę i użytkownika; dane wpisz jako sekrety `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`. Tabele tworzą się same.
+2. **Sekrety** w GitHub (Settings → Secrets and variables → Actions) – wgrywanie tworzy z nich `api/_config.php` (nigdy w repozytorium):
+
+| Sekret | Do czego |
+|---|---|
+| `APP_SECRET` | losowy ciąg min. 32 znaków – szyfrowanie tokenów (zalecane) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | logowanie Google i Gmail bez ponownego logowania (ten sam klient OAuth co dotąd) |
+| `GEMINI_API_KEY`, `DAILY_LIMIT` | klucz AI firmy i domyślny limit zapytań na osobę dziennie (domyślnie 150) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `MAIL_FROM_NAME` | e-maile z własnej domeny (port 465 = SSL, 587 = STARTTLS) |
+| `GUS_KEY` | opcjonalnie: klucz do API rejestru REGON |
+| `OPERATOR_NAME`, `OPERATOR_ADDRESS`, `OPERATOR_NIP`, `CONTACT_EMAIL`, `SITE_HOST` | dane administratora w polityce prywatności i regulaminie |
+| `CRON_SECRET`, `PUBLIC_URL` | opcjonalnie: własny klucz adresu crona, stały adres strony |
+
+3. **Google Cloud** – w kliencie OAuth dodaj *Authorized redirect URI* `https://twoja-domena/api/oauth.php` (oprócz dotychczasowego `https://twoja-domena/`). Adres pokazuje też Panel technika → Konto firmy na serwerze. Aplikacja w trybie testowym Google wydaje tokeny odświeżania ważne 7 dni – na stałe działają po publikacji aplikacji (zakres Gmail wymaga weryfikacji Google).
+4. **Harmonogram zadań** (cron) w panelu hostingu – adres z Panelu technika (widoczny dla administratora serwera) albo `php api/cron.php`, co 15–30 minut.
+5. Zaloguj się w aplikacji przez Google – zostaniesz administratorem serwera i założysz konto firmy.
+
+Testy serwera: `api` sprawdzono na PHP 8.3 z SQLite i atrapami usług Google, Gmail, Gemini, MF, KSeF i SMTP (logowanie, role, zaproszenia, limity, wysyłka plików, synchronizacja, OAuth offline, cron, szyfrowanie tokenów, RSA-OAEP KSeF).
+
 ## Wgrywanie na własny hosting (FTP)
 
-Aplikacja to jeden plik `index.html` – wystarczy hosting ze zwykłymi plikami i certyfikatem HTTPS (bez niego nie działa logowanie Google ani mikrofon). Repozytorium ma workflow **Wgraj na FTP** (`.github/workflows/deploy-ftp.yml`), który po każdej zmianie `index.html` na gałęzi `main` lub `claude/sleepy-galileo-wyv13q` wgrywa plik na serwer; można też uruchomić go ręcznie w zakładce **Actions**.
+Aplikacja to jeden plik `index.html` – wystarczy hosting ze zwykłymi plikami i certyfikatem HTTPS (bez niego nie działa logowanie Google ani mikrofon). Repozytorium ma workflow **Wgraj na FTP** (`.github/workflows/deploy-ftp.yml`), który po każdej zmianie aplikacji, stron informacyjnych lub serwera (`api/`) na gałęzi `main` lub `claude/sleepy-galileo-wyv13q` wgrywa pliki na serwer, wpisuje dane operatora do polityki prywatności i regulaminu oraz tworzy `api/_config.php` z sekretów (sekcja [Serwer PaperlyAI](#serwer-paperlyai)); można też uruchomić go ręcznie w zakładce **Actions**.
 
 Jednorazowo ustaw w repozytorium (**Settings → Secrets and variables → Actions → New repository secret**):
 

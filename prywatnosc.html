@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Polityka prywatności – PaperlyAI</title>
+  <meta name="description" content="Polityka prywatności aplikacji PaperlyAI: jakie dane przetwarzamy, w jakim celu, komu je przekazujemy i jakie masz prawa. Zasady korzystania z danych z Google API (Gmail, Kalendarz)." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f2328'/%3E%3Cpath fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round' d='M11 9h7l4 4v10H11z'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="site.css" />
+  <script src="site.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="o-aplikacji.html"><span class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 16h5"/></svg></span>PaperlyAI</a>
+      <nav class="nav"><a class="hide-sm" href="o-aplikacji.html">O aplikacji</a><a class="hide-sm" href="regulamin.html">Regulamin</a><a class="btn btn-pri" href="./">Otwórz aplikację</a></nav>
+    </div>
+  </header>
+
+  <main class="wrap narrow doc">
+    <h1>Polityka prywatności</h1>
+    <p class="meta">Obowiązuje od 17 listopada 2026 r. · Dotyczy aplikacji PaperlyAI dostępnej pod adresem <a href="{{SITE_URL}}/">{{SITE_HOST}}</a></p>
+
+    <div class="box pri">
+      <p style="margin:0"><b>W skrócie:</b> nic nie trafia do sztucznej inteligencji bez Twojego polecenia. Treść poczty pobieramy do Twojej przeglądarki tylko wtedy, gdy o to poprosisz, i nie przechowujemy jej na serwerze. Nie sprzedajemy danych, nie wyświetlamy reklam i nie używamy danych z Google do trenowania modeli AI. Dostęp do Gmaila odbierzesz jednym kliknięciem.</p>
+    </div>
+
+    <ol class="toc">
+      <li><a href="#administrator">Administrator danych</a></li>
+      <li><a href="#tryby">Dwa sposoby korzystania</a></li>
+      <li><a href="#dane">Jakie dane przetwarzamy</a></li>
+      <li><a href="#google">Dane z Google (Gmail, Kalendarz)</a></li>
+      <li><a href="#ai">Sztuczna inteligencja (Gemini)</a></li>
+      <li><a href="#cele">Cele i podstawy prawne</a></li>
+      <li><a href="#odbiorcy">Komu przekazujemy dane</a></li>
+      <li><a href="#czas">Jak długo przechowujemy dane</a></li>
+      <li><a href="#prawa">Twoje prawa</a></li>
+      <li><a href="#usuwanie">Jak usunąć dane i odebrać dostęp</a></li>
+      <li><a href="#bezpieczenstwo">Bezpieczeństwo</a></li>
+      <li><a href="#cookies">Pliki cookie i pamięć przeglądarki</a></li>
+      <li><a href="#zmiany">Zmiany polityki</a></li>
+    </ol>
+
+    <h2 id="administrator">1. Administrator danych</h2>
+    <p>Administratorem danych osobowych przetwarzanych w aplikacji PaperlyAI („Aplikacja”) jest:</p>
+    <p class="box" style="margin-top:8px"><b>{{OPERATOR_NAME}}</b><span data-req="OPERATOR_ADDRESS"><br>{{OPERATOR_ADDRESS}}</span><span data-req="OPERATOR_NIP"><br>NIP: {{OPERATOR_NIP}}</span><br>e-mail: <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a></p>
+    <p>W sprawach dotyczących danych osobowych pisz na powyższy adres e-mail. Odpowiadamy bez zbędnej zwłoki, najpóźniej w ciągu miesiąca.</p>
+    <p>Gdy firma (np. Twój pracodawca) zaprasza Cię do swojego zespołu w Aplikacji, dane wspólne zespołu (baza wiedzy, rejestr umów, papier firmowy itp.) wprowadza i kontroluje ta firma – w tym zakresie jest ona administratorem, a my przetwarzamy dane w jej imieniu.</p>
+
+    <h2 id="tryby">2. Dwa sposoby korzystania z Aplikacji</h2>
+    <ul>
+      <li><b>Bez konta na serwerze</b> – wszystkie dane (klucz Gemini, ustawienia, dokumenty, historia wyników, rejestr umów) są zapisywane wyłącznie w pamięci Twojej przeglądarki (localStorage i IndexedDB). Nie trafiają na nasz serwer. Zapytania do AI wysyłasz bezpośrednio z przeglądarki do Google, własnym kluczem.</li>
+      <li><b>Z kontem na serwerze</b> (logowanie przez Google) – dodatkowo przechowujemy na serwerze dane opisane w punkcie 3, aby działały: konto firmowe i zespół, wspólne dane zespołu na wielu komputerach, klucz AI firmy z limitami, Gmail bez ponownego logowania, powiadomienia e-mail i KSeF.</li>
+    </ul>
+
+    <h2 id="dane">3. Jakie dane przetwarzamy</h2>
+    <table class="t">
+      <tr><th>Kategoria</th><th>Dane</th><th>Skąd</th></tr>
+      <tr><td>Konto</td><td>imię i nazwisko, adres e-mail, zdjęcie profilowe i identyfikator konta Google; data utworzenia konta i ostatniego logowania</td><td>Google (po Twoim zalogowaniu)</td></tr>
+      <tr><td>Firma i zespół</td><td>nazwa firmy, NIP, typ konta (firmowe/prywatne), członkowie zespołu i ich role, zaproszenia (adres e-mail zapraszanej osoby), dzienne limity AI</td><td>od Ciebie lub osoby zarządzającej zespołem</td></tr>
+      <tr><td>Dane wspólne zespołu</td><td>baza wiedzy (przesłane dokumenty), rejestr umów, papier firmowy, biblioteka gotowych odpowiedzi, informacje o firmie dla AI, kategorie kosztów, ustawienia windykacji</td><td>od członków zespołu</td></tr>
+      <tr><td>Twoje dane w Aplikacji</td><td>historia wyników narzędzi, ustawienia (ton, podpis, motyw, model AI), lista obsłużonych wiadomości, przypomnienia</td><td>od Ciebie</td></tr>
+      <tr><td>Zużycie AI</td><td>liczba zapytań i tokenów dziennie dla każdej osoby (bez treści zapytań)</td><td>automatycznie</td></tr>
+      <tr><td>Poczta i kalendarz</td><td>zaszyfrowany token dostępu do Gmaila/Kalendarza, adres skrzynki, identyfikatory nieprzeczytanych wiadomości; na potrzeby włączonych powiadomień – nadawca, temat i krótki fragment nowych wiadomości (szczegóły w punkcie 4)</td><td>Google (po Twojej zgodzie)</td></tr>
+      <tr><td>Powiadomienia</td><td>adres e-mail do powiadomień i Twoje ustawienia powiadomień</td><td>od Ciebie</td></tr>
+      <tr><td>KSeF</td><td>zaszyfrowany token KSeF firmy i NIP; faktury zakupowe pobierane na Twoje żądanie (przekazywane do przeglądarki, nie zapisujemy ich na serwerze)</td><td>Krajowy System e-Faktur</td></tr>
+      <tr><td>Dane techniczne</td><td>sesja logowania (identyfikator w pliku cookie, przeglądarka), adres IP i dziennik zapytań serwera prowadzony przez hosting</td><td>automatycznie</td></tr>
+    </table>
+    <p>Nie zbieramy danych w celach reklamowych i nie profilujemy użytkowników. Nie korzystamy z narzędzi analitycznych ani reklamowych firm trzecich.</p>
+
+    <h2 id="google">4. Dane z Google (Gmail, Kalendarz Google)</h2>
+    <p>Gmail i Kalendarz łączysz sam, w Skrzynce AI. Aplikacja prosi o następujące uprawnienia:</p>
+    <ul>
+      <li><b>openid, email, profile</b> – logowanie i wyświetlenie Twojego imienia i zdjęcia;</li>
+      <li><b>Gmail (gmail.modify)</b> – odczyt wybranych wiadomości i załączników, przygotowanie odpowiedzi, zapis wersji roboczych, wysłanie odpowiedzi na Twoje polecenie, oznaczenie wiadomości jako przeczytanej i nadanie etykiet (np. „Obsłużone”);</li>
+      <li><b>Kalendarz Google (calendar.events)</b> – sprawdzenie wolnych terminów przy proponowaniu spotkań i dodanie wydarzenia na Twoje polecenie.</li>
+    </ul>
+    <h3>Jak korzystamy z tych danych</h3>
+    <ul>
+      <li>Lista nieprzeczytanych wiadomości i ich treść są pobierane z Gmaila <b>bezpośrednio do Twojej przeglądarki</b>, gdy otwierasz Skrzynkę AI. Treść wiadomości nie jest zapisywana na naszym serwerze.</li>
+      <li>Do analizy przez AI trafiają <b>tylko wiadomości, które sam zaznaczysz</b> („Przygotuj odpowiedzi”). Nic nie jest wysyłane automatycznie.</li>
+      <li>Jeśli włączysz <b>powiadomienia o nowej poczcie</b> lub <b>poranne podsumowanie</b>, serwer okresowo sprawdza nieprzeczytane wiadomości i odczytuje wyłącznie nadawcę, temat i krótki fragment (pierwsze zdania), żeby wysłać Ci e-mail z listą. Zapamiętuje tylko identyfikatory już zgłoszonych wiadomości. Te funkcje nie korzystają z AI.</li>
+      <li>Token dostępu do Google przechowujemy na serwerze w postaci zaszyfrowanej, żeby nie trzeba było logować się po każdym odświeżeniu strony. Usuwamy go po rozłączeniu Gmaila.</li>
+    </ul>
+    <div class="box pri">
+      <p style="margin:0"><b>Zasada ograniczonego użycia (Limited Use).</b> Wykorzystanie i przekazywanie przez PaperlyAI do innych aplikacji informacji otrzymanych z interfejsów API Google odbywa się zgodnie z <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener">Zasadami dotyczącymi danych użytkownika w usługach Google API</a>, w tym z wymaganiami dotyczącymi ograniczonego użycia (Limited Use).</p>
+      <p lang="en" style="margin:8px 0 0;font-size:14px;color:var(--muted)">PaperlyAI's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+    </div>
+    <p>W szczególności:</p>
+    <ul>
+      <li>dane z Gmaila i Kalendarza wykorzystujemy wyłącznie do funkcji, które widzisz w Aplikacji i z których korzystasz (przygotowanie i wysłanie odpowiedzi, etykiety, terminy spotkań, powiadomienia);</li>
+      <li>nie przekazujemy ich innym podmiotom, z wyjątkiem przetworzenia przez Google Gemini na Twoje polecenie (punkt 5), wymogów prawa lub bezpieczeństwa;</li>
+      <li>nie wykorzystujemy ich do reklam, nie sprzedajemy ich i nie udostępniamy brokerom danych;</li>
+      <li>nie wykorzystujemy ich do tworzenia, ulepszania ani trenowania ogólnych modeli sztucznej inteligencji lub uczenia maszynowego;</li>
+      <li>nikt z naszej strony nie czyta Twoich wiadomości – chyba że wyrazisz na to wyraźną zgodę (np. zgłaszając błąd), jest to konieczne ze względów bezpieczeństwa lub wymaga tego prawo.</li>
+    </ul>
+
+    <h2 id="ai">5. Sztuczna inteligencja (Google Gemini)</h2>
+    <p>Narzędzia Aplikacji korzystają z modeli Google Gemini. Do Gemini trafiają <b>wyłącznie treści, które sam wskażesz i wyślesz</b> (np. zaznaczone wiadomości, dodane dokumenty, wpisane polecenie, wybrane dokumenty bazy wiedzy firmy) – w celu przygotowania odpowiedzi, pisma, analizy czy podsumowania, o które prosisz.</p>
+    <ul>
+      <li><b>Z kontem na serwerze i kluczem firmy</b> – zapytanie przechodzi przez nasz serwer, który dodaje klucz firmy i liczy zużycie (liczbę zapytań i tokenów, bez zapisywania treści).</li>
+      <li><b>Z własnym kluczem</b> – zapytanie trafia z Twojej przeglądarki bezpośrednio do Google.</li>
+    </ul>
+    <p>Dostawcą usługi jest Google (Gemini API). Jeśli klucz korzysta z <b>bezpłatnego</b> planu Gemini API, Google może wykorzystywać przesłane treści do ulepszania swoich usług zgodnie z <a href="https://ai.google.dev/gemini-api/terms" rel="noopener">warunkami Gemini API</a>; w planie płatnym – nie. Dla danych firmowych i poczty zalecamy klucz w planie płatnym.</p>
+    <p>Wyniki AI mogą zawierać błędy – sprawdzaj je przed wysłaniem lub wykorzystaniem.</p>
+
+    <h2 id="cele">6. Cele i podstawy prawne</h2>
+    <table class="t">
+      <tr><th>Cel</th><th>Podstawa (RODO)</th></tr>
+      <tr><td>Założenie i prowadzenie konta, działanie funkcji Aplikacji (zespół, wspólne dane, AI, poczta, KSeF)</td><td>art. 6 ust. 1 lit. b – wykonanie umowy (regulaminu)</td></tr>
+      <tr><td>Połączenie Gmaila i Kalendarza, powiadomienia e-mail, poranne podsumowanie</td><td>art. 6 ust. 1 lit. a – Twoja zgoda (możesz ją wycofać w każdej chwili)</td></tr>
+      <tr><td>Limity i statystyki zużycia AI w firmie, bezpieczeństwo, zapobieganie nadużyciom, dochodzenie i obrona roszczeń</td><td>art. 6 ust. 1 lit. f – prawnie uzasadniony interes</td></tr>
+      <tr><td>Przetwarzanie danych zespołu w imieniu firmy</td><td>art. 28 RODO – na polecenie firmy będącej administratorem</td></tr>
+      <tr><td>Obowiązki wynikające z przepisów (np. rachunkowe, gdy usługa jest płatna)</td><td>art. 6 ust. 1 lit. c – obowiązek prawny</td></tr>
+    </table>
+    <p>Podanie danych jest dobrowolne, ale bez nich nie można korzystać z konta na serwerze. Zawsze możesz korzystać z Aplikacji bez konta (dane tylko w przeglądarce).</p>
+
+    <h2 id="odbiorcy">7. Komu przekazujemy dane</h2>
+    <ul>
+      <li><b>Dostawca hostingu</b> – home.pl S.A. (serwery w Polsce): przechowywanie bazy danych i obsługa serwera.</li>
+      <li><b>Google</b> – logowanie, Gmail, Kalendarz Google i Gemini API, w zakresie potrzebnym do działania wybranych funkcji.</li>
+      <li><b>Microsoft</b> – gdy łączysz skrzynkę Outlook lub Microsoft To Do (połączenie odbywa się bezpośrednio z Twojej przeglądarki).</li>
+      <li><b>Ministerstwo Finansów</b> – Krajowy System e-Faktur (pobieranie faktur na żądanie) oraz Wykaz podatników VAT (dane firmy po NIP).</li>
+      <li><b>Główny Urząd Statystyczny</b> – rejestr REGON (dane firmy po NIP).</li>
+      <li><b>Członkowie Twojego zespołu</b> – widzą wspólne dane zespołu, Twoje imię, adres e-mail (osoby zarządzające) i statystyki zużycia AI.</li>
+      <li>Organy publiczne – wyłącznie gdy wymaga tego prawo.</li>
+    </ul>
+    <p>Google LLC i Microsoft Corporation mogą przetwarzać dane w USA. Podstawą przekazania są decyzja Komisji Europejskiej w sprawie ram ochrony danych UE–USA (EU–US Data Privacy Framework), do których te firmy przystąpiły, oraz standardowe klauzule umowne.</p>
+
+    <h2 id="czas">8. Jak długo przechowujemy dane</h2>
+    <ul>
+      <li>dane konta, firmy i dane wspólne zespołu – do usunięcia konta lub zespołu (lub usunięcia danych przez zespół);</li>
+      <li>token dostępu do Gmaila/Kalendarza – do rozłączenia Gmaila w Aplikacji lub odebrania dostępu w koncie Google;</li>
+      <li>sesja logowania – 60 dni od ostatniej aktywności;</li>
+      <li>statystyki zużycia AI – do 24 miesięcy;</li>
+      <li>informacje o wysłanych przypomnieniach (żeby nie wysyłać ich ponownie) – do 400 dni;</li>
+      <li>zaproszenia – do 30 dni po wygaśnięciu;</li>
+      <li>dzienniki serwera – zgodnie z ustawieniami hostingu, zwykle do kilku tygodni.</li>
+    </ul>
+
+    <h2 id="prawa">9. Twoje prawa</h2>
+    <p>Masz prawo do: dostępu do swoich danych i otrzymania ich kopii, sprostowania, usunięcia, ograniczenia przetwarzania, przenoszenia danych, sprzeciwu wobec przetwarzania opartego na prawnie uzasadnionym interesie oraz wycofania zgody w dowolnym momencie (bez wpływu na zgodność z prawem wcześniejszego przetwarzania). Napisz do nas: <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a>.</p>
+    <p>Przysługuje Ci też skarga do Prezesa Urzędu Ochrony Danych Osobowych (ul. Stawki 2, 00-193 Warszawa, <a href="https://uodo.gov.pl" rel="noopener">uodo.gov.pl</a>).</p>
+
+    <h2 id="usuwanie">10. Jak usunąć dane i odebrać dostęp</h2>
+    <ul>
+      <li><b>Gmail i Kalendarz:</b> w Aplikacji kliknij „Rozłącz” przy Gmailu – usuwamy token z serwera i unieważniamy go w Google. Dostęp możesz też odebrać w <a href="https://myaccount.google.com/permissions" rel="noopener">ustawieniach konta Google</a>.</li>
+      <li><b>Dane w przeglądarce:</b> Panel technika → „Usuń wszystkie dane Paperly” albo wyczyść dane strony w przeglądarce.</li>
+      <li><b>Konto na serwerze:</b> napisz na <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a> z adresu przypisanego do konta – usuniemy konto i powiązane dane w ciągu 30 dni. Osoba zarządzająca zespołem może też usunąć członka zespołu – jego dane w zespole są wtedy usuwane od razu.</li>
+    </ul>
+
+    <h2 id="bezpieczenstwo">11. Bezpieczeństwo</h2>
+    <ul>
+      <li>połączenia wyłącznie szyfrowane (HTTPS);</li>
+      <li>tokeny do Google i KSeF przechowywane w postaci zaszyfrowanej (XSalsa20-Poly1305), klucz AI firmy tylko na serwerze – nie trafia do przeglądarek;</li>
+      <li>sesja w pliku cookie niedostępnym dla skryptów (HttpOnly, Secure, SameSite), ochrona przed zapytaniami z innych stron;</li>
+      <li>dostęp do danych zespołu zależny od roli (właściciel, technik, pracownik), zaproszenia imienne i jednorazowe;</li>
+      <li>dzienne limity zapytań AI dla każdej osoby.</li>
+    </ul>
+
+    <h2 id="cookies">12. Pliki cookie i pamięć przeglądarki</h2>
+    <p>Używamy wyłącznie niezbędnych plików cookie: <code>paperly_s</code> (sesja logowania, 60 dni) oraz <code>paperly_oauth</code> (zabezpieczenie powrotu z logowania Google, 15 minut). Ustawienia i dane trybu bez konta są zapisywane w pamięci przeglądarki (localStorage, IndexedDB) i nie są nigdzie wysyłane. Nie używamy cookies analitycznych ani reklamowych, dlatego nie wyświetlamy banera zgody.</p>
+
+    <h2 id="zmiany">13. Zmiany polityki</h2>
+    <p>O istotnych zmianach poinformujemy w Aplikacji lub e-mailem z wyprzedzeniem. Aktualna wersja jest zawsze dostępna pod adresem <a href="{{SITE_URL}}/prywatnosc.html">{{SITE_HOST}}/prywatnosc.html</a>.</p>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span>© 2026 {{OPERATOR_NAME}}</span>
+      <nav><a href="o-aplikacji.html">O aplikacji</a><a href="prywatnosc.html">Polityka prywatności</a><a href="regulamin.html">Regulamin</a><a href="mailto:{{CONTACT_EMAIL}}">Kontakt</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

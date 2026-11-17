@@ -1,0 +1,15 @@
+# PaperlyAI – serwer (PHP). Plik konfiguracyjny z hasłami nie jest dostępny z przeglądarki
+# (zresztą jako plik PHP i tak niczego nie wyświetla).
+<FilesMatch "^(_config\.php|.*\.(sqlite|db|log|ini|md))$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+</FilesMatch>
+# Strumień odpowiedzi AI bez kompresji i buforowania (tekst pojawia się na bieżąco)
+<IfModule mod_setenvif.c>
+  SetEnvIf Request_URI "gemini\.php" no-gzip=1 dont-vary=1
+</IfModule>
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "same-origin"
+</IfModule>

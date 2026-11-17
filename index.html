@@ -881,9 +881,9 @@
         <div data-tech-only class="mt-6 rounded-lg border border-slate-200 bg-canvas p-3">
           <div class="flex items-center gap-2 text-[13px] font-semibold text-slate-900">
             <svg data-icon="lock" class="h-4 w-4 text-slate-500"></svg>
-            Model BYOK
+            <span id="sidebarKeyNoteTitle">Model BYOK</span>
           </div>
-          <p class="mt-1.5 text-xs leading-relaxed text-slate-500">
+          <p id="sidebarKeyNote" class="mt-1.5 text-xs leading-relaxed text-slate-500">
             Używasz własnego klucza Google Gemini. Klucz jest przechowywany wyłącznie w Twojej przeglądarce i wysyłany bezpośrednio do Google.
           </p>
         </div>
@@ -901,6 +901,7 @@
           Problem z aplikacją? Skontaktuj się z technikiem.
           <button type="button" id="techModeBtn" class="mt-1 block text-indigo-600 hover:underline">Tryb technika</button>
         </div>
+        <div class="mt-2 px-2 text-[11px] leading-relaxed text-slate-400"><a href="o-aplikacji.html" class="hover:text-slate-600 hover:underline">O aplikacji</a> · <a href="prywatnosc.html" class="hover:text-slate-600 hover:underline">Prywatność</a> · <a href="regulamin.html" class="hover:text-slate-600 hover:underline">Regulamin</a></div>
       </div>
     </aside>
 
@@ -1142,6 +1143,15 @@
 
             <!-- Formularz: Faktury i paragony -->
             <form id="form-invoices" data-tool="invoices" class="tool-form hidden p-5 sm:p-6 space-y-5" novalidate>
+              <div id="ksefPanel" class="hidden rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div class="flex flex-wrap items-center justify-between gap-2"><span class="inline-flex items-center gap-2 text-sm font-semibold text-slate-900"><svg data-icon="receipt" class="h-4 w-4 text-slate-500"></svg>Faktury zakupowe z KSeF</span><span id="ksefState" class="text-xs text-slate-500"></span></div>
+                <div id="ksefControls" class="mt-3 flex flex-wrap items-end gap-2">
+                  <label class="text-xs text-slate-600">Otrzymane od<input type="date" id="ksefFrom" class="field-input mt-1 !w-auto !py-1.5 text-sm" /></label>
+                  <label class="text-xs text-slate-600">do<input type="date" id="ksefTo" class="field-input mt-1 !w-auto !py-1.5 text-sm" /></label>
+                  <button type="button" data-ksef="list" class="btn-default px-3 py-1.5 text-sm font-medium">Pokaż faktury</button>
+                </div>
+                <div id="ksefList"></div>
+              </div>
               <div data-file-field="invoices:files" data-ksef data-label="Faktury, rachunki, paragony" data-multiple data-hint="Zdjęcia, PDF-y, pliki XML z KSeF, Word lub Excel – kilka plików naraz, do 10 MB na plik i 14 MB łącznie"></div>
               <div>
                 <label for="invoices-content" class="field-label">Lub wklej treść dokumentu <span class="font-normal text-slate-500">(opcjonalnie)</span></label>
@@ -1979,6 +1989,11 @@
             <div id="adminChecklist" class="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
           </section>
 
+          <section id="adminServerSection" class="hidden rounded-2xl bg-canvas shadow-card border border-slate-300 p-5 sm:p-6">
+            <h3 class="flex items-center gap-2 font-semibold text-slate-900"><svg data-icon="briefcase" class="h-5 w-5 text-slate-500"></svg>Konto firmy na serwerze</h3>
+            <div id="adminServer" class="mt-4"></div>
+          </section>
+
           <section class="rounded-2xl bg-canvas shadow-card border border-slate-300 p-5 sm:p-6">
             <h3 class="font-semibold text-slate-900"><span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">1</span>Klucz AI i model</h3>
             <div id="adminAi" class="mt-4"></div>
@@ -2034,7 +2049,7 @@
 
           <section class="rounded-2xl bg-canvas border border-slate-300 p-5 sm:p-6">
             <h3 class="flex items-center gap-2 font-semibold text-slate-900"><svg data-icon="lock" class="h-5 w-5 text-slate-500"></svg>Dane w tej przeglądarce</h3>
-            <p class="mt-1 text-sm text-slate-500">Paperly nie ma własnego serwera – klucz AI, konfiguracja, logowania do poczty, historia wyników, baza wiedzy, rejestr umów, papier firmowy, przypomnienia i statystyki są zapisane tylko w tej przeglądarce. Na wspólnym komputerze usuń je po zakończeniu pracy.</p>
+            <p id="adminDataNote" class="mt-1 text-sm text-slate-500">Paperly nie ma własnego serwera – klucz AI, konfiguracja, logowania do poczty, historia wyników, baza wiedzy, rejestr umów, papier firmowy, przypomnienia i statystyki są zapisane tylko w tej przeglądarce. Na wspólnym komputerze usuń je po zakończeniu pracy.</p>
             <div class="mt-4 flex flex-wrap gap-2">
               <button type="button" data-clear="work" class="btn-default rounded-lg px-3 py-1.5 text-sm font-medium">Usuń historię wyników i wersje robocze</button>
               <button type="button" data-clear="all" class="rounded-lg border border-red-300 bg-canvas px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50">Usuń wszystkie dane Paperly</button>
@@ -2077,6 +2092,7 @@
 
         <form id="settingsForm" class="px-6 py-5 space-y-4" novalidate>
           <div id="settingsReason" class="hidden rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-800"></div>
+          <div id="srvKeyBox" class="hidden rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800"></div>
 
           <div>
             <label for="apiKeyInput" class="field-label">Klucz API Gemini</label>
@@ -2115,7 +2131,7 @@
             <p><strong class="text-slate-800">Jak zdobyć klucz?</strong> Wejdź na
               <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="font-medium text-indigo-600 underline underline-offset-2">Google AI Studio → Get API key</a>,
               utwórz klucz i wklej go powyżej. Klucze Gemini zaczynają się od <code class="rounded bg-canvas border border-slate-200 px-1 font-mono">AIza</code> lub <code class="rounded bg-canvas border border-slate-200 px-1 font-mono">AQ.</code></p>
-            <p><strong class="text-slate-800">Prywatność:</strong> klucz zapisujemy tylko w <code class="rounded bg-canvas border border-slate-200 px-1 font-mono">localStorage</code> tej przeglądarki. Zapytania trafiają bezpośrednio do <span class="font-mono">generativelanguage.googleapis.com</span> – bez żadnych serwerów pośredniczących.</p>
+            <p id="settingsPrivacy"><strong class="text-slate-800">Prywatność:</strong> klucz zapisujemy tylko w <code class="rounded bg-canvas border border-slate-200 px-1 font-mono">localStorage</code> tej przeglądarki. Zapytania trafiają bezpośrednio do <span class="font-mono">generativelanguage.googleapis.com</span> – bez żadnych serwerów pośredniczących.</p>
           </div>
 
           <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
@@ -2191,7 +2207,9 @@
       <div id="obStep1">
         <h2 id="obTitle" class="ob-title">Witaj w <span class="grad-text">PaperlyAI</span></h2>
         <p class="ob-sub">Załóż konto, aby zacząć. Zajmie to chwilę.</p>
+        <div id="obInvite" class="hidden ob-info mb-3"></div>
         <div id="obGoogle" class="ob-google"></div>
+        <p id="obSrvHint" class="hidden mt-2 text-xs text-slate-500">Konto na serwerze: wspólne dane zespołu na każdym komputerze, AI firmy i Gmail bez ponownego logowania.</p>
         <div id="obGoogleSetup" class="hidden ob-info mt-3">Logowanie przez Google nie jest jeszcze włączone na tej stronie. Trzeba raz dodać identyfikator klienta Google (Client ID) – ten sam co do Gmaila – z adresem tej strony w <em>Authorized JavaScript origins</em> w Google Cloud.
           <div class="mt-2 flex gap-2"><input id="obClientId" class="field-input !rounded-full text-sm" placeholder="123…apps.googleusercontent.com" aria-label="Identyfikator klienta Google" /><button type="button" data-ob="cid" class="btn-default shrink-0 px-3 text-sm font-medium">Zapisz</button></div>
         </div>
@@ -2202,6 +2220,7 @@
         </form>
         <p class="ob-note">Wersja testowa: konto zapisuje się tylko w tej przeglądarce i nie jest wysyłane na żaden serwer.</p>
         <p class="mt-3 text-sm text-slate-600">Przenosisz się z innego adresu? <button type="button" data-ob="import" class="font-medium text-indigo-600 hover:underline">Wczytaj plik z danymi</button></p>
+        <p class="mt-3 text-xs text-slate-500">Korzystając z PaperlyAI, akceptujesz <a href="regulamin.html" target="_blank" rel="noopener" class="underline underline-offset-2 hover:text-slate-700">Regulamin</a> i <a href="prywatnosc.html" target="_blank" rel="noopener" class="underline underline-offset-2 hover:text-slate-700">Politykę prywatności</a>.</p>
       </div>
       <div id="obStep2" class="hidden">
         <div id="obHello" class="ob-hello"></div>
@@ -2219,8 +2238,9 @@
         </div>
         <div id="obCompany" class="hidden mt-4 grid grid-cols-1 gap-3 text-left sm:grid-cols-2">
           <div><label for="obCompanyName" class="field-label">Nazwa firmy</label><input id="obCompanyName" maxlength="120" class="field-input" placeholder="np. MebloBiuro Sp. z o.o." /></div>
-          <div><label for="obNip" class="field-label">NIP <span class="font-normal text-slate-500">(opcjonalnie)</span></label><input id="obNip" maxlength="13" inputmode="numeric" class="field-input" placeholder="584-526-01-82" /><p class="mt-1 text-xs text-red-600"></p></div>
+          <div><label for="obNip" class="field-label">NIP <span class="font-normal text-slate-500">(opcjonalnie)</span></label><input id="obNip" maxlength="13" inputmode="numeric" class="field-input" placeholder="584-526-01-82" /><p class="mt-1 text-xs text-red-600"></p><button type="button" data-gus="ob" class="hidden text-xs font-medium text-indigo-600 hover:underline">Uzupełnij nazwę z rejestru (GUS)</button></div>
         </div>
+        <p id="obSrvNote" class="hidden mt-4 ob-info text-left text-sm"></p>
         <div class="mt-6 flex items-center gap-2">
           <button type="button" data-ob="back" class="rounded-full px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100">Wróć</button>
           <button type="button" id="obFinish" disabled class="bg-primary ml-auto inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white">Załóż konto<svg data-icon="send" class="h-4 w-4"></svg></button>
@@ -3621,20 +3641,868 @@ ZASADY
     const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
     /* =====================================================================
+       SERWER PAPERLY (opcjonalny – katalog api/ na hostingu z PHP i MySQL)
+       Konto firmy i zespół, wspólne dane na każdym komputerze, klucz AI firmy
+       z dziennymi limitami, Gmail bez ponownego logowania, powiadomienia
+       e-mail, dane firm z rejestru (GUS / wykaz VAT) i faktury z KSeF.
+       Bez serwera (np. Render, plik lokalny) wszystko działa w przeglądarce.
+       ===================================================================== */
+    const SERVER_KEY = '@server';
+    const SRV_API = 'api/';
+    const OWN_KEY_PREF = 'officeflow_use_own_key';
+    const SYNC_STATE_KEY = 'officeflow_sync_state';
+    const SYNC_OWNER_KEY = 'officeflow_sync_owner';
+    const SRV_INVITE_KEY = 'paperly_invite';
+    // Dane firmy (wspólne dla zespołu) i dane osoby – synchronizowane z serwerem
+    const SYNC_WS_LS = ['officeflow_letterhead', 'officeflow_snippets', 'officeflow_cost_categories', 'officeflow_dunning'];
+    const SYNC_USER_LS = ['officeflow_history', 'officeflow_inbox_prefs', 'officeflow_followups', 'officeflow_inbox_done', 'officeflow_theme', 'officeflow_gemini_model', 'officeflow_thinking_level', 'officeflow_letterhead_use', 'officeflow_interview_speak'];
+    const SYNC_WATCH = new RegExp('^(' + SYNC_WS_LS.concat(SYNC_USER_LS).join('|') + ')$');
+    const SYNC_ITEM_MAX = 14 * 1024 * 1024;
+    const srv = { on: false, health: null, me: null, url: {}, admin: null, adminLoading: false, lostShown: false, meTimer: null };
+    const sync = { busy: false, again: false, timer: null, applying: 0, poll: null, dirty: true, runs: 0, last: 0, error: '', bound: false };
+    const ksefUi = { list: [], sel: new Set(), busy: false, more: false, env: '' };
+
+    function srvFeature(f) { return srv.on && !!(srv.health && srv.health.features && srv.health.features[f]); }
+    function srvSignedIn() { return srv.on && !!srv.me; }
+    function srvWs() { return (srv.me && srv.me.workspace) || null; }
+    function srvManager() { const w = srvWs(); return !!w && (w.role === 'owner' || w.role === 'tech'); }
+    function srvGeminiOn() { return srvFeature('gemini') && !!srvWs(); }
+    function srvRoleName(r) { return r === 'owner' ? 'właściciel' : r === 'tech' ? 'technik' : 'pracownik'; }
+    function getOwnApiKey() { return storageGet(STORAGE_KEY) || state.memoryKey || ''; }
+
+    async function srvApi(action, body, params) {
+      const q = new URLSearchParams(Object.assign({ a: action }, params || {}));
+      const opts = { credentials: 'same-origin', cache: 'no-store', headers: { 'X-Paperly': '1' } };
+      if (body !== undefined) { opts.method = 'POST'; opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+      let res;
+      try { res = await fetch(`${SRV_API}?${q}`, opts); } catch (e) { throw new Error('Brak połączenia z serwerem PaperlyAI – sprawdź internet i spróbuj ponownie.'); }
+      let j = null;
+      try { j = await res.json(); } catch (e) { j = null; }
+      if (!res.ok || !j) {
+        const err = new Error((j && j.error && j.error.message) || `Serwer PaperlyAI odpowiedział błędem (HTTP ${res.status}).`);
+        err.status = res.status;
+        err.code = (j && j.error && j.error.status) || '';
+        if (res.status === 401 && err.code === 'PAPERLY_AUTH') srvLostSession();
+        throw err;
+      }
+      return j;
+    }
+    function srvLostSession() {
+      if (!srv.me) return;
+      srv.me = null;
+      if (!srv.lostShown) { srv.lostShown = true; toast('Sesja na serwerze PaperlyAI wygasła – kliknij swoje konto w menu i zaloguj się ponownie przez Google.', 'error', 9000); }
+      renderApiStatus();
+      renderSrvChrome();
+    }
+    // Serwer jest wykrywany po odpowiedzi api/?a=health (na hostingu z PHP); bez niego aplikacja działa jak dotąd
+    async function srvDetect() {
+      if (!/^https?:$/.test(location.protocol)) return;
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 4000);
+      try {
+        const res = await fetch(`${SRV_API}?a=health`, { credentials: 'same-origin', cache: 'no-store', signal: ctl.signal });
+        if (!res.ok || !/json/i.test(res.headers.get('content-type') || '')) return;
+        const j = await res.json();
+        if (!j || j.app !== 'paperly') return;
+        srv.health = j;
+        if (!j.features || !j.features.db) return;
+        srv.on = true;
+        srv.me = j.me || null;
+        if (j.googleClientId && storageGet('officeflow_google_client_id') !== j.googleClientId) storageSet('officeflow_google_client_id', j.googleClientId);
+      } catch (e) { /* brak serwera – tryb przeglądarkowy */ } finally { clearTimeout(timer); }
+    }
+    // Parametry z linków: ?invite= (zaproszenie), ?google= (powrót z łączenia Gmaila), ?open= (link z e-maila)
+    function srvCaptureUrl() {
+      const p = new URLSearchParams(location.search);
+      const keys = ['invite', 'google', 'msg', 'open'];
+      if (!keys.some(k => p.has(k))) return;
+      keys.forEach(k => { if (p.has(k)) { srv.url[k] = p.get(k); p.delete(k); } });
+      if (srv.url.invite && /^[a-f0-9]{20}$/.test(srv.url.invite)) { try { sessionStorage.setItem(SRV_INVITE_KEY, srv.url.invite); } catch (e) { /* bez sesji */ } }
+      const qs = p.toString();
+      history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+    }
+    function srvPendingInvite() { try { return sessionStorage.getItem(SRV_INVITE_KEY) || ''; } catch (e) { return ''; } }
+    function srvClearInvite() { try { sessionStorage.removeItem(SRV_INVITE_KEY); } catch (e) { /* brak */ } }
+
+    /* ---------- konto z serwera ---------- */
+    function srvApplyMe(me) {
+      srv.me = me || null;
+      const w = srvWs();
+      if (!w) return;
+      const prev = getAccount() || {};
+      saveAccount({
+        provider: 'google', server: true, sub: 'srv' + me.user.id, email: me.user.email, name: me.user.name || me.user.email,
+        givenName: prev.givenName || '', picture: me.user.picture || '', type: w.type,
+        company: w.type === 'company' ? { name: w.name, nip: w.nip } : null, wsId: w.id, role: w.role, createdAt: prev.createdAt || Date.now()
+      });
+      storageSet(ROLE_KEY, w.role === 'employee' ? 'employee' : 'tech');
+      document.body.dataset.role = getRole();
+    }
+    function srvStartLogin() {
+      if (!gmailClientId()) { toast('Serwer nie ma ustawionego identyfikatora klienta Google (sekret GOOGLE_CLIENT_ID).', 'error', 8000); return; }
+      if (preferGoogleRedirect()) startGoogleRedirect('signin', 'openid email profile', { prompt: 'select_account' });
+      else googleSignIn();
+    }
+    async function srvLogin(token) {
+      let j;
+      try { j = await srvApi('login', { access_token: token, invite: srvPendingInvite() }); }
+      finally { fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, { method: 'POST' }).catch(() => {}); }
+      srv.lostShown = false;
+      if (j.invite) {
+        srvClearInvite();
+        if (j.invite.error) toast(j.invite.error, 'error', 9000);
+        else toast(`Dołączono do zespołu ${j.invite.workspace}`, 'success', 5000);
+      }
+      srvAfterLogin(j.me);
+    }
+    function srvAfterLogin(me) {
+      srv.me = me;
+      if (srvWs()) {
+        srvApplyMe(me);
+        $('#onboard').classList.add('hidden');
+        applyAccount();
+        renderApiStatus();
+        renderSrvChrome();
+        toast(`Zalogowano: ${me.user.email} · ${srvWs().name} (${srvRoleName(srvWs().role)})`, 'success', 5000);
+        syncStart();
+        srvGmailRestore();
+        srvStartMeTimer();
+      } else {
+        showOnboarding();
+        srvDraftFromMe();
+      }
+    }
+    function srvDraftFromMe() {
+      const me = srv.me;
+      if (!me) return;
+      const local = getAccount();
+      startAccountDraft({ provider: 'google', server: true, email: me.user.email, name: me.user.name || me.user.email, picture: me.user.picture || '', type: local ? local.type : '', company: local && local.company ? Object.assign({}, local.company) : { name: '', nip: '' } });
+      if (local && local.company) { $('#obCompanyName').value = local.company.name || ''; $('#obNip').value = local.company.nip || ''; }
+      renderSrvChrome();
+    }
+    function renderSrvOnboardNote() {
+      const el = document.getElementById('obSrvNote');
+      if (!el) return;
+      const d = ob.draft;
+      if (!d || !d.server || !srv.me) { el.classList.add('hidden'); return; }
+      el.classList.remove('hidden');
+      el.innerHTML = srv.me.canCreate
+        ? `Konto zapisze się na serwerze <b>${escapeHtml(location.host)}</b>${srv.me.user.isAdmin ? ' (jesteś jego administratorem)' : ''}. Dane zapisane dotąd w tej przeglądarce – baza wiedzy, umowy, papier firmowy – trafią na konto.`
+        : `Na tym serwerze nowe konta zakłada się z zaproszenia. Poproś firmę o link zaproszenia albo <button type="button" data-ob="srv-local" class="font-medium text-indigo-600 hover:underline">korzystaj bez konta na serwerze</button>.`;
+    }
+    async function srvFinishOnboarding() {
+      const d = ob.draft;
+      const body = { type: d.type };
+      if (d.type === 'company') {
+        const nip = $('#obNip').value.replace(/\D/g, '');
+        if (nip && !validNip(nip)) { $('#obNip').classList.add('invalid'); $('#obNip').nextElementSibling.textContent = 'Nieprawidłowy NIP (zła suma kontrolna).'; return; }
+        body.name = $('#obCompanyName').value.trim();
+        body.nip = nip;
+      }
+      const btn = $('#obFinish');
+      btn.disabled = true;
+      try {
+        const j = await srvApi('workspace_create', body);
+        const lh = getLetterheadCfg();
+        if (d.type === 'company' && body.name && !lh.name.trim()) {
+          saveLetterheadCfg({ name: body.name, lines: lh.lines || (ob.gus ? ob.gus.lines : ''), footer: lh.footer || [body.nip ? `NIP ${body.nip}` : '', ob.gus && ob.gus.regon ? `REGON ${ob.gus.regon}` : ''].filter(Boolean).join(' · ') });
+        }
+        srvAfterLogin(j.me);
+        setActiveTool('home');
+      } catch (e) { toast(e.message, 'error', 8000); btn.disabled = false; }
+    }
+    async function srvLogout() {
+      if (!confirm('Wylogować z konta na serwerze?\n\nDane zespołu i Twoja historia zostaną usunięte z tej przeglądarki – są bezpieczne na serwerze i wrócą po ponownym zalogowaniu. Twój własny klucz Gemini zostaje.')) return;
+      try { await syncNow(); } catch (e) { /* wylogowanie i tak */ }
+      try { await srvApi('logout', {}); } catch (e) { /* sesja mogła już wygasnąć */ }
+      await syncWipeLocal();
+      storageRemove(ACCOUNT_KEY);
+      storageRemove(ROLE_KEY);
+      try { sessionStorage.removeItem(INBOX_KEYS.gmailToken); } catch (e) { /* brak */ }
+      location.reload();
+    }
+    async function srvSwitchWorkspace(id) {
+      if (!confirm('Przełączyć firmę? Strona odświeży się i pobierze dane wybranego zespołu.')) return;
+      try {
+        await syncNow();
+        await srvApi('workspace_switch', { id });
+        await syncWipeLocal();
+        location.reload();
+      } catch (e) { toast(e.message, 'error', 7000); }
+    }
+    async function srvRefreshMe() {
+      if (!srvSignedIn() || document.visibilityState !== 'visible') return;
+      try {
+        const me = await srvApi('me');
+        const same = (srvWs() || {}).id === (me.workspace || {}).id;
+        srv.me = me;
+        if (me.workspace && same) srvApplyMe(me);
+        renderSrvChrome();
+      } catch (e) { /* spróbujemy później */ }
+    }
+    function srvStartMeTimer() { clearInterval(srv.meTimer); srv.meTimer = setInterval(srvRefreshMe, 5 * 60e3); }
+
+    /* ---------- synchronizacja danych z serwerem ---------- */
+    function syncEnabled() { return srvSignedIn() && !!srvWs(); }
+    function syncTouch(key) {
+      if (sync.applying || !SYNC_WATCH.test(key)) return;
+      sync.dirty = true;
+      syncMark();
+    }
+    function syncMark() {
+      if (!syncEnabled()) return;
+      clearTimeout(sync.timer);
+      sync.timer = setTimeout(() => syncNow(), 2500);
+    }
+    function syncState() {
+      const w = srvWs(), uid = srv.me ? srv.me.user.id : 0;
+      const s = loadJson(SYNC_STATE_KEY, null);
+      if (!s || !w || s.ws !== w.id || s.user !== uid || typeof s.h !== 'object') return { ws: w ? w.id : 0, user: uid, rev: 0, h: {}, init: false };
+      return s;
+    }
+    function syncStart() {
+      if (!syncEnabled()) return;
+      sync.dirty = true;
+      syncNow();
+      clearInterval(sync.poll);
+      sync.poll = setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, 60000);
+      if (!sync.bound) { sync.bound = true; document.addEventListener('visibilitychange', () => syncNow()); }
+    }
+    // Lokalny stan danych do porównania z serwerem: klucz → treść (bez linków do plików Gemini)
+    async function syncLocalItems() {
+      const out = [];
+      const add = (scope, k, v) => { if (typeof v === 'string' && v.length <= SYNC_ITEM_MAX) out.push({ scope, k, v }); };
+      SYNC_WS_LS.forEach(key => add('ws', 'ls:' + key, storageGet(key)));
+      SYNC_USER_LS.forEach(key => {
+        let v = storageGet(key);
+        if (key === INBOX_KEYS.prefs && v) { try { const o = JSON.parse(v); delete o.context; v = JSON.stringify(o); } catch (e) { /* zostawiamy */ } }
+        add('user', 'ls:' + key, v);
+      });
+      const ctx = getInboxPrefs().context || '';
+      if (ctx || srvManager()) add('ws', 'ctx:company', ctx);
+      try { ((await kbTx('readonly', s => s.getAll())) || []).forEach(it => { const { uri, uriName, uriExpires, uriKey, ...x } = it; if (/^[\w.\-]{1,150}$/.test(it.id)) add('ws', 'idb:kb:' + it.id, JSON.stringify(x)); }); } catch (e) { /* baza niedostępna */ }
+      try { ((await ctTx('readonly', s => s.getAll())) || []).forEach(c => { if (/^[\w.\-]{1,150}$/.test(c.id)) add('ws', 'idb:contracts:' + c.id, JSON.stringify(c)); }); } catch (e) { /* baza niedostępna */ }
+      return out;
+    }
+    async function syncApply(it, st) {
+      const id = it.scope + '|' + it.k;
+      if (!it.deleted && st.h[id] === hashStr(it.v)) return '';
+      sync.applying++;
+      try {
+        if (it.k.startsWith('ls:')) {
+          const key = it.k.slice(3);
+          if (!SYNC_WATCH.test(key)) return '';
+          if (it.deleted) { storageRemove(key); delete st.h[id]; return 'ls'; }
+          if (key === INBOX_KEYS.prefs) {
+            let o = {};
+            try { o = JSON.parse(it.v) || {}; } catch (e) { o = {}; }
+            o.context = getInboxPrefs().context;
+            storageSet(key, JSON.stringify(o));
+          } else storageSet(key, it.v);
+          st.h[id] = hashStr(it.v);
+          return 'ls';
+        }
+        if (it.k === 'ctx:company') {
+          if (!it.deleted) { saveInboxPrefs({ context: it.v }); st.h[id] = hashStr(it.v); }
+          return 'ls';
+        }
+        const m = /^idb:(kb|contracts):(.+)$/.exec(it.k);
+        if (!m) return '';
+        const tx = m[1] === 'kb' ? kbTx : ctTx;
+        if (it.deleted) { await tx('readwrite', s => s.delete(m[2])); delete st.h[id]; return 'idb'; }
+        let o;
+        try { o = JSON.parse(it.v); } catch (e) { return ''; }
+        if (!o || o.id !== m[2]) return '';
+        if (m[1] === 'kb') {
+          const cur = await kbTx('readonly', s => s.get(m[2]));
+          if (cur && cur.uri && cur.data === o.data) Object.assign(o, { uri: cur.uri, uriName: cur.uriName, uriExpires: cur.uriExpires, uriKey: cur.uriKey });
+        }
+        await tx('readwrite', s => s.put(o));
+        st.h[id] = hashStr(it.v);
+        return 'idb';
+      } finally { sync.applying--; }
+    }
+    async function syncNow() {
+      if (!syncEnabled()) return;
+      if (sync.busy) { sync.again = true; return; }
+      sync.busy = true;
+      clearTimeout(sync.timer);
+      let changedLs = false, changedIdb = false;
+      try {
+        const st = syncState();
+        // 1. Zmiany z serwera (od ostatniej znanej wersji)
+        for (let guard = 0; guard < 40; guard++) {
+          const j = await srvApi('sync', undefined, { since: st.rev });
+          if (j.wsId !== st.ws) return;
+          for (const it of j.items) {
+            const r = await syncApply(it, st);
+            if (r === 'ls') changedLs = true;
+            if (r === 'idb') changedIdb = true;
+          }
+          st.rev = Math.max(st.rev, j.rev || 0);
+          if (!j.more) break;
+        }
+        // 2. Zmiany z tej przeglądarki (po zmianie danych, przy starcie i co 10 minut)
+        sync.runs++;
+        if (sync.dirty || !st.init || sync.runs % 10 === 0) {
+          sync.dirty = false;
+          const manager = srvManager();
+          const owner = loadJson(SYNC_OWNER_KEY, null);
+          const sameOwner = !owner || (owner.user === st.user && owner.ws === st.ws);
+          const local = await syncLocalItems();
+          const seen = new Set();
+          const push = [];
+          for (const it of local) {
+            const id = it.scope + '|' + it.k;
+            seen.add(id);
+            const h = hashStr(it.v);
+            if (st.h[id] === h) continue;
+            const allowed = it.scope === 'user' ? (st.init || sameOwner) : ((manager || it.k.startsWith('idb:contracts:')) && (st.init || (sameOwner && manager)));
+            if (!allowed) { st.h[id] = h; continue; }
+            push.push({ scope: it.scope, k: it.k, v: it.v, h });
+          }
+          if (st.init) {
+            for (const id of Object.keys(st.h)) {
+              if (seen.has(id)) continue;
+              const i = id.indexOf('|'), scope = id.slice(0, i), k = id.slice(i + 1);
+              if (!k.startsWith('idb:') && !k.startsWith('ls:')) continue;
+              if (scope === 'ws' && !manager && !k.startsWith('idb:contracts:')) { delete st.h[id]; continue; }
+              push.push({ scope, k, deleted: true, h: null });
+            }
+          }
+          // Paczki do ok. 6 MB
+          let batch = [], size = 0;
+          const send = async () => {
+            if (!batch.length) return;
+            const r = await srvApi('sync', { items: batch.map(({ h, ...x }) => x) });
+            const skipped = new Set(r.skipped || []);
+            batch.forEach(x => { const id = x.scope + '|' + x.k; if (skipped.has(x.k)) { if (x.h) st.h[id] = x.h; return; } if (x.deleted) delete st.h[id]; else st.h[id] = x.h; });
+            batch = []; size = 0;
+          };
+          for (const x of push) {
+            const len = x.v ? x.v.length : 50;
+            if (batch.length && (size + len > 6e6 || batch.length >= 100)) await send();
+            batch.push(x); size += len;
+          }
+          await send();
+          st.init = true;
+          saveJson(SYNC_OWNER_KEY, { user: st.user, ws: st.ws });
+        }
+        saveJson(SYNC_STATE_KEY, st);
+        sync.last = Date.now();
+        sync.error = '';
+      } catch (e) {
+        sync.error = e.message || String(e);
+        sync.dirty = true;
+      } finally {
+        sync.busy = false;
+        if (changedIdb) { kbLoad(); ctLoad(); }
+        if (changedLs) {
+          const t = storageGet('officeflow_theme');
+          if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; renderThemeToggle(); }
+          renderModelLabel();
+          renderAdminIfVisible();
+        }
+        if (sync.again) { sync.again = false; syncMark(); }
+      }
+    }
+    async function syncWipeLocal() {
+      sync.applying++;
+      try {
+        SYNC_WS_LS.concat(SYNC_USER_LS).filter(k => k !== 'officeflow_theme').forEach(k => storageRemove(k));
+        try { await kbTx('readwrite', s => s.clear()); } catch (e) { /* brak bazy */ }
+        try { await ctTx('readwrite', s => s.clear()); } catch (e) { /* brak bazy */ }
+      } finally { sync.applying--; }
+      storageRemove(SYNC_STATE_KEY);
+    }
+    function syncStatusText() {
+      if (!syncEnabled()) return '';
+      if (sync.error) return `Synchronizacja: błąd – ${sync.error}`;
+      return sync.last ? `Dane zsynchronizowane z serwerem o ${new Date(sync.last).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}` : 'Synchronizuję dane z serwerem…';
+    }
+
+    /* ---------- AI przez serwer (klucz firmy) ---------- */
+    function gemUrl(url, apiKey) {
+      if (apiKey !== SERVER_KEY) return url;
+      const m = /^https:\/\/generativelanguage\.googleapis\.com\/([^?]+)(?:\?(.*))?$/.exec(url);
+      if (!m) return url;
+      return `${SRV_API}gemini.php?p=${encodeURIComponent(m[1])}${/(^|&)alt=sse(&|$)/.test(m[2] || '') ? '&alt=sse' : ''}`;
+    }
+    function paperlyError(status, err) {
+      const s = String((err && err.status) || '');
+      const titles = { PAPERLY_LIMIT: 'Wykorzystano dzienny limit AI', PAPERLY_AUTH: 'Zaloguj się ponownie', PAPERLY_NO_KEY: 'Brak klucza AI firmy', PAPERLY_TOO_LARGE: 'Za duże pliki dla serwera', PAPERLY_NO_WORKSPACE: 'Brak konta firmy' };
+      const hints = s === 'PAPERLY_LIMIT'
+        ? ['Limit dotyczy liczby zapytań do AI każdej osoby w ciągu dnia – technik ustawia go w Panelu technika → Konto firmy na serwerze.', 'Możesz też wpisać własny klucz Gemini w ustawieniach AI i zaznaczyć „Używaj mojego klucza”.']
+        : s === 'PAPERLY_AUTH' ? ['Kliknij swoje konto w menu i wybierz „Zaloguj się przez Google”.']
+        : s === 'PAPERLY_TOO_LARGE' ? ['Wyślij mniej plików naraz albo zmniejsz ich rozmiar (np. zdjęcia w niższej rozdzielczości).'] : [];
+      if (s === 'PAPERLY_AUTH') srvLostSession();
+      return Object.assign(new GeminiError({ title: titles[s] || 'Serwer PaperlyAI', message: (err && err.message) || `Błąd serwera (HTTP ${status}).`, hints, retryable: false }), { paperly: true, notSent: true, httpStatus: status });
+    }
+
+    /* ---------- Gmail bez ponownego logowania ---------- */
+    function srvGmailReady() { return srvFeature('gmailOffline') && !!(srv.me && srv.me.google && srv.me.google.connected && srv.me.google.gmail); }
+    async function srvGmailToken() {
+      const j = await srvApi('google_token');
+      inbox.gmail.token = j.access_token;
+      inbox.gmail.expiresAt = Date.now() + Math.max(60, (j.expires_in || 3600) - 120) * 1000;
+      inbox.gmail.email = j.email || inbox.gmail.email;
+      inbox.gmail.calendar = !!j.calendar;
+      inbox.calendar.gmail = null;
+      persistGmailSession();
+      return j;
+    }
+    function srvGmailConnect() {
+      const hint = (srv.me && srv.me.google && srv.me.google.email) || (srv.me && srv.me.user.email) || '';
+      location.assign(`${SRV_API}oauth.php?start=1&scopes=gmail,calendar${hint ? '&hint=' + encodeURIComponent(hint) : ''}`);
+    }
+    function srvGmailRestore() {
+      if (!srvGmailReady() || gmailConnected()) return;
+      srvGmailToken().then(() => { renderConnections(); if (state.view === 'inbox') checkMail({ manual: false }); }).catch(e => {
+        if (e.code === 'google_reconnect') { srv.me.google.connected = false; renderConnections(); toast(e.message, 'error', 9000); }
+      });
+    }
+
+    /* ---------- po starcie aplikacji ---------- */
+    function srvAfterInit() {
+      renderSrvChrome();
+      if (!srv.on) return;
+      if (srvSignedIn() && srvWs()) { syncStart(); srvGmailRestore(); srvStartMeTimer(); }
+      srvHandleUrl();
+      srvHandleInvite();
+    }
+    function srvHandleUrl() {
+      const u = srv.url;
+      if (u.google) {
+        if ((u.google === 'connected' || u.google === 'partial') && srvSignedIn()) {
+          if (srv.me.google) Object.assign(srv.me.google, { connected: true, gmail: u.google === 'connected' });
+          setActiveTool('inbox');
+          if (u.google === 'connected') {
+            srvGmailToken().then(() => {
+              renderConnections();
+              toast(`Gmail połączony na stałe${inbox.gmail.email ? ': ' + inbox.gmail.email : ''} – po odświeżeniu strony nie trzeba logować się ponownie.`, 'success', 7000);
+              if (!inbox.gmail.calendar) toast('Połączono bez dostępu do kalendarza – propozycje terminów będą niedostępne.', 'info', 7000);
+              checkMail({ manual: false });
+            }).catch(e => toast(e.message, 'error', 8000));
+          } else toast(u.msg || 'Nie udzielono dostępu do Gmaila.', 'error', 9000);
+        } else if (u.google === 'error') toast(u.msg || 'Nie udało się połączyć z Google.', 'error', 9000);
+      }
+      if (u.open && (TOOLS[u.open] || VIEWS[u.open] || u.open === 'inbox') && toolAllowed(u.open)) setActiveTool(u.open);
+      srv.url = {};
+    }
+    async function srvHandleInvite() {
+      const code = srvPendingInvite();
+      if (!code) return;
+      let info;
+      try { info = await srvApi('invite_info', undefined, { code }); } catch (e) { srvClearInvite(); toast(e.message, 'error', 8000); return; }
+      const role = srvRoleName(info.role);
+      if (srvSignedIn()) {
+        if (!confirm(`Dołączyć do zespołu „${info.workspace}” (rola: ${role})?`)) { srvClearInvite(); return; }
+        try {
+          const hadWs = !!srvWs();
+          if (hadWs) await syncNow();
+          const j = await srvApi('join', { code });
+          srvClearInvite();
+          if (hadWs) { await syncWipeLocal(); location.reload(); return; }
+          srvAfterLogin(j.me);
+        } catch (e) { srvClearInvite(); toast(e.message, 'error', 8000); }
+        return;
+      }
+      showOnboarding();
+      const el = $('#obInvite');
+      el.classList.remove('hidden');
+      el.innerHTML = `<b>Zaproszenie do zespołu „${escapeHtml(info.workspace)}”</b> – rola: ${role}${info.email ? `, dla ${escapeHtml(info.email)}` : ''}. Zaloguj się przez Google, aby dołączyć.`;
+    }
+
+    /* ---------- elementy interfejsu zależne od serwera ---------- */
+    function renderSrvChrome() {
+      const signed = srvSignedIn() && !!srvWs();
+      const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+      if (getApiKey() === SERVER_KEY) {
+        set('sidebarKeyNoteTitle', 'AI firmy');
+        const u = srv.me && srv.me.usage;
+        set('sidebarKeyNote', `Korzystasz z klucza AI firmy zapisanego na serwerze – nie trafia do przeglądarki.${u ? ` Dziś: ${u.today}${u.limit ? ` z ${u.limit}` : ''} zapytań.` : ''}`);
+        set('settingsPrivacy', '<strong class="text-slate-800">Prywatność:</strong> z kluczem firmy zapytania przechodzą przez serwer PaperlyAI, który dodaje klucz i liczy zużycie (bez zapisywania treści). Własny klucz zapisujemy tylko w tej przeglądarce i wysyłamy bezpośrednio do Google.');
+      }
+      const dn = document.getElementById('adminDataNote');
+      if (dn && signed) dn.textContent = 'Jesteś zalogowany na serwerze: baza wiedzy, rejestr umów, papier firmowy, biblioteka odpowiedzi, informacje o firmie i Twoja historia wyników synchronizują się z serwerem firmy. Własny klucz Gemini, logowanie do Outlooka i statystyki zostają tylko w tej przeglądarce.';
+      const inv = document.getElementById('adminInviteSection');
+      if (inv && signed) inv.classList.add('hidden');
+      const sec = document.getElementById('adminServerSection');
+      if (sec) sec.classList.toggle('hidden', !srv.on);
+      const tm = document.getElementById('techModeBtn');
+      if (tm) tm.classList.toggle('hidden', signed);
+      const hint = document.getElementById('obSrvHint');
+      if (hint) hint.classList.toggle('hidden', !srvFeature('googleLogin'));
+      const note = document.querySelector('#obStep1 .ob-note');
+      if (note && srv.on) note.textContent = 'Konto Google zapisze się na serwerze tej strony. Bez logowania dane zostają tylko w tej przeglądarce.';
+      $$('[data-gus]').forEach(b => b.classList.toggle('hidden', !srvSignedIn()));
+      renderSrvOnboardNote();
+      renderKsefPanel();
+      if (state.view === 'admin') renderSrvAdmin();
+    }
+    function renderSrvKeyBox() {
+      const el = document.getElementById('srvKeyBox');
+      if (!el) return;
+      const on = srvGeminiOn();
+      el.classList.toggle('hidden', !on);
+      if (!on) return;
+      const own = getOwnApiKey(), u = srv.me.usage;
+      el.innerHTML = `<b>Firma ma klucz AI na serwerze</b> – nie musisz wpisywać własnego.${u ? ` Dziś wykorzystano ${u.today}${u.limit ? ` z ${u.limit}` : ''} zapytań.` : ''}
+        <label class="mt-2 flex items-start gap-2"><input type="checkbox" id="srvOwnKey" ${storageGet(OWN_KEY_PREF) === '1' ? 'checked' : ''} ${own ? '' : 'disabled'} class="mt-0.5 h-4 w-4" /><span>Używaj mojego klucza zamiast klucza firmy${own ? '' : ' (najpierw wpisz i zapisz własny klucz poniżej)'}</span></label>`;
+    }
+
+    /* ---------- Panel technika: konto firmy na serwerze ---------- */
+    async function srvAdminLoad() {
+      if (srv.adminLoading || !srvSignedIn() || !srvWs()) return;
+      srv.adminLoading = true;
+      const w = srvWs(), admin = srv.me.user.isAdmin, mgr = srvManager();
+      const get = (a) => srvApi(a).catch(e => ({ error: e.message }));
+      try {
+        const [members, invites, usage, server] = await Promise.all([
+          get('members'), mgr && w.type === 'company' ? get('invites') : null, mgr ? get('usage') : null, admin ? get('server') : null
+        ]);
+        srv.admin = { at: Date.now(), members, invites, usage, server };
+      } finally { srv.adminLoading = false; }
+      renderSrvAdmin();
+    }
+    function renderSrvAdmin() {
+      const el = document.getElementById('adminServer');
+      if (!el || !srv.on) return;
+      if (srvSignedIn() && srvWs() && (!srv.admin || Date.now() - srv.admin.at > 60000) && !srv.adminLoading) srvAdminLoad();
+      const html = srvAdminHtml();
+      if (html !== el._html) { el.innerHTML = html; el._html = html; }
+    }
+    function srvAdminHtml() {
+      const btnCls = 'btn-default inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium';
+      if (!srvSignedIn()) {
+        return `<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <p class="max-w-2xl text-sm text-slate-600">Ta strona ma serwer PaperlyAI. Zaloguj się przez Google, aby założyć konto firmy na serwerze: wspólna baza wiedzy, umowy i papier firmowy na każdym komputerze, zaproszenia dla pracowników${srvFeature('gemini') ? ', klucz AI firmy z dziennymi limitami' : ''}${srvFeature('gmailOffline') ? ', Gmail bez ponownego logowania' : ''} i przypomnienia e-mail. Dane z tej przeglądarki przeniesiesz na konto.</p>
+          <button type="button" data-srv="login" class="gsi-btn shrink-0">${GOOGLE_G}<span>Zaloguj się przez Google</span></button></div>`;
+      }
+      if (!srvWs()) return `<p class="text-sm text-slate-600">Zalogowano jako ${escapeHtml(srv.me.user.email)}. Dokończ zakładanie konta firmy.</p><button type="button" data-srv="finish" class="mt-3 ${btnCls}">Dokończ zakładanie konta</button>`;
+      const me = srv.me, w = srvWs(), mgr = srvManager(), A = srv.admin || {};
+      const f = (srv.health && srv.health.features) || {};
+      const chip = (ok, label) => `<span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${ok ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500'}"><span class="h-1.5 w-1.5 rounded-full ${ok ? 'bg-emerald-500' : 'bg-slate-400'}"></span>${label}</span>`;
+      const out = [];
+      out.push(`<div class="flex flex-wrap items-start justify-between gap-3">
+        <div><p class="font-medium text-slate-900">${escapeHtml(w.name)} <span class="text-sm font-normal text-slate-500">· konto ${w.type === 'company' ? 'firmowe' : 'prywatne'} · Twoja rola: ${srvRoleName(w.role)}</span></p>
+        <p class="mt-0.5 text-sm text-slate-500">${escapeHtml(me.user.email)}${me.user.isAdmin ? ' · administrator serwera' : ''} · ${escapeHtml(syncStatusText())}</p></div>
+        <button type="button" data-srv="sync" class="${btnCls}">${iconSvg('refresh', 'h-4 w-4')}Synchronizuj teraz</button></div>
+        <div class="mt-3 flex flex-wrap gap-2">${chip(f.gemini, 'AI firmy na serwerze')}${chip(f.gmailOffline, 'Gmail na stałe')}${chip(f.mail, 'E-maile z domeny')}${chip(f.ksef && w.ksef && w.ksef.configured, 'KSeF')}${chip(f.gus, 'Dane firm po NIP')}</div>`);
+      if (!mgr) {
+        out.push('<p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Masz rolę pracownika – ustawienia firmy (baza wiedzy, papier firmowy, zespół) zmienia właściciel lub technik.</p>');
+        return out.join('');
+      }
+      const sub = (title, body) => `<div class="mt-6 border-t border-slate-200 pt-5"><h4 class="text-sm font-semibold text-slate-900">${title}</h4>${body}</div>`;
+      // Zespół
+      const M = A.members;
+      let team = '<p class="mt-2 text-sm text-slate-500">Wczytuję…</p>';
+      if (M && M.error) team = `<p class="mt-2 text-sm text-red-600">${escapeHtml(M.error)}</p>`;
+      else if (M && M.members) {
+        team = `<div class="mt-3 overflow-x-auto"><table class="w-full min-w-[560px] text-left text-sm"><thead><tr class="border-b border-slate-200 text-xs text-slate-500"><th class="py-2 pr-3 font-medium">Osoba</th><th class="py-2 pr-3 font-medium">Rola</th><th class="py-2 pr-3 font-medium">AI dziś</th><th class="py-2 pr-3 font-medium">30 dni</th><th class="py-2 pr-3 font-medium">Limit dzienny</th><th></th></tr></thead><tbody>${M.members.map(m => `
+          <tr class="border-b border-slate-100 align-middle"><td class="py-2 pr-3"><span class="font-medium text-slate-900">${escapeHtml(m.name || m.email)}</span>${m.me ? ' <span class="text-xs text-slate-500">(Ty)</span>' : ''}<br><span class="text-xs text-slate-500">${escapeHtml(m.email)}</span></td>
+          <td class="py-2 pr-3">${m.role === 'owner' ? 'właściciel' : `<select data-srv-role="${m.id}" class="field-input !w-auto !py-1 text-sm"><option value="employee" ${m.role === 'employee' ? 'selected' : ''}>pracownik</option><option value="tech" ${m.role === 'tech' ? 'selected' : ''}>technik</option></select>`}</td>
+          <td class="py-2 pr-3 tabular-nums">${m.today}${m.effectiveLimit ? ` / ${m.effectiveLimit}` : ''}</td><td class="py-2 pr-3 tabular-nums">${m.month}</td>
+          <td class="py-2 pr-3"><input type="number" min="0" max="100000" data-srv-limit="${m.id}" value="${m.dailyLimit || ''}" placeholder="${M.defaultLimit || 'bez limitu'}" class="field-input !w-24 !py-1 text-sm" aria-label="Dzienny limit zapytań" /></td>
+          <td class="py-2 text-right">${m.role === 'owner' || m.me ? '' : `<button type="button" data-srv-remove="${m.id}" data-name="${escapeHtml(m.name || m.email)}" class="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Usuń z zespołu">${iconSvg('trash', 'h-4 w-4')}</button>`}</td></tr>`).join('')}</tbody></table></div>
+          <p class="mt-2 text-xs text-slate-500">Puste pole limitu = limit firmy (${M.defaultLimit || 'bez limitu'} zapytań dziennie na osobę). Zmiany zapisują się po wyjściu z pola.</p>`;
+      }
+      out.push(sub('Zespół i limity AI', team + `<div class="mt-4 flex flex-wrap items-end gap-2"><label class="text-sm text-slate-700">Limit firmy (zapytań dziennie na osobę)<input id="srvWsLimit" type="number" min="0" max="100000" value="${w.dailyLimit || ''}" placeholder="${(M && M.serverDefault) || ''} (domyślny serwera)" class="field-input mt-1 !w-56 !py-1.5 text-sm" /></label><button type="button" data-srv="ws-limit" class="${btnCls}">Zapisz</button></div>`));
+      // Zaproszenia
+      if (w.type === 'company') {
+        const I = A.invites;
+        const list = I && I.invites ? (I.invites.length ? `<ul class="mt-3 space-y-2">${I.invites.map(x => `<li class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 p-2.5 text-sm"><span class="min-w-0 flex-1"><span class="font-medium text-slate-800">${x.email ? escapeHtml(x.email) : 'Link dla wielu osób'}</span> <span class="text-xs text-slate-500">· ${srvRoleName(x.role)} · ważne do ${new Date(x.expiresAt).toLocaleDateString('pl-PL')}${x.used ? ' · wykorzystane' : ''}</span><input readonly value="${escapeHtml(x.link)}" class="field-input mt-1.5 !py-1 font-mono text-xs" /></span><button type="button" data-srv-copy="${escapeHtml(x.link)}" class="${btnCls}">${iconSvg('duplicate', 'h-4 w-4')}Kopiuj</button><button type="button" data-srv-invdel="${x.code}" class="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Usuń zaproszenie">${iconSvg('trash', 'h-4 w-4')}</button></li>`).join('')}</ul>` : '<p class="mt-3 text-sm text-slate-500">Brak aktywnych zaproszeń.</p>') : I && I.error ? `<p class="mt-3 text-sm text-red-600">${escapeHtml(I.error)}</p>` : '';
+        out.push(sub('Zaproszenia', `<p class="mt-1 text-sm text-slate-500">Bez adresu e-mail powstaje link dla wielu osób (ważny 30 dni). Z adresem – zaproszenie imienne i jednorazowe (14 dni); osoba loguje się kontem Google z tym adresem.</p>
+          <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+            <label class="text-sm text-slate-700">E-mail pracownika (opcjonalnie)<input id="srvInvEmail" type="email" class="field-input mt-1 !py-1.5 text-sm" placeholder="jan.kowalski@firma.pl" /></label>
+            <label class="text-sm text-slate-700">Rola<select id="srvInvRole" class="field-input mt-1 !py-1.5 text-sm"><option value="employee">pracownik</option><option value="tech">technik</option></select></label>
+            <button type="button" data-srv="invite" class="bg-primary inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold text-white">${iconSvg('plus', 'h-4 w-4')}Utwórz zaproszenie</button>
+          </div>
+          <label class="mt-2 flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" id="srvInvSend" ${f.mail ? 'checked' : 'disabled'} class="h-4 w-4" />Wyślij zaproszenie e-mailem${f.mail ? '' : ' (serwer nie ma skonfigurowanej poczty)'}</label>${list}`));
+      }
+      // Zużycie
+      const U = A.usage;
+      if (U && U.days) {
+        const days = [];
+        for (let i = 29; i >= 0; i--) { const d = dayKey(new Date(Date.now() - i * 864e5)); const x = U.days.find(y => y.day === d); days.push({ d, n: x ? x.requests : 0 }); }
+        const max = Math.max(1, ...days.map(x => x.n)), total = days.reduce((a, x) => a + x.n, 0);
+        out.push(sub(`Zużycie AI w firmie – 30 dni: ${total} ${total === 1 ? 'zapytanie' : (total % 10 >= 2 && total % 10 <= 4 && (total % 100 < 10 || total % 100 >= 20)) ? 'zapytania' : 'zapytań'}`, `<div class="mt-3 flex h-24 items-end gap-[3px]" role="img" aria-label="Liczba zapytań AI dziennie">${days.map(x => `<div title="${x.d}: ${x.n}" class="flex-1 rounded-t bg-indigo-500/80" style="height:${Math.max(2, Math.round(x.n / max * 100))}%"></div>`).join('')}</div><div class="mt-1 flex justify-between text-[11px] text-slate-400"><span>${days[0].d.slice(5)}</span><span>dziś</span></div>`));
+      }
+      // KSeF
+      if (w.type === 'company' && f.ksef) {
+        const k = w.ksef || {};
+        out.push(sub('KSeF – faktury zakupowe', `<p class="mt-1 text-sm text-slate-500">Token KSeF z uprawnieniem do przeglądania faktur wygenerujesz w Aplikacji Podatnika KSeF (Ministerstwo Finansów). Jest zapisywany na serwerze w postaci zaszyfrowanej. Faktury pobiera się w narzędziu „Faktury”.</p>
+          <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <label class="text-sm text-slate-700">Środowisko<select id="srvKsefEnv" class="field-input mt-1 !py-1.5 text-sm">${[['prod', 'produkcyjne'], ['demo', 'demo (przedprodukcyjne)'], ['test', 'testowe']].map(([v, l]) => `<option value="${v}" ${(k.env || 'prod') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+            <label class="text-sm text-slate-700">NIP firmy<input id="srvKsefNip" inputmode="numeric" maxlength="13" value="${escapeHtml(k.nip || w.nip || '')}" class="field-input mt-1 !py-1.5 text-sm" /></label>
+            <label class="text-sm text-slate-700">Token KSeF<input id="srvKsefToken" type="password" autocomplete="off" placeholder="${k.configured ? 'zapisany – wpisz nowy, aby zmienić' : 'wklej token'}" class="field-input mt-1 !py-1.5 text-sm" /></label>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2"><button type="button" data-srv="ksef-save" class="${btnCls}">Zapisz</button>${k.configured ? `<button type="button" data-srv="ksef-test" class="${btnCls}">Sprawdź połączenie</button><button type="button" data-srv="ksef-clear" class="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50">Usuń token</button>` : ''}</div>`));
+      }
+      // Administrator serwera
+      const S = A.server;
+      if (me.user.isAdmin && S && !S.error) {
+        const copyRow = (label, value) => `<div class="mt-3"><span class="text-sm text-slate-700">${label}</span><div class="mt-1 flex gap-2"><input readonly value="${escapeHtml(value)}" class="field-input !py-1.5 font-mono text-xs" /><button type="button" data-srv-copy="${escapeHtml(value)}" class="${btnCls} shrink-0">${iconSvg('duplicate', 'h-4 w-4')}Kopiuj</button></div></div>`;
+        out.push(sub('Administrator serwera', `
+          <label class="mt-3 flex items-start gap-2 text-sm text-slate-700"><input type="checkbox" id="srvSignup" ${S.settings.signupOpen ? 'checked' : ''} class="mt-0.5 h-4 w-4" /><span>Pozwól zakładać konta osobom bez zaproszenia<br><span class="text-xs text-slate-500">Wyłączone: konto założy tylko osoba z linkiem zaproszenia (zalecane – chroni klucz AI firmy).</span></span></label>
+          <div class="mt-3 flex flex-wrap items-end gap-2"><label class="text-sm text-slate-700">Domyślny limit zapytań AI na osobę dziennie<input id="srvDefLimit" type="number" min="0" max="100000" value="${S.settings.defaultLimit}" class="field-input mt-1 !w-40 !py-1.5 text-sm" /></label><button type="button" data-srv="server-save" class="${btnCls}">Zapisz</button></div>
+          ${copyRow(`Harmonogram zadań (cron) – dodaj w panelu hostingu, uruchamianie co 15–30 minut${S.cronLast ? ` · ostatnio: ${new Date(S.cronLast).toLocaleString('pl-PL')}` : ' · jeszcze nie uruchomiono'}`, S.cronUrl)}
+          ${copyRow('Adres powrotu Google – dodaj w Google Cloud → Identyfikatory klienta → Autoryzowane identyfikatory URI przekierowania', S.oauthRedirect)}
+          <div class="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-700">E-maile wysyła: <b>${escapeHtml(S.mail.from)}</b> (${escapeHtml(S.mail.mode)})<button type="button" data-srv="test-mail" class="${btnCls}">${iconSvg('mail', 'h-4 w-4')}Wyślij test do siebie</button></div>
+          ${S.missing.length ? `<div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><b>Do włączenia</b> (sekrety w GitHub → Settings → Secrets and variables → Actions, potem ponowne wgranie):<ul class="mt-1 list-disc pl-5">${S.missing.map(x => `<li>${escapeHtml(x.feature)} – <code>${escapeHtml(x.secret)}</code></li>`).join('')}</ul></div>` : '<p class="mt-4 text-sm text-emerald-700">Wszystkie funkcje serwera są skonfigurowane.</p>'}
+          <p class="mt-2 text-xs text-slate-500">Użytkownicy: ${S.counts.users} · firmy: ${S.counts.workspaces} · PHP ${escapeHtml(S.php)} · maks. rozmiar zapytania: ${formatSize(S.uploadMax)}</p>`));
+      }
+      return out.join('');
+    }
+    async function srvAdminAction(fn, okMsg) {
+      try { await fn(); if (okMsg) toast(okMsg, 'success'); } catch (e) { toast(e.message, 'error', 8000); }
+      srv.admin = null;
+      renderSrvAdmin();
+    }
+
+    /* ---------- profil: konto na serwerze i powiadomienia ---------- */
+    function srvProfileExtend() {
+      const body = $('#profileBody');
+      const save = body.querySelector('[data-pf="save"]');
+      if (!save) return;
+      const actions = save.parentElement;
+      const box = document.createElement('div');
+      box.className = 'mt-5 space-y-4 border-t border-slate-200 pt-4';
+      $$('#profileBody [data-gus]').forEach(b => b.classList.toggle('hidden', !srvSignedIn()));
+      if (!srvSignedIn()) {
+        if (!srvFeature('googleLogin')) return;
+        box.innerHTML = `<p class="text-sm text-slate-600">Ta strona ma serwer PaperlyAI. Zaloguj się przez Google, aby mieć konto na serwerze – wspólne dane na każdym komputerze${srvFeature('gemini') ? ', AI firmy' : ''} i powiadomienia e-mail. Dane z tej przeglądarki przeniesiesz na konto.</p><button type="button" data-srvp="login" class="gsi-btn mt-3">${GOOGLE_G}<span>Zaloguj się przez Google</span></button>`;
+        actions.before(box);
+        return;
+      }
+      const me = srv.me, w = srvWs(), p = me.prefs || {};
+      if (w && !srvManager()) {
+        const types = body.querySelector('[data-pf-type]');
+        if (types) types.parentElement.classList.add('hidden');
+        ['#pfCompany'].forEach(s => { const el = body.querySelector(s); if (el) el.classList.add('hidden'); });
+        const lbl = Array.from(body.querySelectorAll('.field-label')).find(x => /Typ konta/.test(x.textContent));
+        if (lbl) lbl.classList.add('hidden');
+        const desc = body.querySelector('p.mt-4.text-xs');
+        if (desc) desc.classList.add('hidden');
+      }
+      const gmailOn = srvGmailReady();
+      const hours = [5, 6, 7, 8, 9, 10, 11, 12];
+      box.innerHTML = `
+        <div>
+          <p class="field-label">Konto na serwerze</p>
+          <p class="text-sm text-slate-700">${w ? `${escapeHtml(w.name)} · ${srvRoleName(w.role)}` : 'brak konta firmy'}</p>
+          ${me.workspaces.length > 1 ? `<div class="mt-2 flex gap-2"><select id="srvWsSel" class="field-input !py-1.5 text-sm" aria-label="Firma">${me.workspaces.map(x => `<option value="${x.id}" ${w && x.id === w.id ? 'selected' : ''}>${escapeHtml(x.name)} (${srvRoleName(x.role)})</option>`).join('')}</select><button type="button" data-srvp="switch" class="btn-default shrink-0 px-3 text-sm font-medium">Przełącz</button></div>` : ''}
+          ${me.usage ? `<p class="mt-1 text-xs text-slate-500">AI firmy dziś: ${me.usage.today}${me.usage.limit ? ` z ${me.usage.limit}` : ''} zapytań</p>` : ''}
+          <p class="mt-1 text-xs text-slate-500">${escapeHtml(syncStatusText())}</p>
+        </div>
+        ${srvFeature('mail') ? `<div>
+          <p class="field-label">Powiadomienia e-mail</p>
+          <div class="space-y-2 text-sm text-slate-700">
+            <label class="flex items-start gap-2"><input type="checkbox" id="srvNContracts" ${p.contracts ? 'checked' : ''} class="mt-0.5 h-4 w-4" /><span>Terminy z rejestru umów (wypowiedzenie, koniec, waloryzacja)</span></label>
+            <label class="flex items-start gap-2"><input type="checkbox" id="srvNMail" ${p.newMail ? 'checked' : ''} ${gmailOn ? '' : 'disabled'} class="mt-0.5 h-4 w-4" /><span>Nowa poczta w Gmailu – nadawca i temat${gmailOn ? '' : ' <span class="text-xs text-slate-500">(najpierw połącz Gmail w Skrzynce AI)</span>'}</span></label>
+            <label class="flex flex-wrap items-center gap-2"><input type="checkbox" id="srvNDigest" ${p.digest ? 'checked' : ''} class="h-4 w-4" /><span>Poranne podsumowanie dnia (dni robocze) o</span><select id="srvNHour" class="field-input !w-auto !py-1 text-sm" aria-label="Godzina podsumowania">${hours.map(h => `<option value="${h}" ${(p.digestHour || 7) === h ? 'selected' : ''}>${h}:00</option>`).join('')}</select></label>
+          </div>
+          <input id="srvNEmail" type="email" class="field-input mt-2 !py-1.5 text-sm" placeholder="${escapeHtml(me.user.email)}" value="${escapeHtml(p.email || '')}" aria-label="Adres do powiadomień" />
+          <p class="mt-1 text-xs text-slate-500">Puste pole = ${escapeHtml(me.user.email)}. Powiadomienia nie korzystają z AI – zawierają tylko nadawców, tematy i terminy.</p>
+          <div class="mt-2 flex flex-wrap gap-2"><button type="button" data-srvp="notify-save" class="btn-default px-3 py-1.5 text-sm font-medium">Zapisz powiadomienia</button><button type="button" data-srvp="notify-test" class="btn-default px-3 py-1.5 text-sm font-medium">Wyślij test</button></div>
+        </div>` : ''}`;
+      actions.before(box);
+      const lo = body.querySelector('[data-pf="logout"]');
+      if (lo) lo.textContent = 'Wyloguj z serwera';
+    }
+    async function srvProfileSave() {
+      if (!srvManager()) { closeProfile(); return; }
+      const w = srvWs();
+      const sel = $('#profileBody [data-pf-type][aria-pressed="true"]');
+      const type = sel ? sel.dataset.pfType : w.type;
+      const nip = ($('#pfNip').value || '').replace(/\D/g, '');
+      if (type === 'company' && nip && !validNip(nip)) { $('#pfNip').classList.add('invalid'); $('#pfNip').nextElementSibling.textContent = 'Nieprawidłowy NIP (zła suma kontrolna).'; return; }
+      const body = { type, nip: type === 'company' ? nip : '' };
+      if (type === 'company') body.name = $('#pfCompanyName').value.trim() || w.name;
+      try {
+        const j = await srvApi('workspace_update', body);
+        srvApplyMe(j.me);
+        closeProfile();
+        applyAccount();
+        renderSrvChrome();
+        toast('Zapisano konto firmy', 'success');
+      } catch (e) { toast(e.message, 'error', 7000); }
+    }
+
+    /* ---------- KSeF w narzędziu „Faktury” ---------- */
+    function renderKsefPanel() {
+      const el = document.getElementById('ksefPanel');
+      if (!el) return;
+      const w = srvWs();
+      const show = srvFeature('ksef') && !!w && w.type === 'company';
+      el.classList.toggle('hidden', !show);
+      if (!show) return;
+      const k = w.ksef || {};
+      const envName = { prod: 'produkcyjne', demo: 'demo', test: 'testowe' }[k.env] || k.env;
+      $('#ksefState').innerHTML = k.configured ? `środowisko ${escapeHtml(envName || '')} · NIP ${escapeHtml(k.nip || '')}` : (srvManager() ? '<button type="button" data-ksef="setup" class="font-medium text-indigo-600 hover:underline">Skonfiguruj token w Panelu technika</button>' : 'nieskonfigurowany – poproś technika firmy');
+      $('#ksefControls').classList.toggle('hidden', !k.configured);
+      if (!$('#ksefFrom').value) { $('#ksefFrom').value = dayKey(new Date(Date.now() - 30 * 864e5)); $('#ksefTo').value = dayKey(); }
+    }
+    function fmtKsefMoney(v, cur) { return v == null ? '' : Number(v).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + (cur || 'PLN'); }
+    function renderKsefList() {
+      const el = $('#ksefList');
+      if (ksefUi.busy) { el.innerHTML = '<p class="mt-3 text-sm text-slate-500">Łączę się z KSeF…</p>'; return; }
+      if (!ksefUi.list.length) { el.innerHTML = ksefUi.loaded ? '<p class="mt-3 text-sm text-slate-500">Brak faktur zakupowych w wybranym okresie.</p>' : ''; return; }
+      const all = ksefUi.list.length && ksefUi.list.every((x, i) => ksefUi.sel.has(i));
+      el.innerHTML = `<div class="mt-3 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-canvas"><table class="w-full min-w-[520px] text-left text-sm"><thead class="sticky top-0 bg-slate-50"><tr class="text-xs text-slate-500"><th class="w-8 py-2 pl-3"><input type="checkbox" data-ksef-all ${all ? 'checked' : ''} class="h-4 w-4" aria-label="Zaznacz wszystkie" /></th><th class="py-2 pr-3 font-medium">Sprzedawca</th><th class="py-2 pr-3 font-medium">Numer</th><th class="py-2 pr-3 font-medium">Data</th><th class="py-2 pr-3 text-right font-medium">Brutto</th></tr></thead><tbody>${ksefUi.list.map((x, i) => `
+        <tr class="border-t border-slate-100"><td class="py-2 pl-3"><input type="checkbox" data-ksef-pick="${i}" ${ksefUi.sel.has(i) ? 'checked' : ''} class="h-4 w-4" aria-label="Zaznacz fakturę" /></td><td class="py-2 pr-3"><span class="text-slate-900">${escapeHtml(x.seller || x.sellerNip)}</span><br><span class="text-xs text-slate-500">NIP ${escapeHtml(x.sellerNip)}</span></td><td class="py-2 pr-3">${escapeHtml(x.number)}</td><td class="py-2 pr-3 whitespace-nowrap">${escapeHtml(x.issueDate)}</td><td class="py-2 pr-3 text-right whitespace-nowrap tabular-nums">${fmtKsefMoney(x.gross, x.currency)}</td></tr>`).join('')}</tbody></table></div>
+        <div class="mt-2 flex flex-wrap items-center gap-2"><button type="button" data-ksef="add" ${ksefUi.sel.size ? '' : 'disabled'} class="btn-default px-3 py-1.5 text-sm font-medium">Dodaj zaznaczone do analizy (${ksefUi.sel.size})</button><span class="text-xs text-slate-500">${ksefUi.list.length} faktur${ksefUi.more ? ' (pokazano pierwsze – zawęź okres)' : ''} · nic nie trafia do AI, dopóki nie klikniesz przycisku analizy</span></div>`;
+    }
+    async function ksefLoadList() {
+      ksefUi.busy = true; ksefUi.sel.clear(); renderKsefList();
+      try {
+        const j = await srvApi('ksef_list', { from: $('#ksefFrom').value, to: $('#ksefTo').value });
+        ksefUi.list = j.invoices || []; ksefUi.more = !!j.more; ksefUi.loaded = true;
+      } catch (e) { ksefUi.list = []; ksefUi.loaded = false; toast(e.message, 'error', 9000); }
+      ksefUi.busy = false;
+      renderKsefList();
+    }
+    async function ksefAddSelected() {
+      const pick = [...ksefUi.sel].map(i => ksefUi.list[i]).filter(Boolean);
+      if (!pick.length) return;
+      const btn = $('#ksefList [data-ksef="add"]');
+      if (btn) { btn.disabled = true; btn.textContent = 'Pobieram faktury…'; }
+      const files = [];
+      for (const x of pick) {
+        try { const j = await srvApi('ksef_xml', undefined, { n: x.ksefNumber }); files.push(new File([j.xml], j.name, { type: 'text/xml' })); }
+        catch (e) { toast(`${x.number}: ${e.message}`, 'error', 7000); }
+      }
+      if (files.length) {
+        await addFormFiles('invoices:files', files);
+        toast(`Dodano ${files.length} ${files.length === 1 ? 'fakturę' : 'faktur'} z KSeF – uruchom analizę, gdy będziesz gotowy.`, 'success', 6000);
+      }
+      ksefUi.sel.clear();
+      renderKsefList();
+    }
+
+    /* ---------- zdarzenia ---------- */
+    function bindServer() {
+      document.addEventListener('click', async (e) => {
+        const g = e.target.closest('[data-gus]');
+        if (g) { srvGusLookup(g); return; }
+        const k = e.target.closest('[data-ksef]');
+        if (k) {
+          const a = k.dataset.ksef;
+          if (a === 'list') ksefLoadList();
+          else if (a === 'add') ksefAddSelected();
+          else if (a === 'setup') showAdmin();
+          return;
+        }
+        if (e.target.closest('[data-ob="srv-local"]')) {
+          const me = srv.me;
+          try { await srvApi('logout', {}); } catch (err) { /* sesja wygasła */ }
+          srv.me = null;
+          startAccountDraft({ provider: 'local', name: (me && me.user.name) || '', email: '', picture: '' });
+          renderSrvChrome();
+        }
+      });
+      document.addEventListener('change', (e) => {
+        if (e.target.id === 'srvOwnKey') {
+          if (e.target.checked) storageSet(OWN_KEY_PREF, '1'); else storageRemove(OWN_KEY_PREF);
+          renderApiStatus(); renderSrvChrome();
+          toast(e.target.checked ? 'Używasz własnego klucza Gemini' : 'Używasz klucza AI firmy', 'info');
+        }
+        const pk = e.target.closest('[data-ksef-pick]');
+        if (pk) { const i = +pk.dataset.ksefPick; if (pk.checked) ksefUi.sel.add(i); else ksefUi.sel.delete(i); renderKsefList(); }
+        if (e.target.matches('[data-ksef-all]')) { ksefUi.sel = new Set(e.target.checked ? ksefUi.list.map((x, i) => i) : []); renderKsefList(); }
+      });
+      const admin = document.getElementById('adminServer');
+      admin.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-srv], [data-srv-copy], [data-srv-remove], [data-srv-invdel]');
+        if (!b) return;
+        if (b.dataset.srvCopy) { copyText(b.dataset.srvCopy).then(ok => toast(ok ? 'Skopiowano' : 'Nie udało się skopiować – zaznacz tekst ręcznie', ok ? 'success' : 'error')); return; }
+        if (b.dataset.srvRemove) {
+          if (!confirm(`Usunąć ${b.dataset.name} z zespołu? Straci dostęp do danych firmy.`)) return;
+          srvAdminAction(() => srvApi('member_update', { userId: +b.dataset.srvRemove, remove: true }), 'Usunięto z zespołu');
+          return;
+        }
+        if (b.dataset.srvInvdel) { srvAdminAction(() => srvApi('invite_delete', { code: b.dataset.srvInvdel }), 'Usunięto zaproszenie'); return; }
+        const a = b.dataset.srv;
+        if (a === 'login') srvStartLogin();
+        else if (a === 'finish') { showOnboarding(); srvDraftFromMe(); }
+        else if (a === 'sync') { sync.dirty = true; syncNow().then(() => { toast(sync.error ? `Synchronizacja: ${sync.error}` : 'Dane zsynchronizowane', sync.error ? 'error' : 'success'); srv.admin = null; renderSrvAdmin(); }); }
+        else if (a === 'ws-limit') srvAdminAction(async () => { const j = await srvApi('workspace_update', { dailyLimit: +$('#srvWsLimit').value || 0 }); srvApplyMe(j.me); }, 'Zapisano limit firmy');
+        else if (a === 'invite') srvAdminAction(async () => {
+          const email = $('#srvInvEmail').value.trim();
+          const j = await srvApi('invite_create', { email, role: $('#srvInvRole').value, send: !!(email && $('#srvInvSend') && $('#srvInvSend').checked) });
+          const copied = await copyText(j.link);
+          toast(j.sent ? `Wysłano zaproszenie na ${email}` : `Utworzono link zaproszenia${copied ? ' i skopiowano go do schowka' : ''}${j.mailError ? ` (e-mail nie wysłany: ${j.mailError})` : ''}`, j.mailError ? 'warning' : 'success', 7000);
+        });
+        else if (a === 'ksef-save') srvAdminAction(async () => { await srvApi('ksef_settings', { env: $('#srvKsefEnv').value, nip: $('#srvKsefNip').value, token: $('#srvKsefToken').value.trim() }); await srvRefreshMe(); }, 'Zapisano ustawienia KSeF');
+        else if (a === 'ksef-test') { b.disabled = true; b.textContent = 'Łączę się z KSeF…'; srvApi('ksef_test', {}).then(j => toast(`Połączono z KSeF (środowisko ${j.env})`, 'success', 6000)).catch(err => toast(err.message, 'error', 10000)).finally(() => { srv.admin = null; renderSrvAdmin(); }); }
+        else if (a === 'ksef-clear') { if (confirm('Usunąć token KSeF z serwera?')) srvAdminAction(async () => { await srvApi('ksef_settings', { clear: true }); await srvRefreshMe(); }, 'Usunięto token KSeF'); }
+        else if (a === 'server-save') srvAdminAction(() => srvApi('server_settings', { signupOpen: $('#srvSignup').checked, defaultLimit: +$('#srvDefLimit').value || 0 }), 'Zapisano ustawienia serwera');
+        else if (a === 'test-mail') srvApi('test_mail', {}).then(j => toast(`Wysłano wiadomość testową na ${j.to}`, 'success', 6000)).catch(err => toast(err.message, 'error', 10000));
+      });
+      admin.addEventListener('change', (e) => {
+        const r = e.target.closest('[data-srv-role]');
+        if (r) { srvAdminAction(() => srvApi('member_update', { userId: +r.dataset.srvRole, role: r.value }), 'Zmieniono rolę'); return; }
+        const l = e.target.closest('[data-srv-limit]');
+        if (l) srvAdminAction(() => srvApi('member_update', { userId: +l.dataset.srvLimit, dailyLimit: +l.value || 0 }), 'Zapisano limit');
+      });
+      $('#profileModal').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-srvp]');
+        if (!b) return;
+        const a = b.dataset.srvp;
+        if (a === 'login') { closeProfile(); srvStartLogin(); }
+        else if (a === 'switch') { const id = +$('#srvWsSel').value; if (srvWs() && id !== srvWs().id) srvSwitchWorkspace(id); }
+        else if (a === 'notify-save' || a === 'notify-test') {
+          const prefs = { contracts: $('#srvNContracts').checked, newMail: $('#srvNMail').checked, digest: $('#srvNDigest').checked, digestHour: +$('#srvNHour').value, email: $('#srvNEmail').value.trim() };
+          srvApi('notify_prefs', prefs).then(j => {
+            srv.me.prefs = j.prefs;
+            if (a === 'notify-test') return srvApi('test_mail', {}).then(t => toast(`Wysłano wiadomość testową na ${t.to}`, 'success', 6000));
+            toast('Zapisano powiadomienia', 'success');
+          }).catch(err => toast(err.message, 'error', 9000));
+        }
+      });
+    }
+    async function srvGusLookup(b) {
+      const src = b.dataset.gus;
+      const inp = src === 'ob' ? $('#obNip') : src === 'pf' ? $('#pfNip') : $('#lhNip');
+      const nip = ((inp && inp.value) || '').replace(/\D/g, '');
+      if (!validNip(nip)) { toast('Wpisz prawidłowy NIP (10 cyfr).', 'error'); if (inp) inp.focus(); return; }
+      const label = b.textContent;
+      b.disabled = true; b.textContent = 'Szukam w rejestrze…';
+      try {
+        const { company: c } = await srvApi('gus', undefined, { nip });
+        const lines = [c.street, [c.postal, c.city].filter(Boolean).join(' ')].filter(Boolean).join('\n');
+        const footer = [`NIP ${c.nip}`, c.regon ? `REGON ${c.regon}` : ''].filter(Boolean).join(' · ');
+        if (src === 'ob') { $('#obCompanyName').value = c.name; ob.gus = { lines, regon: c.regon }; }
+        else if (src === 'pf') $('#pfCompanyName').value = c.name;
+        else {
+          const lh = getLetterheadCfg();
+          if (lh.name.trim() && lh.name.trim() !== c.name && !confirm(`Zastąpić dane papieru firmowego danymi z rejestru?\n\n${c.name}\n${lines}`)) return;
+          saveLetterheadCfg({ name: c.name, lines, footer: lh.footer.trim() ? lh.footer : footer });
+          renderLetterheadAdmin();
+        }
+        toast(`${c.name} – dane z: ${c.source}${c.active === false ? ' (uwaga: działalność zakończona)' : ''}${c.vat ? ` · VAT: ${c.vat}` : ''}`, c.active === false ? 'warning' : 'success', 7000);
+      } catch (err) { toast(err.message, 'error', 8000); }
+      finally { if (b.isConnected) { b.disabled = false; b.textContent = label; } }
+    }
+
+    /* =====================================================================
        PRZECHOWYWANIE KLUCZA (localStorage z bezpiecznym fallbackiem)
        ===================================================================== */
     function storageGet(key) {
       try { return window.localStorage.getItem(key); } catch (e) { state.storageAvailable = false; return null; }
     }
     function storageSet(key, value) {
-      try { window.localStorage.setItem(key, value); return true; } catch (e) { state.storageAvailable = false; return false; }
+      try { window.localStorage.setItem(key, value); syncTouch(key); return true; } catch (e) { state.storageAvailable = false; return false; }
     }
     function storageRemove(key) {
-      try { window.localStorage.removeItem(key); } catch (e) { state.storageAvailable = false; }
+      try { window.localStorage.removeItem(key); syncTouch(key); } catch (e) { state.storageAvailable = false; }
     }
 
+    // Klucz firmy na serwerze (gdy jest i użytkownik nie wybrał własnego) albo własny klucz z przeglądarki
     function getApiKey() {
-      return storageGet(STORAGE_KEY) || state.memoryKey || '';
+      const own = getOwnApiKey();
+      if (srvGeminiOn() && !(own && storageGet(OWN_KEY_PREF) === '1')) return SERVER_KEY;
+      return own;
     }
     function saveApiKey(key) {
       const ok = storageSet(STORAGE_KEY, key);
@@ -3680,6 +4548,7 @@ ZASADY
     }
     function maskKey(key) {
       if (!key) return '';
+      if (key === SERVER_KEY) return 'klucz firmy na serwerze';
       if (key.length <= 10) return '••••';
       return key.slice(0, 4) + '…' + key.slice(-4);
     }
@@ -3861,6 +4730,7 @@ ZASADY
 
     // Klucz przesyłany w nagłówku HTTP (obsługuje klucze „AIza…” i „AQ.…”), nie w adresie URL
     function authHeaders(apiKey, extra = {}) {
+      if (apiKey === SERVER_KEY) return Object.assign({ 'X-Paperly': '1' }, extra);
       return Object.assign({ 'x-goog-api-key': apiKey }, extra);
     }
 
@@ -3924,7 +4794,7 @@ ZASADY
       try {
         let res;
         try {
-          res = await fetch(url, {
+          res = await fetch(gemUrl(url, apiKey), {
             method: 'POST',
             headers: authHeaders(apiKey, { 'Content-Type': 'application/json' }),
             body: JSON.stringify(payload),
@@ -3940,6 +4810,7 @@ ZASADY
           let body = null;
           try { body = raw ? JSON.parse(raw) : null; } catch (e) { body = null; }
           if (Array.isArray(body)) body = body[0];
+          if (body && body.error && /^PAPERLY_/.test(String(body.error.status || ''))) throw paperlyError(res.status, body.error);
           throw mapApiError(res.status, body, raw);
         }
 
@@ -4176,6 +5047,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
           return result;
         } catch (e) {
           if (!(e instanceof GeminiError) || e.cancelled) throw e;
+          if (e.paperly) throw e;   // limit firmy / sesja serwera – bez zmiany modelu i ponawiania
           // Model odrzucił parametr (rozumowanie, schemat JSON, obliczenia kodem, rozdzielczość wideo) – ten sam model bez niego
           if (useThinking && payload.generationConfig.thinkingConfig && e.httpStatus === 400 && /thinking/i.test(e.details || '')) { useThinking = false; continue; }
           if (useSchema && e.httpStatus === 400 && /schema|mime/i.test(e.details || '')) { useSchema = false; continue; }
@@ -4239,7 +5111,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 15000);
       let res;
       try {
-        res = await fetch(url, { method: 'GET', headers: authHeaders(apiKey), signal: controller.signal });
+        res = await fetch(gemUrl(url, apiKey), { method: 'GET', headers: authHeaders(apiKey), signal: controller.signal });
       } catch (e) {
         throw networkError(e, timedOut ? 'timeout' : null);
       } finally {
@@ -5803,6 +6675,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       el.innerHTML = `
         <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <div class="space-y-3">
+            ${srvSignedIn() ? `<div><label for="lhNip" class="field-label">Uzupełnij z rejestru po NIP</label><div class="flex gap-2"><input id="lhNip" inputmode="numeric" maxlength="13" class="field-input" value="${escapeHtml(((getAccount() || {}).company || {}).nip || '')}" placeholder="NIP firmy" /><button type="button" data-gus="lh" class="btn-default shrink-0 rounded-lg px-3 text-sm font-medium">Pobierz dane</button></div><p class="mt-1 text-xs text-slate-500">Nazwa, adres i REGON z rejestru REGON (GUS) lub wykazu podatników VAT.</p></div>` : ''}
             <div>
               <span class="field-label">Logo</span>
               <div class="flex flex-wrap items-center gap-3">
@@ -6207,9 +7080,11 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
     async function uploadToGemini(blob, { mimeType, displayName, onProgress, signal } = {}) {
       const apiKey = getApiKey();
       const type = mimeType || blob.type || 'application/octet-stream';
+      const srvMax = apiKey === SERVER_KEY ? ((srv.health && srv.health.uploadMax) || 64e6) - 65536 : 0;
+      if (srvMax && blob.size > srvMax) throw Object.assign(new GeminiError({ title: 'Plik za duży dla serwera', message: `„${displayName || 'plik'}” ma ${formatSize(blob.size)}, a serwer przyjmuje najwyżej ${formatSize(srvMax)}. Nic nie zostało wysłane.`, hints: ['Zmniejsz plik (np. nagranie w niższej jakości) albo użyj własnego klucza Gemini w ustawieniach AI.'], retryable: false }), { notSent: true });
       let start;
       try {
-        start = await fetch(`${UPLOAD_BASE}/files`, {
+        start = await fetch(gemUrl(`${UPLOAD_BASE}/files`, apiKey), {
           method: 'POST',
           headers: authHeaders(apiKey, {
             'X-Goog-Upload-Protocol': 'resumable',
@@ -6225,6 +7100,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       if (!start.ok) {
         const raw = await start.text().catch(() => '');
         let b = null; try { b = JSON.parse(raw); } catch (e) { b = null; }
+        if (b && b.error && /^PAPERLY_/.test(String(b.error.status || ''))) throw paperlyError(start.status, b.error);
         throw mapApiError(start.status, b, raw);
       }
       const uploadUrl = start.headers.get('x-goog-upload-url');
@@ -6232,6 +7108,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       let f = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', uploadUrl);
+        if (apiKey === SERVER_KEY) xhr.setRequestHeader('X-Paperly', '1');
         xhr.setRequestHeader('X-Goog-Upload-Offset', '0');
         xhr.setRequestHeader('X-Goog-Upload-Command', 'upload, finalize');
         xhr.upload.onprogress = (e) => { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
@@ -6248,7 +7125,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       // Nagrania są przetwarzane po stronie Google – czekamy, aż plik będzie gotowy (ACTIVE)
       for (let i = 0; f.state === 'PROCESSING' && i < 150; i++) {
         await sleep(2000, signal);
-        const res = await fetch(`${GEMINI_ROOT}/${f.name}`, { headers: authHeaders(apiKey), signal }).catch(e => { throw networkError(e, signal && signal.aborted ? 'cancel' : null); });
+        const res = await fetch(gemUrl(`${GEMINI_ROOT}/${f.name}`, apiKey), { headers: authHeaders(apiKey), signal }).catch(e => { throw networkError(e, signal && signal.aborted ? 'cancel' : null); });
         if (!res.ok) break;
         f = await res.json();
       }
@@ -6259,7 +7136,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
     }
     function deleteGeminiFile(name) {
       if (!name || !getApiKey()) return;
-      fetch(`${GEMINI_ROOT}/${name}`, { method: 'DELETE', headers: authHeaders(getApiKey()) }).catch(() => {});
+      fetch(gemUrl(`${GEMINI_ROOT}/${name}`, getApiKey()), { method: 'DELETE', headers: authHeaders(getApiKey()) }).catch(() => {});
     }
     // Nagrania (pole „media”): małe trafiają do zapytania, duże najpierw do Files API
     async function prepareMediaAttachments(attachments, { onStatus, signal } = {}) {
@@ -7004,6 +7881,7 @@ Załączniki oznaczone „Baza wiedzy firmy” to oficjalne materiały firmy (ce
       return kbDbPromise;
     }
     function kbTx(mode, fn) {
+      if (mode === 'readwrite' && !sync.applying) { sync.dirty = true; syncMark(); }
       return kbDb().then(db => new Promise((resolve, reject) => {
         const tx = db.transaction(KB_STORE, mode);
         const req = fn(tx.objectStore(KB_STORE));
@@ -7980,6 +8858,7 @@ ZASADY
     let contracts = [];
     const ct = { editing: null, busy: false, adding: false };
     function ctTx(mode, fn) {
+      if (mode === 'readwrite' && !sync.applying) { sync.dirty = true; syncMark(); }
       return kbDb().then(db => new Promise((resolve, reject) => {
         const tx = db.transaction(CT_STORE, mode);
         const req = fn(tx.objectStore(CT_STORE));
@@ -8959,7 +9838,8 @@ ZASADY
 
     function openSettings(reason) {
       lastFocused = document.activeElement;
-      const key = getApiKey();
+      const key = getOwnApiKey();
+      renderSrvKeyBox();
       const input = $('#apiKeyInput');
       input.value = key;
       input.type = 'password';
@@ -9324,6 +10204,13 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
     }
 
     function connectGmail() {
+      if (srvFeature('gmailOffline') && srvSignedIn()) {
+        if (srvGmailReady()) {
+          srvGmailToken().then(() => { renderConnections(); toast(`Połączono z Gmail${inbox.gmail.email ? ': ' + inbox.gmail.email : ''}`, 'success'); checkMail({ manual: false }); })
+            .catch(e => { if (e.code === 'google_reconnect' || e.status === 404) srvGmailConnect(); else toast(e.message, 'error', 8000); });
+        } else srvGmailConnect();
+        return;
+      }
       const clientId = gmailClientId();
       if (!clientId) { openMailSetup('gmail'); return; }
       if (!/^https?:$/.test(location.protocol)) { openMailSetup('gmail'); toast('Logowanie do Gmaila działa tylko na stronie otwartej przez http(s), np. na Render.', 'error'); return; }
@@ -9364,6 +10251,9 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
     }
 
     function disconnectGmail() {
+      if (srvGmailReady()) {
+        srvApi('google_disconnect', {}).then(() => { if (srv.me && srv.me.google) srv.me.google.connected = false; toast('Gmail odłączony od serwera – dostęp unieważniony w Google', 'info'); renderConnections(); }).catch(e => toast(e.message, 'error'));
+      }
       try { if (inbox.gmail.token && window.google && google.accounts) google.accounts.oauth2.revoke(inbox.gmail.token, () => {}); } catch (e) { /* ignoruj */ }
       inbox.gmail = { token: '', expiresAt: 0, email: '', calendar: false };
       inbox.calendar.gmail = null;
@@ -9610,6 +10500,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
 
     /* ---------- Google API (Gmail + Kalendarz) ---------- */
     async function googleFetch(url, opts = {}, service = 'gmail') {
+      if (!gmailConnected() && srvGmailReady()) { try { await srvGmailToken(); } catch (e) { /* komunikat niżej */ } }
       if (!gmailConnected()) throw new MailError('gmail', 'Sesja Gmail wygasła – kliknij „Połącz ponownie”.', { auth: true });
       let res;
       try {
@@ -9628,6 +10519,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       if (res.ok) return data;
       const msg = (data && data.error && data.error.message) || raw || `HTTP ${res.status}`;
       if (res.status === 401) {
+        if (srvGmailReady() && !opts._retried) { try { await srvGmailToken(); return googleFetch(url, Object.assign({}, opts, { _retried: true }), service); } catch (e) { /* jak bez serwera */ } }
         inbox.gmail.token = ''; inbox.gmail.expiresAt = 0; persistGmailSession();
         throw new MailError('gmail', 'Sesja Gmail wygasła – kliknij „Połącz ponownie”.', { auth: true, details: msg });
       }
@@ -11137,7 +12029,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       const p = { v: 1, org: inviteOpts.org.trim() };
       if (gmailClientId()) p.g = gmailClientId();
       if (msClientId()) p.m = msClientId();
-      if (inviteOpts.key && getApiKey()) p.k = getApiKey();
+      if (inviteOpts.key && getOwnApiKey()) p.k = getOwnApiKey();
       if (inviteOpts.model) { p.model = getModel(); p.think = getThinkingLevel(); }
       if (inviteOpts.context) {
         p.tone = prefs.tone; p.ctx = prefs.context; p.days = prefs.days; p.max = prefs.maxCount;
@@ -11378,6 +12270,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
 
     function renderAdmin() {
       renderUsagePanel();
+      renderSrvAdmin();
       const key = getApiKey();
       const g = gmailClientId(), m = msClientId();
       const ctx = getInboxPrefs().context.trim();
@@ -12143,7 +13036,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       if (!a) return;
       btn.innerHTML = `${avatarHtml(a, 'h-7 w-7')}<span class="min-w-0 flex-1 text-left leading-tight"><span class="block truncate text-sm font-medium text-slate-900">${escapeHtml(a.name || 'Moje konto')}</span><span class="block truncate text-xs text-slate-500">${a.type === 'personal' ? 'Konto prywatne' : `Konto firmowe${a.company && a.company.name ? ` · ${escapeHtml(a.company.name)}` : ''}`}</span></span>`;
       const inv = document.getElementById('adminInviteSection');
-      if (inv) inv.classList.toggle('hidden', a.type === 'personal');
+      if (inv) inv.classList.toggle('hidden', a.type === 'personal' || (srvSignedIn() && !!srvWs()));
     }
     function applyAccount() {
       renderProfile();
@@ -12159,7 +13052,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         <div class="grid grid-cols-2 gap-2">${['company', 'personal'].map(t => `<button type="button" data-pf-type="${t}" aria-pressed="${a.type === t}" class="ob-type-mini">${iconSvg(t === 'company' ? 'briefcase' : 'user', 'h-4 w-4')}${t === 'company' ? 'Firma' : 'Osoba prywatna'}</button>`).join('')}</div>
         <div id="pfCompany" class="${a.type === 'company' ? '' : 'hidden'} mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div><label for="pfCompanyName" class="field-label">Nazwa firmy</label><input id="pfCompanyName" class="field-input" maxlength="120" value="${escapeHtml((a.company && a.company.name) || '')}" /></div>
-          <div><label for="pfNip" class="field-label">NIP <span class="font-normal text-slate-500">(opcjonalnie)</span></label><input id="pfNip" class="field-input" maxlength="13" inputmode="numeric" value="${escapeHtml((a.company && a.company.nip) || '')}" /><p class="field-error mt-1 text-xs text-red-600"></p></div>
+          <div><label for="pfNip" class="field-label">NIP <span class="font-normal text-slate-500">(opcjonalnie)</span></label><input id="pfNip" class="field-input" maxlength="13" inputmode="numeric" value="${escapeHtml((a.company && a.company.nip) || '')}" /><p class="field-error mt-1 text-xs text-red-600"></p><button type="button" data-gus="pf" class="hidden text-xs font-medium text-indigo-600 hover:underline">Uzupełnij nazwę z rejestru (GUS)</button></div>
         </div>
         <p class="mt-4 text-xs leading-relaxed text-slate-500">${a.type === 'personal' ? 'Konto prywatne pokazuje narzędzia do spraw osobistych: pisma, korektę, umowy, CV, symulator rozmowy, rozmowę z dokumentem i notatki.' : 'Konto firmowe ma wszystkie narzędzia, w tym windykację, faktury i KSeF, oferty dostawców, raporty dla zarządu i zapraszanie pracowników.'}</p>
         <div class="mt-6 flex flex-wrap items-center gap-2">
@@ -12167,6 +13060,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
           <button type="button" data-pf="close" class="btn-default px-4 py-2 text-sm font-medium">Anuluj</button>
           <button type="button" data-pf="logout" class="ml-auto rounded-full px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">Wyloguj</button>
         </div>`;
+      if (srv.on) srvProfileExtend();
       $('#profileModal').classList.remove('hidden');
     }
     function closeProfile() { $('#profileModal').classList.add('hidden'); }
@@ -12186,7 +13080,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         $('#obHello').innerHTML = `${avatarHtml(d, 'h-9 w-9')}<span>Cześć${firstName(d) ? `, <b>${escapeHtml(firstName(d))}</b>` : ''}! Jak będziesz korzystać z Paperly?</span>`;
         $$('#obStep2 [data-ob-type]').forEach(b => b.setAttribute('aria-pressed', String(d.type === b.dataset.obType)));
         $('#obCompany').classList.toggle('hidden', d.type !== 'company');
-        $('#obFinish').disabled = !d.type;
+        $('#obFinish').disabled = !d.type || (!!d.server && !!srv.me && !srv.me.canCreate);
+        renderSrvOnboardNote();
       }
     }
     // Standardowy przycisk „Zaloguj się przez Google” – widoczny zawsze; logowanie przez okno Google (OAuth)
@@ -12200,7 +13095,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       if (!cid || !/^https?:$/.test(location.protocol)) { $('#obGoogleSetup').classList.remove('hidden'); $('#obClientId').focus(); return; }
       if (preferGoogleRedirect() || ob.redirect) { startGoogleRedirect('signin', 'openid email profile'); return; }
       const btn = $('#obGoogle [data-ob="google"]');
-      btn.disabled = true;
+      if (btn) btn.disabled = true;
       try {
         await loadScript(GIS_URL);
         const token = await new Promise((resolve, reject) => {
@@ -12211,6 +13106,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
           });
           client.requestAccessToken();
         });
+        if (srvFeature('googleLogin')) { await srvLogin(token); return; }
         const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(`Google odpowiedział błędem ${res.status}`);
         const p = await res.json();
@@ -12220,7 +13116,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       } catch (e) {
         if (/zamknięto/.test(e.message)) { ob.redirect = true; toast('Okno Google zamknęło się bez przekazania danych. Kliknij „Zaloguj się przez Google” jeszcze raz – zaloguję bez okienka, przez przejście na stronę Google i powrót.', 'info', 9000); }
       else toast(`Logowanie przez Google nie powiodło się: ${e.message}`, 'error', 6000);
-      } finally { btn.disabled = false; }
+      } finally { if (btn) btn.disabled = false; }
     }
     function startAccountDraft(base) {
       ob.draft = Object.assign({ type: isManaged() ? 'company' : '', company: { name: '', nip: '' } }, base);
@@ -12230,6 +13126,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     function finishOnboarding() {
       const d = ob.draft;
       if (!d || !d.type) return;
+      if (d.server) { srvFinishOnboarding(); return; }
       if (d.type === 'company') {
         const nip = $('#obNip').value.replace(/\D/g, '');
         if (nip && !validNip(nip)) { $('#obNip').classList.add('invalid'); $('#obNip').nextElementSibling.textContent = 'Nieprawidłowy NIP (zła suma kontrolna).'; return; }
@@ -12246,6 +13143,10 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     }
     // Istniejący użytkownicy (z kluczem lub z linku firmy) dostają konto firmowe bez zakładania – mogą je zmienić w profilu
     function ensureAccount() {
+      if (srvSignedIn()) {
+        if (srvWs()) { srvApplyMe(srv.me); $('#onboard').classList.add('hidden'); renderProfile(); return true; }
+        showOnboarding(); srvDraftFromMe(); return false;
+      }
       if (getAccount()) { renderProfile(); return true; }
       if (getApiKey() || isManaged()) {
         saveAccount({ provider: 'local', type: 'company', name: '', company: { name: (getOrg() && getOrg().company) || '', nip: '' }, createdAt: Date.now(), migrated: true });
@@ -12262,6 +13163,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         const t = e.target.closest('[data-pf-type]');
         if (t) { $$('#profileBody [data-pf-type]').forEach(b => b.setAttribute('aria-pressed', String(b === t))); $('#pfCompany').classList.toggle('hidden', t.dataset.pfType !== 'company'); return; }
         if (e.target.closest('[data-pf="save"]')) {
+          if (srvSignedIn() && srvWs()) { srvProfileSave(); return; }
           const a = getAccount();
           const type = ($('#profileBody [data-pf-type][aria-pressed="true"]') || {}).dataset.pfType || a.type;
           const nip = ($('#pfNip').value || '').replace(/\D/g, '');
@@ -12275,6 +13177,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
           return;
         }
         if (e.target.closest('[data-pf="logout"]')) {
+          if (srvSignedIn()) { srvLogout(); return; }
           if (!confirm('Wylogować? Konto zostanie usunięte z tej przeglądarki – klucz, historia i dokumenty zostają.')) return;
           storageRemove(ACCOUNT_KEY);
           try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch (err) { /* brak modułu */ }
@@ -12358,6 +13261,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         checkMail({ manual: false });
       } else if (d.purpose === 'signin') {
         try {
+          if (srvFeature('googleLogin')) { await srvLogin(d.token); return; }
           const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${d.token}` } });
           if (!res.ok) throw new Error(`błąd ${res.status}`);
           const p = await res.json();
@@ -12401,6 +13305,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       bindTasksPanel();
       bindSupplierWeights();
       bindInterview();
+      bindServer();
       kbLoad();
       updateAnalyzerHint();
       document.body.dataset.role = getRole();
@@ -12428,8 +13333,12 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     const IS_AUTH_POPUP = !!window.opener && window.opener !== window && /(^|[#&?])(code|error)=/.test(location.hash + location.search);
     if (IS_AUTH_POPUP) {
       document.body.innerHTML = '<p style="font-family:Inter,sans-serif;padding:2rem;color:#475569">Logowanie… to okno zamknie się automatycznie.</p>';
-    } else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
+    } else {
+      // Wykrycie serwera (maks. 4 s) przed startem – żeby od razu pokazać właściwe konto
+      const boot = () => { srvCaptureUrl(); srvDetect().then(() => setTimeout(() => { init(); srvAfterInit(); })); };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+      else boot();
+    }
   })();
   </script>
 </body>
