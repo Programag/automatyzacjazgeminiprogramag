@@ -72,7 +72,7 @@ function health(): array {
     $out = ['ok' => true, 'app' => 'paperly', 'version' => PAPERLY_VERSION, 'features' => $f, 'googleClientId' => (string) cfg('GOOGLE_CLIENT_ID', ''), 'uploadMax' => upload_max_bytes()];
     if ($f['db']) remember_public_url();
     if ($f['db'] && ($s = current_session())) $out['me'] = me_payload($s);
-    if (db_configured() && !$f['db']) $out['dbError'] = 'Nie udało się połączyć z bazą danych – sprawdź sekrety DB_HOST, DB_NAME, DB_USER i DB_PASS.';
+    if (db_configured() && !$f['db']) $out['dbError'] = 'Nie udało się połączyć z bazą danych – ' . ($GLOBALS['paperly_db_hint'] ?? 'sprawdź sekrety DB_HOST, DB_NAME, DB_USER i DB_PASS.');
     return $out;
 }
 

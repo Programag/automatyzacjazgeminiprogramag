@@ -152,12 +152,23 @@ function db(): PDO {
         ]);
     } catch (PDOException $e) {
         error_log('PaperlyAI DB: ' . $e->getMessage());
-        fail(503, 'db_error', 'Nie udało się połączyć z bazą danych – sprawdź dane bazy w sekretach (DB_HOST, DB_NAME, DB_USER, DB_PASS).');
+        $GLOBALS['paperly_db_hint'] = db_error_hint($e);
+        fail(503, 'db_error', 'Nie udało się połączyć z bazą danych – ' . $GLOBALS['paperly_db_hint']);
     }
     if (is_sqlite()) { $pdo->exec('PRAGMA foreign_keys = OFF'); $pdo->exec('PRAGMA busy_timeout = 5000'); }
     else $pdo->exec("SET time_zone = '+00:00'");
     migrate($pdo);
     return $pdo;
+}
+/** Przyczyna błędu połączenia bez ujawniania haseł (kod MySQL → podpowiedź, który sekret poprawić). */
+function db_error_hint(PDOException $e): string {
+    $m = $e->getMessage();
+    $code = preg_match('/\[(\d{4})\]/', $m, $x) ? (int) $x[1] : (int) $e->getCode();
+    if ($code === 1045 || stripos($m, 'Access denied') !== false) return 'serwer bazy odrzucił login lub hasło (kod 1045) – sprawdź DB_USER i DB_PASS.';
+    if ($code === 1049 || stripos($m, 'Unknown database') !== false) return 'baza o tej nazwie nie istnieje (kod 1049) – sprawdź DB_NAME.';
+    if ($code === 1044) return 'użytkownik nie ma dostępu do tej bazy (kod 1044) – sprawdź DB_NAME i DB_USER.';
+    if (in_array($code, [2002, 2003, 2005, 2006], true) || stripos($m, 'getaddrinfo') !== false || stripos($m, 'No such file') !== false || stripos($m, 'refused') !== false) return 'nie można połączyć się z serwerem bazy (kod ' . $code . ') – sprawdź DB_HOST (adres serwera bazy z panelu hostingu).';
+    return 'błąd bazy (kod ' . $code . ') – sprawdź sekrety DB_HOST, DB_NAME, DB_USER i DB_PASS.';
 }
 function is_sqlite(): bool { return str_starts_with((string) cfg('DB_DSN', ''), 'sqlite:'); }
 function db_configured(): bool { return (bool) (cfg('DB_DSN') || (cfg('DB_NAME') && cfg('DB_USER'))); }
