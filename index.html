@@ -10,6 +10,8 @@
   <script>
     // Motyw ustawiany przed wczytaniem stylów, żeby strona nie mrugała
     try { const t = localStorage.getItem('officeflow_theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    // Strona otwarta przez http:// przechodzi na https:// (logowanie Google, mikrofon i schowek wymagają HTTPS)
+    if (location.protocol === 'http:' && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) location.replace('https://' + location.host + location.pathname + location.search + location.hash);
   </script>
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
   <script>
@@ -2037,6 +2039,16 @@
               <button type="button" data-clear="work" class="btn-default rounded-lg px-3 py-1.5 text-sm font-medium">Usuń historię wyników i wersje robocze</button>
               <button type="button" data-clear="all" class="rounded-lg border border-red-300 bg-canvas px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50">Usuń wszystkie dane Paperly</button>
             </div>
+            <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <h4 class="text-sm font-semibold text-slate-900">Przenieś dane na inny adres lub komputer</h4>
+              <p class="mt-1 text-sm text-slate-500">Dane są zapisane osobno dla każdego adresu strony. Na starym adresie pobierz plik, a na nowym go wczytaj – przeniesiesz klucz Gemini, konto, ustawienia skrzynek, bazę wiedzy, rejestr umów, papier firmowy, bibliotekę odpowiedzi i historię wyników. Logowania do poczty trzeba połączyć ponownie.</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <button type="button" data-transfer="export" class="btn-default inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium"><svg data-icon="download" class="h-4 w-4"></svg>Pobierz wszystkie dane</button>
+                <button type="button" data-transfer="import" class="btn-default inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium"><svg data-icon="upload" class="h-4 w-4"></svg>Wczytaj dane z pliku</button>
+                <input type="file" id="transferInput" accept=".json,application/json" class="hidden" />
+              </div>
+              <p class="mt-2 text-xs text-amber-800">Plik zawiera Twój klucz Gemini – nie wysyłaj go nikomu i usuń go po wczytaniu.</p>
+            </div>
           </section>
         </div>
       </main>
@@ -2189,6 +2201,7 @@
           <button type="submit" class="btn-default shrink-0 px-4 py-2 text-sm font-medium">Kontynuuj bez Google</button>
         </form>
         <p class="ob-note">Wersja testowa: konto zapisuje się tylko w tej przeglądarce i nie jest wysyłane na żaden serwer.</p>
+        <p class="mt-3 text-sm text-slate-600">Przenosisz się z innego adresu? <button type="button" data-ob="import" class="font-medium text-indigo-600 hover:underline">Wczytaj plik z danymi</button></p>
       </div>
       <div id="obStep2" class="hidden">
         <div id="obHello" class="ob-hello"></div>
@@ -6124,6 +6137,40 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       Object.keys(TOOLS).forEach(id => { const f = document.getElementById(`form-${id}`); if (f) { f.reset(); $$('[data-file-field]', f).forEach(el => { formFiles[el.dataset.fileField] = []; renderFileField(el); }); } });
       toast('Usunięto historię wyników i wersje robocze', 'success');
     }
+    /* ---------- przenoszenie wszystkich danych (plik JSON) ---------- */
+    const TRANSFER_FORMAT = 'paperly-transfer';
+    const TRANSFER_SKIP = new Set(['officeflow_contracts_notified']);
+    async function exportAllData() {
+      const ls = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('officeflow_') && !TRANSFER_SKIP.has(k)) ls[k] = localStorage.getItem(k);
+      }
+      const strip = ({ uri, uriName, uriExpires, uriKey, ...x }) => x;
+      let kb = [], cts = [];
+      try { kb = ((await kbTx('readonly', st => st.getAll())) || []).map(strip); } catch (e) { kb = []; }
+      try { cts = (await ctTx('readonly', st => st.getAll())) || []; } catch (e) { cts = []; }
+      const payload = { format: TRANSFER_FORMAT, version: 1, exportedAt: new Date().toISOString(), from: location.origin, localStorage: ls, kb, contracts: cts };
+      downloadBlob(new Blob([JSON.stringify(payload)], { type: 'application/json' }), `paperlyai-dane-${dayKey()}.json`);
+      toast(`Pobrano plik z danymi (${Object.keys(ls).length} ustawień, ${kb.length} dok. w bazie wiedzy, ${cts.length} umów) – wczytaj go na nowym adresie`, 'success', 7000);
+    }
+    async function importAllData(file) {
+      let d;
+      try { d = JSON.parse(await file.text()); } catch (e) { d = null; }
+      if (!d || d.format !== TRANSFER_FORMAT || typeof d.localStorage !== 'object' || !d.localStorage) { toast('To nie jest plik z danymi Paperly (pobierz go przyciskiem „Pobierz wszystkie dane”).', 'error'); return; }
+      const keys = Object.keys(d.localStorage).filter(k => k.startsWith('officeflow_') && typeof d.localStorage[k] === 'string');
+      const kb = Array.isArray(d.kb) ? d.kb.filter(x => x && typeof x.id === 'string' && typeof x.data === 'string') : [];
+      const cts = Array.isArray(d.contracts) ? d.contracts.filter(x => x && typeof x.id === 'string') : [];
+      if (!confirm(`Wczytać dane z pliku${d.from ? ` (z ${d.from})` : ''}?\n\nUstawienia: ${keys.length}, baza wiedzy: ${kb.length}, umowy: ${cts.length}.\nObecne dane w tej przeglądarce zostaną zastąpione. Po wczytaniu strona się odświeży.`)) return;
+      try {
+        keys.forEach(k => localStorage.setItem(k, d.localStorage[k]));
+        if (kb.length) { await kbTx('readwrite', st => st.clear()); for (const it of kb) await kbTx('readwrite', st => st.put(it)); }
+        if (cts.length) { await ctTx('readwrite', st => st.clear()); for (const c of cts) await ctTx('readwrite', st => st.put(c)); }
+      } catch (e) { toast(`Nie udało się wczytać wszystkich danych: ${e.message || e}`, 'error', 8000); return; }
+      toast('Wczytano dane – odświeżam stronę…', 'success');
+      setTimeout(() => location.reload(), 800);
+    }
+
     async function clearAllData() {
       if (!confirm('Usunąć WSZYSTKIE dane Paperly z tej przeglądarki?\n\nZostaną usunięte: klucz AI, konfiguracja skrzynek, logowania do poczty, ustawienia, biblioteka fragmentów, baza wiedzy, rejestr umów, papier firmowy, historia, przypomnienia i statystyki. Tej operacji nie można cofnąć.')) return;
       try { localStorage.clear(); } catch (e) { /* brak dostępu */ }
@@ -11488,7 +11535,10 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         if (b) openMailSetup(b.dataset.adminSetup);
         const c = e.target.closest('[data-clear]');
         if (c) c.dataset.clear === 'all' ? clearAllData() : clearWorkData();
+        const t = e.target.closest('[data-transfer]');
+        if (t) { if (t.dataset.transfer === 'export') exportAllData(); else $('#transferInput').click(); }
       });
+      $('#transferInput').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) importAllData(f); });
       $('#previewEmployeeBtn').addEventListener('click', () => {
         setRole('employee');
         showInbox();
@@ -12237,6 +12287,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         const t = e.target.closest('[data-ob-type]');
         if (t && ob.draft) { ob.draft.type = t.dataset.obType; renderAccountSetup(); if (t.dataset.obType === 'company') setTimeout(() => $('#obCompanyName').focus(), 50); return; }
         if (e.target.closest('[data-ob="google"]')) { googleSignIn(); return; }
+        if (e.target.closest('[data-ob="import"]')) { $('#transferInput').click(); return; }
         if (e.target.closest('[data-ob="back"]')) { ob.step = 1; renderAccountSetup(); renderGoogleButton(); return; }
         if (e.target.closest('[data-ob="cid"]')) {
           const v = ($('#obClientId').value || '').trim();

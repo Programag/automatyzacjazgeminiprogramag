@@ -168,6 +168,8 @@ Jednorazowo ustaw w repozytorium (**Settings → Secrets and variables → Actio
 | `FTP_DIR` | opcjonalnie: folder strony, np. `/public_html/` (domyślnie `/`) |
 | `FTP_PROTOCOL` | opcjonalnie: `ftps` (domyślnie), `ftp` albo `ftps-legacy` |
 
+**Przeniesienie danych na nowy adres:** na starym adresie wejdź w Panel technika → Dane w tej przeglądarce → **Pobierz wszystkie dane**, a na nowym wczytaj plik (link „Wczytaj plik z danymi” na ekranie zakładania konta albo przycisk w tej samej sekcji). Przenosi klucz Gemini, konto, ustawienia, bazę wiedzy, rejestr umów, papier firmowy i historię; skrzynki pocztowe łączy się ponownie. Strona otwarta przez `http://` sama przechodzi na `https://`.
+
 Po zmianie domeny dodaj nowy adres w Google Cloud w *Authorized JavaScript origins* i *Authorized redirect URIs* (`https://twoja-domena/`). Dane (konto, klucz Gemini, historia) są zapisane osobno dla każdego adresu strony.
 
 ## Technologie
