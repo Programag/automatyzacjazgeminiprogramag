@@ -30,6 +30,9 @@ try {
     $s = current_session();
     if (!$s) gem_fail(401, 'PAPERLY_AUTH', 'Sesja wygasła – zaloguj się ponownie przez Google.');
     if (!$s['ws']) gem_fail(409, 'PAPERLY_NO_WORKSPACE', 'Najpierw załóż konto firmy lub dołącz do zespołu.');
+    // Zalewanie zapytaniami (np. przejęta sesja lub skrypt): najwyżej 40 zapytań AI na minutę na osobę
+    try { if (!isset($_GET['u'])) rate_limit('ai', 'u' . (int) $s['user']['id'], 40, 60, 'Za dużo zapytań do AI w ciągu minuty – odczekaj chwilę.'); }
+    catch (ApiError $e) { gem_fail(429, 'PAPERLY_RATE', $e->getMessage()); }
     [$key, $keySource] = resolve_gemini_key($s);
     if ($key === '') gem_fail(412, 'PAPERLY_NO_KEY', 'Dodaj swój klucz Gemini – zajmie to minutę, a za korzystanie z AI płacisz bezpośrednio Google (albo korzystasz z darmowego planu).');
     $uid = (int) $s['user']['id']; $wsId = (int) $s['ws']['id'];

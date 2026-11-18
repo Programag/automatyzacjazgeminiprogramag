@@ -13,7 +13,7 @@ if (PHP_VERSION_ID < 80000) {
 }
 
 const PAPERLY_VERSION = '2026.11.17';
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 mb_internal_encoding('UTF-8');
 date_default_timezone_set('Europe/Warsaw');
@@ -216,6 +216,7 @@ function migrate(PDO $pdo): void {
         "CREATE TABLE IF NOT EXISTS google_tokens (user_id BIGINT NOT NULL PRIMARY KEY, email VARCHAR(190) NOT NULL DEFAULT '', scope TEXT, refresh_enc TEXT, created_at BIGINT NOT NULL DEFAULT 0, updated_at BIGINT NOT NULL DEFAULT 0, last_error VARCHAR(255) NOT NULL DEFAULT '')$TAIL",
         "CREATE TABLE IF NOT EXISTS uploads (id CHAR(32) NOT NULL PRIMARY KEY, user_id BIGINT NOT NULL, url TEXT, created_at BIGINT NOT NULL DEFAULT 0)$TAIL",
         "CREATE TABLE IF NOT EXISTS notices (k VARCHAR(190) NOT NULL PRIMARY KEY, created_at BIGINT NOT NULL DEFAULT 0)$TAIL",
+        "CREATE TABLE IF NOT EXISTS rate_limits (k CHAR(64) NOT NULL, win BIGINT NOT NULL, n INT NOT NULL DEFAULT 0, PRIMARY KEY (k, win))$TAIL",
         "CREATE TABLE IF NOT EXISTS user_secrets (user_id BIGINT NOT NULL PRIMARY KEY, gemini_enc TEXT, updated_at BIGINT NOT NULL DEFAULT 0)$TAIL",
     ];
     foreach ($tables as $sql) $pdo->exec($sql);
@@ -419,6 +420,36 @@ function check_gemini_key(string $key): string {
     if (in_array($r['status'], [400, 401, 403], true)) return 'Google odrzucił ten klucz – sprawdź, czy skopiowałeś go w całości.';
     if ($r['status'] === 429) return '';   // klucz poprawny, tylko chwilowo bez limitu
     return 'Google odpowiedział błędem (HTTP ' . $r['status'] . ') – spróbuj ponownie.';
+}
+
+/* ------------------------------------------------------------------ ochrona przed nadużyciami */
+/** Adres IP klienta (za serwerem pośredniczącym hostingu – pierwszy publiczny adres z X-Forwarded-For). */
+function client_ip(): string {
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    $private = !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+    if ($private && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        foreach (explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']) as $c) {
+            $c = trim($c);
+            if (filter_var($c, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return $c;
+        }
+    }
+    return $ip;
+}
+/**
+ * Limit prób: najwyżej $max zdarzeń w oknie $window sekund dla danej osoby/adresu.
+ * Chroni logowanie, zaproszenia, sprawdzanie kluczy i zapytania AI przed zgadywaniem i zalewaniem.
+ */
+function rate_limit(string $bucket, string $who, int $max, int $window, string $message = ''): void {
+    if (!db_configured()) return;
+    $k = hash('sha256', $bucket . '|' . $who);
+    $win = intdiv(time(), $window) * $window;
+    upsert_add('rate_limits', ['k' => $k, 'win' => $win], ['n' => 1]);
+    $n = (int) (q1('SELECT n FROM rate_limits WHERE k = ? AND win = ?', [$k, $win])['n'] ?? 0);
+    if ($n > $max) {
+        $wait = max(1, (int) ceil(($win + $window - time()) / 60));
+        header('Retry-After: ' . ($win + $window - time()));
+        fail(429, 'rate_limited', $message ?: "Za dużo prób w krótkim czasie – spróbuj ponownie za {$wait} min.");
+    }
 }
 
 function member_limit(array $s): int {

@@ -7,6 +7,11 @@
   RewriteRule ^polityka-prywatnosci/?$ prywatnosc.html [L]
   RewriteRule ^regulamin/?$ regulamin.html [L]
   RewriteRule ^o-aplikacji/?$ o-aplikacji.html [L]
+  # Pliki ukryte (np. .git, .env, stan wgrywania) są niedostępne – oprócz /.well-known/
+  RewriteRule (^|/)\.(?!well-known/) - [F,L]
+  # Typowe skanowane ścieżki (kopie zapasowe, panele innych systemów) – od razu 404
+  RewriteRule \.(bak|old|orig|swp|sql|zip|tar|gz|7z|log|ini|env|sh)$ - [R=404,L,NC]
+  RewriteRule ^(wp-admin|wp-login\.php|xmlrpc\.php|phpmyadmin|administrator)(/|$) - [R=404,L,NC]
 </IfModule>
 
 # Pliki pomocnicze wdrożenia nie są dostępne z przeglądarki
@@ -17,6 +22,20 @@
 </FilesMatch>
 
 <IfModule mod_headers.c>
+  # Ochrona przed podszywaniem typów plików i wyciekiem adresów
   Header always set X-Content-Type-Options "nosniff"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  # Tylko HTTPS przez rok (przeglądarka nie połączy się już przez http://)
+  Header always set Strict-Transport-Security "max-age=31536000"
+  # Strony nie da się osadzić w cudzej ramce (ochrona przed „clickjackingiem”)
+  Header always set X-Frame-Options "DENY"
+  # Wyłączone uprawnienia, których aplikacja nie używa; mikrofon tylko dla dyktowania na tej stronie
+  Header always set Permissions-Policy "camera=(), geolocation=(), payment=(), usb=(), bluetooth=(), serial=(), magnetometer=(), gyroscope=(), accelerometer=(), microphone=(self), clipboard-write=(self), fullscreen=(self)"
+  Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"
+  Header always unset X-Powered-By
+  Header unset X-Powered-By
+  # Polityka treści (CSP): skrypty tylko z tej strony i z logowania Google, połączenia tylko z usługami, z których korzysta aplikacja
+  <FilesMatch "\.html$">
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data: blob: https:; font-src 'self' data:; media-src 'self' blob: data:; connect-src 'self' https://generativelanguage.googleapis.com https://gmail.googleapis.com https://www.googleapis.com https://oauth2.googleapis.com https://accounts.google.com https://graph.microsoft.com https://login.microsoftonline.com https://login.live.com https://api.nbp.pl https://wl-api.mf.gov.pl; frame-src https://accounts.google.com https://login.microsoftonline.com https://login.live.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; frame-ancestors 'none'; upgrade-insecure-requests"
+  </FilesMatch>
 </IfModule>

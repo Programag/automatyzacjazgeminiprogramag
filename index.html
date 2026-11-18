@@ -15,7 +15,7 @@
     // Strona otwarta przez http:// przechodzi na https:// (logowanie Google, mikrofon i schowek wymagają HTTPS)
     if (location.protocol === 'http:' && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) location.replace('https://' + location.host + location.pathname + location.search + location.hash);
   </script>
-  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script src="vendor/tailwind-3.4.16.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -47,8 +47,8 @@
       }
     };
   </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+  <script src="vendor/marked-12.0.2.min.js"></script>
+  <script src="vendor/purify-3.1.6.min.js"></script>
 
   <style>
     /* ===== Paleta (styl Primer): jasna domyślnie, ciemna z systemu lub z przełącznika ===== */
@@ -4150,7 +4150,7 @@ ZASADY
     }
     function paperlyError(status, err) {
       const s = String((err && err.status) || '');
-      const titles = { PAPERLY_LIMIT: 'Wykorzystano dzienny limit AI', PAPERLY_AUTH: 'Zaloguj się ponownie', PAPERLY_NO_KEY: 'Dodaj swój klucz AI', PAPERLY_TOO_LARGE: 'Za duże pliki dla serwera', PAPERLY_NO_WORKSPACE: 'Brak konta firmy' };
+      const titles = { PAPERLY_LIMIT: 'Wykorzystano dzienny limit AI', PAPERLY_AUTH: 'Zaloguj się ponownie', PAPERLY_NO_KEY: 'Dodaj swój klucz AI', PAPERLY_TOO_LARGE: 'Za duże pliki dla serwera', PAPERLY_NO_WORKSPACE: 'Brak konta firmy', PAPERLY_RATE: 'Zbyt wiele zapytań naraz' };
       const hints = s === 'PAPERLY_LIMIT'
         ? (simpleMode() ? ['Dzienny limit odnowi się o północy.'] : ['Limit dotyczy liczby zapytań do AI każdej osoby w ciągu dnia – technik ustawia go w Panelu technika → Konto firmy na serwerze.', 'Możesz też wpisać własny klucz Gemini w ustawieniach AI i zaznaczyć „Używaj mojego klucza”.'])
         : s === 'PAPERLY_AUTH' ? ['Kliknij swoje konto w menu i wybierz „Zaloguj się przez Google”.']
@@ -10229,7 +10229,7 @@ ZASADY
        SKRZYNKA AI – GMAIL + OUTLOOK (Microsoft Graph)
        ===================================================================== */
     const GIS_URL = 'https://accounts.google.com/gsi/client';
-    const MSAL_URL = 'https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js';
+    const MSAL_URL = 'vendor/msal-browser-3.28.1.min.js';   // biblioteka na naszym serwerze (bez zależności od zewnętrznego CDN)
     const GMAIL_API = 'https://gmail.googleapis.com/gmail/v1/users/me';
     const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.modify';
     const GRAPH_API = 'https://graph.microsoft.com/v1.0';

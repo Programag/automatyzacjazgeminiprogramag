@@ -26,6 +26,7 @@ try {
     /* ---- start: przejście na stronę zgody Google ---- */
     if (isset($_GET['start'])) {
         if (!$s) back_to_app('error', 'Najpierw zaloguj się w PaperlyAI przez Google.');
+        try { rate_limit('oauth', 'u' . $s['user']['id'], 20, 600); } catch (ApiError $e) { back_to_app('error', $e->getMessage()); }
         $want = array_filter(explode(',', (string) ($_GET['scopes'] ?? 'gmail,calendar')));
         $scopes = ['openid', 'email'];
         if (in_array('gmail', $want, true)) $scopes[] = SCOPE_GMAIL;
