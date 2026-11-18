@@ -4204,7 +4204,7 @@ ZASADY
         if (srv.me && srv.me.ai) srv.me.ai.source = '';
         setTimeout(() => openKeyWizard(), 300);
       }
-      return Object.assign(new GeminiError({ title: titles[s] || 'Serwer PaperlyAI', message: (err && err.message) || `Błąd serwera (HTTP ${status}).`, hints, retryable: false }), { paperly: true, notSent: true, httpStatus: status });
+      return Object.assign(new GeminiError({ title: titles[s] || 'Serwer PaperlyAI', message: (err && err.message) || `Błąd serwera (HTTP ${status}).`, hints, retryable: false }), { paperly: true, paperlyStatus: s, notSent: true, httpStatus: status });
     }
 
     /* ---------- kreator: własny klucz Gemini (konto prywatne płaci za siebie) ---------- */
@@ -11560,13 +11560,18 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     }
     /* ---------- lista maili zapamiętana w przeglądarce (nie znika po odświeżeniu) ---------- */
     const INBOX_ITEMS_KEY = 'officeflow_inbox_items';
-    const INBOX_VOLATILE = new Set(['domId', 'state', 'analysis', 'draft', 'error', 'showOriginal', 'selected', 'pendingInstruction', 'meeting', 'sendTimer', 'sendAt', 'actionError', 'countdownTimer']);
+    const INBOX_VOLATILE = new Set(['domId', 'state', 'analysis', 'draft', 'error', 'showOriginal', 'selected', 'pendingInstruction', 'meeting', 'sendTimer', 'sendAt', 'actionError', 'countdownTimer', 'attempts', 'forceNow', 'undoTimer']);
     let inboxSaveTimer = 0;
     function saveInboxItems() {
       clearTimeout(inboxSaveTimer);
       inboxSaveTimer = setTimeout(() => {
-        const list = Array.from(inbox.items.values()).filter(it => it.kind !== 'followup' && !['sent', 'drafted'].includes(it.state)).slice(0, 40)
-          .map(it => { const o = {}; Object.keys(it).forEach(k => { if (!INBOX_VOLATILE.has(k) && typeof it[k] !== 'function') o[k] = k === 'body' ? String(it[k] || '').slice(0, 20000) : it[k]; }); return o; });
+        const all = Array.from(inbox.items.values()).filter(it => it.kind !== 'followup');
+        const pack = (it) => { const o = {}; Object.keys(it).forEach(k => { if (!INBOX_VOLATILE.has(k) && typeof it[k] !== 'function') o[k] = k === 'body' ? String(it[k] || '').slice(0, 20000) : it[k]; }); return o; };
+        // obsłużone (wysłane / szkice) zostają w osobnej sekcji także po odświeżeniu – do 14 dni, maks. 30
+        const doneList = all.filter(it => ['sent', 'drafted'].includes(it.state) && it.doneAt && Date.now() - new Date(it.doneAt) < 14 * 864e5)
+          .sort((a, b) => new Date(b.doneAt) - new Date(a.doneAt)).slice(0, 30)
+          .map(it => Object.assign(pack(it), { savedState: it.state, body: String(it.body || '').slice(0, 4000) }));
+        const list = all.filter(it => !['sent', 'drafted'].includes(it.state)).slice(0, 40).map(pack).concat(doneList);
         try { localStorage.setItem(INBOX_ITEMS_KEY, JSON.stringify(list)); } catch (e) { /* za mało miejsca – lista wróci po sprawdzeniu poczty */ }
       }, 300);
     }
@@ -11575,16 +11580,26 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       try { list = JSON.parse(localStorage.getItem(INBOX_ITEMS_KEY) || '[]'); } catch (e) { list = []; }
       const done = getDone();
       (Array.isArray(list) ? list : []).forEach(m => {
-        if (!m || !m.key || done[m.key] || inbox.items.has(m.key)) return;
+        if (!m || !m.key || inbox.items.has(m.key)) return;
+        const doneState = m.savedState;
+        delete m.savedState;
+        if (done[m.key] && !doneState) return;
         if (m.date) m.date = new Date(m.date);
         addInboxItem(m);
+        if (doneState === 'sent' || doneState === 'drafted') {
+          const it = inbox.items.get(m.key);
+          it.state = doneState; it.doneAt = m.doneAt ? new Date(m.doneAt) : new Date();
+        }
       });
     }
     function selectedNewItems() { return Array.from(inbox.items.values()).filter(it => it.state === 'new' && it.selected); }
     function analyzeSelected(items) {
       if (!items.length) { toast('Zaznacz maile, dla których przygotować odpowiedź.', 'info'); return; }
       if (!getApiKey()) { openSettings('Przygotowanie odpowiedzi wymaga klucza Gemini.'); return; }
-      items.forEach(it => { it.state = 'queued'; it.selected = false; it.error = null; inbox.queue.push(it.key); });
+      items.forEach(it => { it.state = 'queued'; it.selected = false; it.error = null; it.attempts = 0; inbox.queue.push(it.key); });
+      // Kliknięcie użytkownika = próba od razu (bez czekania na wcześniejsze wstrzymanie kolejki)
+      if (inbox.pauseError && !inbox.pauseError.dailyQuota) { inbox.pausedUntil = 0; inbox.pauseError = null; clearTimeout(inbox.pauseTimer); }
+      items[0].forceNow = true;
       renderInboxList();
       renderInboxToolbar();
       processInboxQueue();
@@ -11618,12 +11633,15 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       throw new Error('invalid json');
     }
 
-    async function analyzeMail(item, instruction) {
+    const INBOX_ITEM_TIMEOUT_MS = 6 * 60000;   // bezpiecznik: jeden mail nigdy nie „wisi” dłużej
+    const INBOX_MAX_ATTEMPTS = 3;              // po 3 nieudanych próbach – błąd z przyciskiem zamiast cichego czekania
+    const INBOX_MAX_PAUSE_MS = 5 * 60000;      // kolejka czeka najwyżej 5 minut (potem kolejna próba)
+    async function analyzeMail(item, instruction, force) {
       const prefs = getInboxPrefs();
       const isFollowUp = item.kind === 'followup';
       let att = { parts: [], meta: [] };
       if (!isFollowUp) {
-        try { att = await loadMailAttachments(item); } catch (e) { att = { parts: [], meta: [{ name: 'załączniki', used: false, reason: 'nie udało się pobrać listy' }] }; }
+        try { att = await withTimeout(loadMailAttachments(item), 90000, () => new Error('timeout')); } catch (e) { att = { parts: [], meta: [{ name: 'załączniki', used: false, reason: 'nie udało się pobrać listy' }] }; }
       }
       item.attachmentsMeta = att.meta;
       let kbAtt = [];
@@ -11676,7 +11694,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         userText: lines.join('\n'),
         temperature: 0.5,
         responseSchema: INBOX_SCHEMA,
-        attachments: [...kbAtt, ...att.parts]
+        attachments: [...kbAtt, ...att.parts],
+        force
       });
       let a;
       try { a = parseJsonLoose(out.text); } catch (e) {
@@ -11702,7 +11721,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       try {
         while (inbox.queue.length) {
           if (inbox.pausedUntil > Date.now()) {
-            setTimeout(processInboxQueue, inbox.pausedUntil - Date.now() + 200);
+            clearTimeout(inbox.pauseTimer);
+            inbox.pauseTimer = setTimeout(processInboxQueue, inbox.pausedUntil - Date.now() + 200);
             break;
           }
           const key = inbox.queue.shift();
@@ -11713,19 +11733,39 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
           item.state = 'analyzing';
           renderInboxCard(item);
           renderInboxToolbar();
+          const force = !!item.forceNow;
+          item.forceNow = false;
           try {
-            const a = await analyzeMail(item, instruction);
+            const a = await withTimeout(analyzeMail(item, instruction, force), INBOX_ITEM_TIMEOUT_MS, () => new GeminiError({ title: 'Przekroczono czas oczekiwania', message: 'Przygotowanie odpowiedzi trwało ponad 6 minut i zostało przerwane.', hints: ['Kliknij „Spróbuj ponownie”. Jeśli sytuacja się powtarza, wybierz szybszy model albo pomiń duże załączniki.'] }));
+            item.attempts = 0;
             applyAnalysis(item, a);
             if (item.kind !== 'followup') cacheAnalysis(key, a);
             await applyMailLabel(item);
             if (item.state === 'ready') inbox.pendingNotify.push(item);
           } catch (e) {
-            if (e instanceof GeminiError && (e.httpStatus === 429 || e.notSent || e.transient)) {
-              // Limit Gemini: wiadomość wraca do kolejki, a kolejka czeka do odnowienia limitu
+            const srvCode = e && e.paperly ? String(e.paperlyStatus || '') : '';
+            if (srvCode && srvCode !== 'PAPERLY_RATE') {
+              // Błąd serwera PaperlyAI (limit dzienny, brak klucza, sesja, za duże pliki) – ponawianie nic nie da: pokazujemy powód
+              item.state = 'error'; item.error = e; item.attempts = 0;
+              if (srvCode !== 'PAPERLY_TOO_LARGE') {
+                // pozostałe maile w kolejce skończyłyby się tak samo
+                for (const k of inbox.queue.splice(0)) { const it = inbox.items.get(k); if (it && it.state === 'queued') { it.state = 'error'; it.error = e; renderInboxCard(it); } }
+              }
+              renderInboxCard(item); renderInboxToolbar(); updateInboxBadge();
+              toast(`${e.title}: ${e.message}`, 'error', 9000);
+              continue;
+            }
+            item.attempts = (item.attempts || 0) + 1;
+            if (e instanceof GeminiError && (e.httpStatus === 429 || e.notSent || e.transient) && (item.attempts < INBOX_MAX_ATTEMPTS || e.dailyQuota)) {
+              // Limit lub przeciążenie Gemini: wiadomość wraca do kolejki, a kolejka czeka (widać to na karcie, z przyciskiem „Spróbuj teraz”)
               item.state = 'queued';
               item.pendingInstruction = instruction;
               inbox.queue.unshift(key);
-              inbox.pausedUntil = e.retryAfter ? Date.now() + Math.min(e.retryAfter, 86400) * 1000 : Math.max(Date.now() + 60000, earliestUnblock(modelChain(getModel())));
+              inbox.pausedUntil = srvCode === 'PAPERLY_RATE' ? Date.now() + 30000
+                : e.retryAfter ? Date.now() + Math.min(e.retryAfter, 86400) * 1000
+                : Math.min(Math.max(Date.now() + 60000, earliestUnblock(modelChain(getModel()))), Date.now() + INBOX_MAX_PAUSE_MS);
+              clearTimeout(inbox.pauseTimer);
+              inbox.pauseTimer = setTimeout(processInboxQueue, inbox.pausedUntil - Date.now() + 200);
               inbox.pauseError = e;
               renderInboxCard(item);
               renderInboxToolbar();
@@ -11749,8 +11789,25 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       }
     }
 
+    // „Spróbuj teraz” – ponowienie od razu, także na modelu chwilowo oznaczonym jako przeciążony
+    function inboxRetryNow() {
+      inbox.pausedUntil = 0;
+      inbox.pauseError = null;
+      clearTimeout(inbox.pauseTimer);
+      const first = inbox.items.get(inbox.queue[0]);
+      if (first) first.forceNow = true;
+      renderInboxToolbar();
+      processInboxQueue();
+    }
+    function withTimeout(promise, ms, makeErr) {
+      let t;
+      return Promise.race([promise, new Promise((_, rej) => { t = setTimeout(() => rej(makeErr()), ms); })]).finally(() => clearTimeout(t));
+    }
+
     function regenerate(item, instruction) {
       item.state = 'queued';
+      item.attempts = 0;
+      item.forceNow = true;
       item.pendingInstruction = instruction || '';
       item.error = null;
       inbox.queue.unshift(item.key);
@@ -11793,6 +11850,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         else await outlookReply(item, text, asDraft);
         item.state = asDraft ? 'drafted' : 'sent';
         item.doneAt = new Date();
+        item.doneText = text;
+        saveInboxItems();
         if (item.kind !== 'followup') markDone(item.key, item.state);
         if (!asDraft) recordFollowUp(item, text);
         toast(asDraft ? 'Zapisano szkic odpowiedzi' : `Wysłano odpowiedź do ${item.replyToEmail}`, 'success');
@@ -11810,11 +11869,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     function removeInboxItem(item) {
       inbox.items.delete(item.key);
       inbox.queue = inbox.queue.filter(k => k !== item.key);
-      const el = document.getElementById(item.domId);
-      if (el) el.remove();
+      renderInboxList();
       renderInboxToolbar();
-      updateInboxBadge();
-      if (!inbox.items.size) renderInboxList();
     }
 
     function skipItem(item) {
@@ -11827,11 +11883,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       markDone(item.key, 'skipped');
       inbox.items.delete(item.key);
       inbox.queue = inbox.queue.filter(k => k !== item.key);
-      const el = document.getElementById(item.domId);
-      if (el) el.remove();
+      renderInboxList();
       renderInboxToolbar();
-      updateInboxBadge();
-      if (!inbox.items.size) renderInboxList();
     }
 
     /* ---------- render ---------- */
@@ -11888,7 +11941,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       if (paused) {
         const e = inbox.pauseError;
         pause.innerHTML = `<strong class="font-semibold">${escapeHtml(e.title)}.</strong> ${escapeHtml(e.message)}
-          Wiadomości w kolejce (${inbox.queue.length}) zostaną obsłużone automatycznie, gdy limit się odnowi${e.dailyQuota ? ' – pod warunkiem, że ta karta będzie otwarta' : ''}.
+          Wiadomości w kolejce (${inbox.queue.length}) zostaną obsłużone automatycznie ok. ${hhmm(new Date(inbox.pausedUntil))}${e.dailyQuota ? ' – pod warunkiem, że ta karta będzie otwarta' : ''}. <button type="button" data-inbox-retry-now class="ml-1 font-semibold underline underline-offset-2">Spróbuj teraz</button>
           ${e.dailyQuota ? (isTech() ? '<br><a class="font-medium underline underline-offset-2" href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer">Włącz płatny plan w Google AI Studio</a>, aby zwiększyć limit (jedna odpowiedź to zwykle 1–2 grosze).' : '<br>Daj znać technikowi – może zwiększyć limit.') : ''}`;
       }
     }
@@ -12070,7 +12123,9 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
           <div class="mt-4 flex items-center gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">
             ${st === 'analyzing'
               ? `<span class="h-4 w-4 shrink-0 rounded-full border-2 border-indigo-200 border-t-indigo-600" style="animation: spin .8s linear infinite"></span>${isFollow ? 'Gemini przygotowuje przypomnienie…' : 'Gemini analizuje wiadomość' + ((item.attachmentRefs || []).length || item.hasAttachments ? ' z załącznikami' : '') + ' i przygotowuje odpowiedź…'}`
-              : '<span class="h-2 w-2 shrink-0 rounded-full bg-slate-400 pulse-dot"></span>W kolejce do przygotowania odpowiedzi'}
+              : inbox.pausedUntil > Date.now() && inbox.pauseError
+                ? `<span class="h-2 w-2 shrink-0 rounded-full bg-amber-500"></span><span class="min-w-0 flex-1">Wstrzymane: ${escapeHtml(inbox.pauseError.title || 'limit Gemini')}. Ponowię automatycznie ok. ${hhmm(new Date(inbox.pausedUntil))}${item.attempts ? ` (próba ${item.attempts + 1} z ${INBOX_MAX_ATTEMPTS})` : ''}.</span><button type="button" data-inbox-retry-now class="btn-default shrink-0 rounded-lg px-3 py-1 text-xs font-medium">Spróbuj teraz</button>`
+                : '<span class="h-2 w-2 shrink-0 rounded-full bg-slate-400 pulse-dot"></span>W kolejce do przygotowania odpowiedzi'}
           </div>`;
       } else if (st === 'error') {
         const e = item.error || {};
@@ -12098,6 +12153,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
             <span class="flex-1">${st === 'sent' ? `Wysłano do ${escapeHtml(item.replyToEmail)}` : `Zapisano jako szkic w ${PROVIDER_NAMES[item.provider]}`} · ${escapeHtml(shortTime(item.doneAt))}${st === 'sent' && item.analysis && item.analysis.expectReply && (parseInt(getInboxPrefs().followUpDays, 10) || 0) ? ` · przypomnę, jeśli nie będzie odpowiedzi w ${getInboxPrefs().followUpDays} dni` : ''}</span>
             <button type="button" data-mail-action="hide" class="rounded-lg px-3 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100">Ukryj</button>
           </div>
+          ${item.doneText ? `<details class="mt-2 text-sm"><summary class="cursor-pointer text-xs font-medium text-slate-500 hover:text-slate-700">${st === 'sent' ? 'Wysłana odpowiedź' : 'Treść szkicu'}</summary><div class="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-canvas p-3 text-[13px] text-slate-700">${escapeHtml(item.doneText)}</div></details>` : ''}
           ${meetingBoxHtml(item, false)}`;
       } else {
         // ready / pending-send / sending / drafting
@@ -12151,6 +12207,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     function renderInboxCard(item) {
       const el = document.getElementById(item.domId);
       if (!el) { renderInboxList(); return; }
+      const sec = el.closest('[data-inbox-section]');
+      if (sec && sec.dataset.inboxSection !== inboxSectionOf(item)) { renderInboxList(); return; }
       const wrap = document.createElement('div');
       wrap.innerHTML = inboxCardHtml(item);
       const next = wrap.firstElementChild;
@@ -12215,13 +12273,34 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         updateInboxBadge();
         return;
       }
-      list.innerHTML = items.map(inboxCardHtml).join('');
+      if ((inbox.filter || 'all') === 'all') {
+        const groups = INBOX_SECTIONS.map(sec => ({ sec, list: items.filter(i => inboxSectionOf(i) === sec.id) })).filter(g => g.list.length);
+        list.innerHTML = groups.map(({ sec, list: its }) => {
+          const head = `<span class="text-sm font-semibold uppercase tracking-wide ${sec.tone}">${sec.label}</span><span class="rounded-full bg-slate-500/15 px-2 text-xs font-semibold text-slate-600">${its.length}</span>`;
+          const cards = `<div class="mt-3 space-y-4">${its.map(inboxCardHtml).join('')}</div>`;
+          return sec.fold
+            ? `<details data-inbox-section="${sec.id}" class="group rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-3" ${inbox.doneOpen ? 'open' : ''}><summary class="flex cursor-pointer list-none items-center gap-2">${head}<span class="ml-auto text-xs text-slate-500 group-open:hidden">Pokaż</span><span class="ml-auto hidden text-xs text-slate-500 group-open:inline">Ukryj</span></summary>${cards}</details>`
+            : `<section data-inbox-section="${sec.id}"><div class="flex items-center gap-2 border-b border-slate-200 pb-1.5">${head}</div>${cards}</section>`;
+        }).join('');
+      } else list.innerHTML = items.map(inboxCardHtml).join('');
       updateInboxBadge();
       saveInboxItems();
     }
+    const INBOX_SECTIONS = [
+      { id: 'ready', label: 'Gotowe odpowiedzi – do zatwierdzenia', tone: 'text-emerald-700', states: ['ready', 'pending-send', 'sending', 'drafting'] },
+      { id: 'error', label: 'Wymagają uwagi', tone: 'text-red-700', states: ['error'] },
+      { id: 'work', label: 'W trakcie przygotowania', tone: 'text-indigo-700', states: ['queued', 'analyzing'] },
+      { id: 'new', label: 'Nowe – wybierz, na które odpowiedzieć', tone: 'text-slate-700', states: ['new'] },
+      { id: 'followup', label: 'Bez reakcji rozmówcy – przypomnienia', tone: 'text-amber-700', states: ['followup'] },
+      { id: 'noreply', label: 'Nie wymagają odpowiedzi', tone: 'text-slate-500', states: ['noreply'] },
+      { id: 'done', label: 'Obsłużone – wysłane lub zapisane jako szkic', tone: 'text-slate-500', states: ['sent', 'drafted'], fold: true }
+    ];
+    function inboxSectionOf(item) { const sec = INBOX_SECTIONS.find(x => x.states.includes(item.state)); return sec ? sec.id : 'new'; }
 
     function bindInboxList() {
       const list = $('#inboxList');
+      document.addEventListener('click', (e) => { if (e.target.closest('[data-inbox-retry-now]')) inboxRetryNow(); });
+      list.addEventListener('toggle', (e) => { if (e.target.matches && e.target.matches('details[data-inbox-section="done"]')) inbox.doneOpen = e.target.open; }, true);
       list.addEventListener('input', (e) => {
         const art = e.target.closest('article');
         const item = art && inbox.items.get(art.dataset.key);
