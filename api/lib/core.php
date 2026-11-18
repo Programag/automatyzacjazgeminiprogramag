@@ -13,7 +13,7 @@ if (PHP_VERSION_ID < 80000) {
 }
 
 const PAPERLY_VERSION = '2026.11.17';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 mb_internal_encoding('UTF-8');
 date_default_timezone_set('Europe/Warsaw');
@@ -216,6 +216,7 @@ function migrate(PDO $pdo): void {
         "CREATE TABLE IF NOT EXISTS google_tokens (user_id BIGINT NOT NULL PRIMARY KEY, email VARCHAR(190) NOT NULL DEFAULT '', scope TEXT, refresh_enc TEXT, created_at BIGINT NOT NULL DEFAULT 0, updated_at BIGINT NOT NULL DEFAULT 0, last_error VARCHAR(255) NOT NULL DEFAULT '')$TAIL",
         "CREATE TABLE IF NOT EXISTS uploads (id CHAR(32) NOT NULL PRIMARY KEY, user_id BIGINT NOT NULL, url TEXT, created_at BIGINT NOT NULL DEFAULT 0)$TAIL",
         "CREATE TABLE IF NOT EXISTS notices (k VARCHAR(190) NOT NULL PRIMARY KEY, created_at BIGINT NOT NULL DEFAULT 0)$TAIL",
+        "CREATE TABLE IF NOT EXISTS user_secrets (user_id BIGINT NOT NULL PRIMARY KEY, gemini_enc TEXT, updated_at BIGINT NOT NULL DEFAULT 0)$TAIL",
     ];
     foreach ($tables as $sql) $pdo->exec($sql);
     if ($sqlite) $pdo->exec("INSERT OR REPLACE INTO meta (k, v) VALUES ('schema', '" . SCHEMA_VERSION . "')");
@@ -381,6 +382,45 @@ function ws_settings(array $ws): array { return json_decode((string) ($ws['setti
 function save_ws_settings(int $wsId, array $settings): void { q('UPDATE workspaces SET settings = ? WHERE id = ?', [json_encode($settings, JSON_UNESCAPED_UNICODE), $wsId]); }
 
 /** Dzienny limit zapytań AI dla członka zespołu (0 = bez limitu). */
+/**
+ * Klucz Gemini dla zapytania – każdy płaci za siebie:
+ *   konto prywatne: tylko własny klucz osoby,
+ *   konto firmowe: wspólny klucz firmy (jeśli właściciel go dodał), inaczej własny klucz osoby,
+ *   klucz operatora (sekret GEMINI_API_KEY) – wyłącznie dla firm administratora serwera.
+ * Zwraca [klucz, źródło] albo ['', ''] gdy brak.
+ */
+function user_gemini_key(int $userId): string {
+    $r = q1('SELECT gemini_enc FROM user_secrets WHERE user_id = ?', [$userId]);
+    return (string) decrypt_str($r['gemini_enc'] ?? null);
+}
+function resolve_gemini_key(array $s): array {
+    $ws = $s['ws'];
+    if (!$ws) return ['', ''];
+    if ($ws['type'] === 'company') {
+        $k = (string) decrypt_str(ws_settings($ws)['geminiKey'] ?? null);
+        if ($k !== '') return [$k, 'company'];
+    }
+    $own = user_gemini_key((int) $s['user']['id']);
+    if ($own !== '') return [$own, 'own'];
+    $op = (string) cfg('GEMINI_API_KEY', '');
+    if ($op !== '') {
+        $owner = q1('SELECT is_admin FROM users WHERE id = ?', [(int) $ws['owner_id']]);
+        if ($owner && (int) $owner['is_admin']) return [$op, 'operator'];
+    }
+    return ['', ''];
+}
+function mask_key(string $k): string { return strlen($k) > 10 ? substr($k, 0, 4) . '…' . substr($k, -4) : '••••'; }
+/** Sprawdza klucz Gemini w Google (lista modeli). Zwraca pusty tekst albo opis błędu. */
+function check_gemini_key(string $key): string {
+    if (!preg_match('/^[\w.\-]{20,200}$/', $key)) return 'To nie wygląda na klucz Gemini – klucze zaczynają się od „AIza” albo „AQ.”.';
+    $r = http_json('GET', svc_url('gemini') . '/v1beta/models?pageSize=1', ['x-goog-api-key: ' . $key], null, 20);
+    if ($r['status'] === 200) return '';
+    if ($r['status'] === 0) return 'Nie udało się połączyć z Google – spróbuj za chwilę.';
+    if (in_array($r['status'], [400, 401, 403], true)) return 'Google odrzucił ten klucz – sprawdź, czy skopiowałeś go w całości.';
+    if ($r['status'] === 429) return '';   // klucz poprawny, tylko chwilowo bez limitu
+    return 'Google odpowiedział błędem (HTTP ' . $r['status'] . ') – spróbuj ponownie.';
+}
+
 function member_limit(array $s): int {
     if (!empty($s['member']['daily_limit'])) return (int) $s['member']['daily_limit'];
     if (!empty($s['ws']['daily_limit'])) return (int) $s['ws']['daily_limit'];

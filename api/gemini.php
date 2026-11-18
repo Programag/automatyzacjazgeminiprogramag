@@ -27,11 +27,11 @@ try {
     if ($method !== 'GET') {
         try { require_same_origin(); } catch (ApiError $e) { gem_fail(403, 'PAPERLY_CSRF', $e->getMessage()); }
     }
-    $key = (string) cfg('GEMINI_API_KEY', '');
-    if ($key === '') gem_fail(503, 'PAPERLY_NO_KEY', 'Serwer nie ma klucza Gemini – technik musi dodać sekret GEMINI_API_KEY albo wpisać własny klucz w ustawieniach.');
     $s = current_session();
-    if (!$s) gem_fail(401, 'PAPERLY_AUTH', 'Sesja wygasła – zaloguj się ponownie przez Google, aby korzystać z AI firmy.');
+    if (!$s) gem_fail(401, 'PAPERLY_AUTH', 'Sesja wygasła – zaloguj się ponownie przez Google.');
     if (!$s['ws']) gem_fail(409, 'PAPERLY_NO_WORKSPACE', 'Najpierw załóż konto firmy lub dołącz do zespołu.');
+    [$key, $keySource] = resolve_gemini_key($s);
+    if ($key === '') gem_fail(412, 'PAPERLY_NO_KEY', 'Dodaj swój klucz Gemini – zajmie to minutę, a za korzystanie z AI płacisz bezpośrednio Google (albo korzystasz z darmowego planu).');
     $uid = (int) $s['user']['id']; $wsId = (int) $s['ws']['id'];
     $len = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
     if ($len > upload_max_bytes()) {
@@ -79,7 +79,8 @@ try {
     if (!$allowed) gem_fail(400, 'PAPERLY_PATH', 'Niedozwolone zapytanie do Gemini.');
 
     if ($isGenerate) {
-        $limit = member_limit($s);
+        // Dzienny limit dotyczy tylko wspólnego klucza (firmy lub operatora) – z własnym kluczem płacisz sam
+        $limit = in_array($keySource, ['company', 'operator'], true) ? member_limit($s) : 0;
         $used = usage_today($uid, $wsId)['requests'];
         if ($limit > 0 && $used >= $limit) {
             gem_fail(429, 'PAPERLY_LIMIT', "Wykorzystano dzienny limit AI w firmie ({$limit} zapytań na osobę). Limit odnowi się o północy – jeśli to pilne, poproś technika firmy o zwiększenie limitu. Nic nie zostało wysłane.");

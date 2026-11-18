@@ -44,6 +44,8 @@ run_json(function () {
         case 'test_mail': if (!$post) break; json_out(action_test_mail()); return;
         case 'server': json_out(action_server_status()); return;
         case 'server_settings': if (!$post) break; json_out(action_server_settings()); return;
+        case 'gemini_key': if (!$post) break; json_out(action_gemini_key()); return;
+        case 'company_gemini_key': if (!$post) break; json_out(action_company_gemini_key()); return;
         case 'gus': json_out(action_gus()); return;
         case 'ksef_settings': if (!$post) break; json_out(action_ksef_settings()); return;
         case 'ksef_test': if (!$post) break; json_out(action_ksef_test()); return;
@@ -59,7 +61,7 @@ function features(): array {
     if (db_configured()) { try { db(); $dbOk = true; } catch (Throwable $e) { $dbOk = false; } }
     return [
         'db' => $dbOk,
-        'gemini' => $dbOk && (bool) cfg('GEMINI_API_KEY'),
+        'gemini' => $dbOk,
         'googleLogin' => $dbOk && (bool) cfg('GOOGLE_CLIENT_ID'),
         'gmailOffline' => $dbOk && google_offline_ready(),
         'mail' => $dbOk && mail_configured(),
@@ -95,7 +97,10 @@ function me_payload(array $s): array {
             'dailyLimit' => (int) $ws['daily_limit'],
             'ksef' => ['configured' => !empty($set['ksefToken']), 'env' => $set['ksefEnv'] ?? 'prod', 'nip' => $set['ksefNip'] ?? $ws['nip']],
         ];
-        $out['usage'] = ['today' => usage_today((int) $u['id'], (int) $ws['id'])['requests'], 'limit' => member_limit($s)];
+        [$k, $src] = resolve_gemini_key($s);
+        $own = user_gemini_key((int) $u['id']);
+        $out['ai'] = ['source' => $src, 'own' => $own !== '', 'ownMask' => $own !== '' ? mask_key($own) : '', 'company' => !empty($set['geminiKey']), 'companyMask' => !empty($set['geminiKey']) ? mask_key((string) decrypt_str($set['geminiKey'])) : ''];
+        $out['usage'] = ['today' => usage_today((int) $u['id'], (int) $ws['id'])['requests'], 'limit' => in_array($src, ['company', 'operator'], true) ? member_limit($s) : 0];
     }
     return $out;
 }
@@ -384,7 +389,7 @@ function action_server_status(): array {
     $s = require_admin();
     $f = features();
     $missing = [];
-    if (!cfg('GEMINI_API_KEY')) $missing[] = ['feature' => 'Klucz AI na serwerze', 'secret' => 'GEMINI_API_KEY'];
+    if (!cfg('GEMINI_API_KEY')) $missing[] = ['feature' => 'Klucz AI dla Twoich firm (opcjonalnie – inni użytkownicy płacą własnym kluczem)', 'secret' => 'GEMINI_API_KEY'];
     if (!cfg('GOOGLE_CLIENT_SECRET')) $missing[] = ['feature' => 'Gmail bez ponownego logowania', 'secret' => 'GOOGLE_CLIENT_SECRET'];
     if (!cfg('SMTP_HOST')) $missing[] = ['feature' => 'E-maile z własnej domeny (SMTP)', 'secret' => 'SMTP_HOST, SMTP_USER, SMTP_PASS'];
     if (!cfg('GUS_KEY')) $missing[] = ['feature' => 'Dane z rejestru REGON (bez klucza: wykaz VAT Ministerstwa Finansów)', 'secret' => 'GUS_KEY'];
@@ -407,6 +412,34 @@ function action_server_settings(): array {
     if (array_key_exists('defaultLimit', $b)) $cur['defaultLimit'] = max(0, min(100000, (int) $b['defaultLimit']));
     meta_set('settings', json_encode($cur));
     return ['ok' => true, 'settings' => $cur];
+}
+
+/* ======================================================================== klucze Gemini */
+function action_gemini_key(): array {
+    $s = require_user();
+    $b = body_json();
+    $uid = (int) $s['user']['id'];
+    if (!empty($b['clear'])) { q('DELETE FROM user_secrets WHERE user_id = ?', [$uid]); return ['ok' => true, 'me' => me_payload(fresh_session($uid, (int) ($s['ws']['id'] ?? 0)))]; }
+    $key = preg_replace('/\s+/', '', str_in($b, 'key', 300));
+    $err = check_gemini_key($key);
+    if ($err !== '') fail(400, 'bad_key', $err);
+    q((is_sqlite() ? 'INSERT OR REPLACE' : 'REPLACE') . ' INTO user_secrets (user_id, gemini_enc, updated_at) VALUES (?, ?, ?)', [$uid, encrypt_str($key), time()]);
+    return ['ok' => true, 'me' => me_payload(fresh_session($uid, (int) ($s['ws']['id'] ?? 0)))];
+}
+function action_company_gemini_key(): array {
+    $s = require_manager();
+    if ($s['ws']['type'] !== 'company') fail(400, 'personal', 'Wspólny klucz jest dostępny dla kont firmowych.');
+    $b = body_json();
+    $set = ws_settings($s['ws']);
+    if (!empty($b['clear'])) unset($set['geminiKey']);
+    else {
+        $key = preg_replace('/\s+/', '', str_in($b, 'key', 300));
+        $err = check_gemini_key($key);
+        if ($err !== '') fail(400, 'bad_key', $err);
+        $set['geminiKey'] = encrypt_str($key);
+    }
+    save_ws_settings((int) $s['ws']['id'], $set);
+    return ['ok' => true, 'me' => me_payload(fresh_session((int) $s['user']['id'], (int) $s['ws']['id']))];
 }
 
 /* ======================================================================== GUS / REGON */

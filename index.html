@@ -2334,12 +2334,36 @@
   </div>
 
   <!-- ============ PROFIL ============ -->
-  <div id="profileModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-label="Moje konto">
-    <div data-pf-backdrop class="absolute inset-0 bg-navy-950/60 backdrop-blur-sm"></div>
+  <div id="profileModal" class="fixed inset-0 z-50 hidden overflow-y-auto" role="dialog" aria-modal="true" aria-label="Moje konto">
+    <div data-pf-backdrop class="fixed inset-0 bg-navy-950/60 backdrop-blur-sm"></div>
     <div class="relative flex min-h-full items-center justify-center p-4 pointer-events-none">
       <div class="pointer-events-auto relative w-full max-w-md rounded-2xl bg-canvas p-6 shadow-2xl">
         <h2 class="mb-4 text-lg font-semibold text-slate-900">Moje konto</h2>
         <div id="profileBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ KREATOR: WŁASNY KLUCZ GEMINI ============ -->
+  <div id="keyWizard" class="fixed inset-0 z-[60] hidden overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="kwTitle">
+    <div data-kw-close class="fixed inset-0 bg-navy-950/60 backdrop-blur-sm"></div>
+    <div class="relative flex min-h-full items-center justify-center p-4 pointer-events-none">
+      <div class="pointer-events-auto relative w-full max-w-lg rounded-2xl bg-canvas p-6 shadow-2xl">
+        <button type="button" data-kw-close class="absolute right-3 top-3 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Zamknij"><svg data-icon="x" class="h-5 w-5"></svg></button>
+        <h2 id="kwTitle" class="pr-8 text-lg font-semibold text-slate-900">Połącz AI ze swoim kontem Google</h2>
+        <p id="kwReason" class="mt-1 text-sm text-slate-500"></p>
+        <ol class="mt-5 space-y-5">
+          <li class="flex gap-3"><span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-white">1</span>
+            <div class="min-w-0"><p class="font-medium text-slate-900">Otwórz Google AI Studio</p><p class="text-sm text-slate-500">Zaloguj się tym samym kontem Google, co tutaj.</p>
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="bg-primary mt-2 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white">Utwórz klucz w Google<svg data-icon="send" class="h-3.5 w-3.5"></svg></a></div></li>
+          <li class="flex gap-3"><span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-white">2</span>
+            <div class="min-w-0"><p class="font-medium text-slate-900">Kliknij „Create API key” i skopiuj klucz</p><p class="text-sm text-slate-500">Jeśli Google zapyta o projekt – wybierz dowolny albo utwórz nowy. Klucz zaczyna się od „AIza” albo „AQ.”.</p></div></li>
+          <li class="flex gap-3"><span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-white">3</span>
+            <div class="min-w-0 flex-1"><p class="font-medium text-slate-900">Wklej klucz tutaj</p>
+              <div class="mt-2 flex gap-2"><input id="kwKey" type="password" autocomplete="off" spellcheck="false" class="field-input min-w-0 flex-1 font-mono text-sm" placeholder="AIza…" aria-label="Klucz Gemini" /><button type="button" id="kwSave" class="bg-primary shrink-0 rounded-full px-4 text-sm font-semibold text-white">Zapisz</button></div>
+              <p id="kwMsg" class="mt-1.5 text-sm"></p></div></li>
+        </ol>
+        <p class="mt-6 rounded-lg bg-slate-50 p-3 text-xs leading-relaxed text-slate-500">Za AI płacisz bezpośrednio Google – <b>bezpłatny plan</b> wystarcza na codzienne sprawy. Klucz zapisujemy zaszyfrowany przy Twoim koncie, więc zadziała też na telefonie. W bezpłatnym planie Google może wykorzystywać przesłane treści do ulepszania usług – do poufnych dokumentów warto włączyć płatny plan w AI Studio.</p>
       </div>
     </div>
   </div>
@@ -3750,7 +3774,8 @@ ZASADY
     function srvSignedIn() { return srv.on && !!srv.me; }
     function srvWs() { return (srv.me && srv.me.workspace) || null; }
     function srvManager() { const w = srvWs(); return !!w && (w.role === 'owner' || w.role === 'tech'); }
-    function srvGeminiOn() { return srvFeature('gemini') && !!srvWs(); }
+    function srvGeminiOn() { return srvFeature('gemini') && !!srvWs() && !!(srv.me && srv.me.ai && srv.me.ai.source); }
+    function srvAiSource() { return (srv.me && srv.me.ai && srv.me.ai.source) || ''; }
     function srvRoleName(r) { return r === 'owner' ? 'właściciel' : r === 'tech' ? 'technik' : 'pracownik'; }
     function getOwnApiKey() { return storageGet(STORAGE_KEY) || state.memoryKey || ''; }
 
@@ -3856,6 +3881,12 @@ ZASADY
         syncStart();
         srvGmailRestore();
         srvStartMeTimer();
+        if (!srvGeminiOn() && !(isTech() && getOwnApiKey())) {
+          const companyOwner = srvManager() && srvWs().type === 'company';
+          setTimeout(() => openKeyWizard(companyOwner
+            ? 'Ostatni krok: połącz AI. Dodaj tu swój klucz Gemini – albo później wspólny klucz dla całej firmy w Panelu technika → Konto firmy na serwerze (wtedy płaci firma za wszystkich).'
+            : 'Ostatni krok: połącz AI ze swoim kontem Google. Za AI płacisz bezpośrednio Google – bezpłatny plan wystarcza na codzienne sprawy.'), 700);
+        }
       } else {
         showOnboarding();
         srvDraftFromMe();
@@ -4119,13 +4150,50 @@ ZASADY
     }
     function paperlyError(status, err) {
       const s = String((err && err.status) || '');
-      const titles = { PAPERLY_LIMIT: 'Wykorzystano dzienny limit AI', PAPERLY_AUTH: 'Zaloguj się ponownie', PAPERLY_NO_KEY: 'Brak klucza AI firmy', PAPERLY_TOO_LARGE: 'Za duże pliki dla serwera', PAPERLY_NO_WORKSPACE: 'Brak konta firmy' };
+      const titles = { PAPERLY_LIMIT: 'Wykorzystano dzienny limit AI', PAPERLY_AUTH: 'Zaloguj się ponownie', PAPERLY_NO_KEY: 'Dodaj swój klucz AI', PAPERLY_TOO_LARGE: 'Za duże pliki dla serwera', PAPERLY_NO_WORKSPACE: 'Brak konta firmy' };
       const hints = s === 'PAPERLY_LIMIT'
         ? (simpleMode() ? ['Dzienny limit odnowi się o północy.'] : ['Limit dotyczy liczby zapytań do AI każdej osoby w ciągu dnia – technik ustawia go w Panelu technika → Konto firmy na serwerze.', 'Możesz też wpisać własny klucz Gemini w ustawieniach AI i zaznaczyć „Używaj mojego klucza”.'])
         : s === 'PAPERLY_AUTH' ? ['Kliknij swoje konto w menu i wybierz „Zaloguj się przez Google”.']
         : s === 'PAPERLY_TOO_LARGE' ? ['Wyślij mniej plików naraz albo zmniejsz ich rozmiar (np. zdjęcia w niższej rozdzielczości).'] : [];
       if (s === 'PAPERLY_AUTH') srvLostSession();
+      if (s === 'PAPERLY_NO_KEY') {
+        if (srv.me && srv.me.ai) srv.me.ai.source = '';
+        setTimeout(() => openKeyWizard(), 300);
+      }
       return Object.assign(new GeminiError({ title: titles[s] || 'Serwer PaperlyAI', message: (err && err.message) || `Błąd serwera (HTTP ${status}).`, hints, retryable: false }), { paperly: true, notSent: true, httpStatus: status });
+    }
+
+    /* ---------- kreator: własny klucz Gemini (konto prywatne płaci za siebie) ---------- */
+    function openKeyWizard(reason) {
+      const m = document.getElementById('keyWizard');
+      if (!m) return;
+      const ai = (srv.me && srv.me.ai) || {};
+      $('#kwReason').textContent = reason || (ai.own ? 'Wklej nowy klucz – zastąpi poprzedni.' : 'Jednorazowo, zajmie około minuty. Bez tego AI nie przygotuje odpowiedzi.');
+      $('#kwKey').value = '';
+      $('#kwMsg').textContent = ''; $('#kwMsg').className = 'mt-1.5 text-sm';
+      m.classList.remove('hidden');
+      setTimeout(() => $('#kwKey').focus(), 60);
+    }
+    function closeKeyWizard() { const m = document.getElementById('keyWizard'); if (m) m.classList.add('hidden'); }
+    async function saveKeyWizard() {
+      const key = $('#kwKey').value.replace(/\s+/g, '');
+      const msg = $('#kwMsg'), btn = $('#kwSave');
+      if (!key) { msg.textContent = 'Wklej klucz skopiowany z Google AI Studio.'; msg.className = 'mt-1.5 text-sm text-red-600'; return; }
+      btn.disabled = true; btn.textContent = 'Sprawdzam…';
+      msg.textContent = 'Sprawdzam klucz w Google…'; msg.className = 'mt-1.5 text-sm text-slate-500';
+      try {
+        const j = await srvApi('gemini_key', { key });
+        srvApplyMe(j.me);
+        closeKeyWizard();
+        renderApiStatus(); renderSrvChrome(); renderSrvKeyBox();
+        toast('Gotowe – AI działa na Twoim kluczu Google.', 'success', 5000);
+      } catch (e) { msg.textContent = e.message; msg.className = 'mt-1.5 text-sm text-red-600'; }
+      finally { btn.disabled = false; btn.textContent = 'Zapisz'; }
+    }
+    async function clearOwnKey() {
+      if (!confirm('Usunąć Twój klucz Gemini z serwera? Bez klucza AI nie przygotuje odpowiedzi.')) return;
+      try { const j = await srvApi('gemini_key', { clear: true }); srvApplyMe(j.me); renderApiStatus(); renderSrvChrome(); toast('Usunięto klucz', 'info'); }
+      catch (e) { toast(e.message, 'error'); }
     }
 
     /* ---------- Gmail bez ponownego logowania ---------- */
@@ -4207,9 +4275,10 @@ ZASADY
       const signed = srvSignedIn() && !!srvWs();
       const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
       if (getApiKey() === SERVER_KEY) {
-        set('sidebarKeyNoteTitle', 'AI firmy');
+        const own = srvAiSource() === 'own';
+        set('sidebarKeyNoteTitle', own ? 'Twoje AI' : 'AI firmy');
         const u = srv.me && srv.me.usage;
-        set('sidebarKeyNote', `Korzystasz z klucza AI firmy zapisanego na serwerze – nie trafia do przeglądarki.${u ? ` Dziś: ${u.today}${u.limit ? ` z ${u.limit}` : ''} zapytań.` : ''}`);
+        set('sidebarKeyNote', own ? 'Korzystasz z własnego klucza Gemini zapisanego bezpiecznie na serwerze – płacisz bezpośrednio Google.' : `Korzystasz z klucza AI firmy zapisanego na serwerze – nie trafia do przeglądarki.${u ? ` Dziś: ${u.today}${u.limit ? ` z ${u.limit}` : ''} zapytań.` : ''}`);
         set('settingsPrivacy', '<strong class="text-slate-800">Prywatność:</strong> z kluczem firmy zapytania przechodzą przez serwer PaperlyAI, który dodaje klucz i liczy zużycie (bez zapisywania treści). Własny klucz zapisujemy tylko w tej przeglądarce i wysyłamy bezpośrednio do Google.');
       }
       const dn = document.getElementById('adminDataNote');
@@ -4238,8 +4307,9 @@ ZASADY
       const on = srvGeminiOn();
       el.classList.toggle('hidden', !on);
       if (!on) return;
-      const own = getOwnApiKey(), u = srv.me.usage;
-      el.innerHTML = `<b>Firma ma klucz AI na serwerze</b> – nie musisz wpisywać własnego.${u ? ` Dziś wykorzystano ${u.today}${u.limit ? ` z ${u.limit}` : ''} zapytań.` : ''}
+      const own = getOwnApiKey(), u = srv.me.usage, ai = srv.me.ai || {};
+      if (ai.source === 'own') { el.innerHTML = `<b>Twój klucz Gemini (${escapeHtml(ai.ownMask || '')}) jest zapisany na serwerze</b> – działa na każdym urządzeniu. Zmienisz go w Moje konto → Klucz AI.`; return; }
+      el.innerHTML = `<b>${ai.source === 'company' ? 'Firma ma wspólny klucz AI' : 'Korzystasz z klucza AI operatora'}</b> – nie musisz wpisywać własnego.${u ? ` Dziś wykorzystano ${u.today}${u.limit ? ` z ${u.limit}` : ''} zapytań.` : ''}
         <label class="mt-2 flex items-start gap-2"><input type="checkbox" id="srvOwnKey" ${storageGet(OWN_KEY_PREF) === '1' ? 'checked' : ''} ${own ? '' : 'disabled'} class="mt-0.5 h-4 w-4" /><span>Używaj mojego klucza zamiast klucza firmy${own ? '' : ' (najpierw wpisz i zapisz własny klucz poniżej)'}</span></label>`;
     }
 
@@ -4280,7 +4350,7 @@ ZASADY
         <div><p class="font-medium text-slate-900">${escapeHtml(w.name)} <span class="text-sm font-normal text-slate-500">· konto ${w.type === 'company' ? 'firmowe' : 'prywatne'} · Twoja rola: ${srvRoleName(w.role)}</span></p>
         <p class="mt-0.5 text-sm text-slate-500">${escapeHtml(me.user.email)}${me.user.isAdmin ? ' · administrator serwera' : ''} · ${escapeHtml(syncStatusText())}</p></div>
         <button type="button" data-srv="sync" class="${btnCls}">${iconSvg('refresh', 'h-4 w-4')}Synchronizuj teraz</button></div>
-        <div class="mt-3 flex flex-wrap gap-2">${chip(f.gemini, 'AI firmy na serwerze')}${chip(f.gmailOffline, 'Gmail na stałe')}${chip(f.mail, 'E-maile z domeny')}${chip(f.ksef && w.ksef && w.ksef.configured, 'KSeF')}${chip(f.gus, 'Dane firm po NIP')}</div>`);
+        <div class="mt-3 flex flex-wrap gap-2">${chip(!!(me.ai && me.ai.company), 'Wspólny klucz AI firmy')}${chip(f.gmailOffline, 'Gmail na stałe')}${chip(f.mail, 'E-maile z domeny')}${chip(f.ksef && w.ksef && w.ksef.configured, 'KSeF')}${chip(f.gus, 'Dane firm po NIP')}</div>`);
       if (!mgr) {
         out.push('<p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Masz rolę pracownika – ustawienia firmy (baza wiedzy, papier firmowy, zespół) zmienia właściciel lub technik.</p>');
         return out.join('');
@@ -4298,6 +4368,11 @@ ZASADY
           <td class="py-2 pr-3"><input type="number" min="0" max="100000" data-srv-limit="${m.id}" value="${m.dailyLimit || ''}" placeholder="${M.defaultLimit || 'bez limitu'}" class="field-input !w-24 !py-1 text-sm" aria-label="Dzienny limit zapytań" /></td>
           <td class="py-2 text-right">${m.role === 'owner' || m.me ? '' : `<button type="button" data-srv-remove="${m.id}" data-name="${escapeHtml(m.name || m.email)}" class="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Usuń z zespołu">${iconSvg('trash', 'h-4 w-4')}</button>`}</td></tr>`).join('')}</tbody></table></div>
           <p class="mt-2 text-xs text-slate-500">Puste pole limitu = limit firmy (${M.defaultLimit || 'bez limitu'} zapytań dziennie na osobę). Zmiany zapisują się po wyjściu z pola.</p>`;
+      }
+      if (w.type === 'company') {
+        const ai = me.ai || {};
+        out.push(sub('Wspólny klucz AI firmy (opcjonalnie)', `<p class="mt-1 text-sm text-slate-500">${ai.company ? `Zapisany: <b>${escapeHtml(ai.companyMask)}</b>. Wszyscy w zespole korzystają z niego (z dziennymi limitami poniżej) i płaci firma.` : 'Brak – każda osoba w zespole dodaje własny klucz Gemini i płaci za siebie. Dodaj wspólny klucz, jeśli firma ma płacić za wszystkich.'}</p>
+          <div class="mt-3 flex flex-wrap gap-2"><input id="srvCompanyKey" type="password" autocomplete="off" spellcheck="false" placeholder="${ai.company ? 'wklej nowy, aby zmienić' : 'AIza…'}" class="field-input min-w-0 flex-1 !py-1.5 font-mono text-sm" aria-label="Wspólny klucz Gemini firmy" /><button type="button" data-srv="ckey-save" class="${btnCls}">Zapisz</button>${ai.company ? `<button type="button" data-srv="ckey-clear" class="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50">Usuń</button>` : ''}</div>`));
       }
       out.push(sub('Zespół i limity AI', team + `<div class="mt-4 flex flex-wrap items-end gap-2"><label class="text-sm text-slate-700">Limit firmy (zapytań dziennie na osobę)<input id="srvWsLimit" type="number" min="0" max="100000" value="${w.dailyLimit || ''}" placeholder="${(M && M.serverDefault) || ''} (domyślny serwera)" class="field-input mt-1 !w-56 !py-1.5 text-sm" /></label><button type="button" data-srv="ws-limit" class="${btnCls}">Zapisz</button></div>`));
       // Zaproszenia
@@ -4380,6 +4455,11 @@ ZASADY
       const gmailOn = srvGmailReady();
       const hours = [5, 6, 7, 8, 9, 10, 11, 12];
       box.innerHTML = `
+        <div>
+          <p class="field-label">Klucz AI (Google Gemini)</p>
+          <p class="text-sm text-slate-700">${(me.ai && me.ai.own) ? `Twój klucz ${escapeHtml(me.ai.ownMask)} – płacisz bezpośrednio Google` : 'Nie dodano własnego klucza'}${me.ai && me.ai.company ? '<br><span class="text-xs text-slate-500">Firma ma wspólny klucz – z niego korzystasz w pierwszej kolejności.</span>' : ''}</p>
+          <div class="mt-2 flex flex-wrap gap-2"><button type="button" data-srvp="key-set" class="btn-default px-3 py-1.5 text-sm font-medium">${me.ai && me.ai.own ? 'Zmień klucz' : 'Dodaj klucz'}</button>${me.ai && me.ai.own ? '<button type="button" data-srvp="key-clear" class="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50">Usuń</button>' : ''}</div>
+        </div>
         <div>
           <p class="field-label">Konto na serwerze</p>
           <p class="text-sm text-slate-700">${w ? `${escapeHtml(w.name)} · ${srvRoleName(w.role)}` : 'brak konta firmy'}</p>
@@ -4474,6 +4554,9 @@ ZASADY
 
     /* ---------- zdarzenia ---------- */
     function bindServer() {
+      document.getElementById('keyWizard').addEventListener('click', (e) => { if (e.target.closest('[data-kw-close]')) closeKeyWizard(); });
+      $('#kwSave').addEventListener('click', saveKeyWizard);
+      $('#kwKey').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveKeyWizard(); } if (e.key === 'Escape') closeKeyWizard(); });
       document.addEventListener('change', (e) => {
         const sel = e.target.closest && e.target.closest('select[data-model-pick]');
         if (!sel) return;
@@ -4518,6 +4601,8 @@ ZASADY
         if (a === 'login') srvStartLogin();
         else if (a === 'finish') { showOnboarding(); srvDraftFromMe(); }
         else if (a === 'sync') { sync.dirty = true; syncNow().then(() => { toast(sync.error ? `Synchronizacja: ${sync.error}` : 'Dane zsynchronizowane', sync.error ? 'error' : 'success'); srv.admin = null; renderSrvAdmin(); }); }
+        else if (a === 'ckey-save') srvAdminAction(async () => { const j = await srvApi('company_gemini_key', { key: $('#srvCompanyKey').value.trim() }); srvApplyMe(j.me); renderApiStatus(); renderSrvChrome(); }, 'Zapisano wspólny klucz AI firmy');
+        else if (a === 'ckey-clear') { if (confirm('Usunąć wspólny klucz firmy? Każdy w zespole będzie musiał dodać własny klucz.')) srvAdminAction(async () => { const j = await srvApi('company_gemini_key', { clear: true }); srvApplyMe(j.me); renderApiStatus(); renderSrvChrome(); }, 'Usunięto wspólny klucz'); }
         else if (a === 'ws-limit') srvAdminAction(async () => { const j = await srvApi('workspace_update', { dailyLimit: +$('#srvWsLimit').value || 0 }); srvApplyMe(j.me); }, 'Zapisano limit firmy');
         else if (a === 'invite') srvAdminAction(async () => {
           const email = $('#srvInvEmail').value.trim();
@@ -4542,6 +4627,8 @@ ZASADY
         if (!b) return;
         const a = b.dataset.srvp;
         if (a === 'login') { closeProfile(); srvStartLogin(); }
+        else if (a === 'key-set') { closeProfile(); openKeyWizard(); }
+        else if (a === 'key-clear') { closeProfile(); clearOwnKey(); }
         else if (a === 'switch') { const id = +$('#srvWsSel').value; if (srvWs() && id !== srvWs().id) srvSwitchWorkspace(id); }
         else if (a === 'notify-save' || a === 'notify-test') {
           const prefs = { contracts: $('#srvNContracts').checked, newMail: $('#srvNMail').checked, digest: $('#srvNDigest').checked, digestHour: +$('#srvNHour').value, email: $('#srvNEmail').value.trim() };
@@ -10007,6 +10094,11 @@ ZASADY
     }
 
     function openSettings(reason) {
+      // Na serwerze bez klucza dla tej osoby: prosty kreator własnego klucza zamiast ustawień technicznych
+      if (srvSignedIn() && srvWs() && !srvGeminiOn() && (!isTech() || !getOwnApiKey())) {
+        openKeyWizard(srvManager() && srvWs().type === 'company' ? 'Dodaj swój klucz – albo wspólny klucz dla całej firmy w Panelu technika → Konto firmy na serwerze.' : '');
+        return;
+      }
       lastFocused = document.activeElement;
       const key = getOwnApiKey();
       renderSrvKeyBox();
@@ -12339,7 +12431,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     // żadnych ustawień technicznych (Panel technika, klucze, modele, Google Cloud). Wszystko działa od razu.
     function simpleMode() {
       const a = getAccount();
-      return !!a && a.type === 'personal' && srvSignedIn() && srvGeminiOn();
+      return !!a && a.type === 'personal' && srvSignedIn();
     }
     function getRole() {
       if (simpleMode()) return 'employee';

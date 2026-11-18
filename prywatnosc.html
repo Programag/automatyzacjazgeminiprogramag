@@ -62,6 +62,7 @@
       <tr><td>Firma i zespół</td><td>nazwa firmy, NIP, typ konta (firmowe/prywatne), członkowie zespołu i ich role, zaproszenia (adres e-mail zapraszanej osoby), dzienne limity AI</td><td>od Ciebie lub osoby zarządzającej zespołem</td></tr>
       <tr><td>Dane wspólne zespołu</td><td>baza wiedzy (przesłane dokumenty), rejestr umów, papier firmowy, biblioteka gotowych odpowiedzi, informacje o firmie dla AI, kategorie kosztów, ustawienia windykacji</td><td>od członków zespołu</td></tr>
       <tr><td>Twoje dane w Aplikacji</td><td>historia wyników narzędzi, ustawienia (ton, podpis, motyw, model AI), lista obsłużonych wiadomości, przypomnienia</td><td>od Ciebie</td></tr>
+      <tr><td>Klucz AI</td><td>Twój klucz Google Gemini (jeśli go dodasz) albo wspólny klucz firmy dodany przez właściciela – przechowywany w postaci zaszyfrowanej, używany wyłącznie do Twoich zapytań do AI</td><td>od Ciebie lub firmy</td></tr>
       <tr><td>Zużycie AI</td><td>liczba zapytań i tokenów dziennie dla każdej osoby (bez treści zapytań)</td><td>automatycznie</td></tr>
       <tr><td>Poczta i kalendarz</td><td>zaszyfrowany token dostępu do Gmaila/Kalendarza, adres skrzynki, identyfikatory nieprzeczytanych wiadomości; na potrzeby włączonych powiadomień – nadawca, temat i krótki fragment nowych wiadomości (szczegóły w punkcie 4)</td><td>Google (po Twojej zgodzie)</td></tr>
       <tr><td>Powiadomienia</td><td>adres e-mail do powiadomień i Twoje ustawienia powiadomień</td><td>od Ciebie</td></tr>
@@ -100,7 +101,7 @@
     <h2 id="ai">5. Sztuczna inteligencja (Google Gemini)</h2>
     <p>Narzędzia Aplikacji korzystają z modeli Google Gemini. Do Gemini trafiają <b>wyłącznie treści, które sam wskażesz i wyślesz</b> (np. zaznaczone wiadomości, dodane dokumenty, wpisane polecenie, wybrane dokumenty bazy wiedzy firmy) – w celu przygotowania odpowiedzi, pisma, analizy czy podsumowania, o które prosisz.</p>
     <ul>
-      <li><b>Z kontem na serwerze i kluczem firmy</b> – zapytanie przechodzi przez nasz serwer, który dodaje klucz firmy i liczy zużycie (liczbę zapytań i tokenów, bez zapisywania treści).</li>
+      <li><b>Z kontem na serwerze</b> – zapytanie przechodzi przez nasz serwer, który dodaje Twój klucz Gemini (albo wspólny klucz firmy) i liczy zużycie (liczbę zapytań i tokenów, bez zapisywania treści). Za korzystanie z Gemini płaci właściciel klucza bezpośrednio Google.</li>
       <li><b>Z własnym kluczem</b> – zapytanie trafia z Twojej przeglądarki bezpośrednio do Google.</li>
     </ul>
     <p>Dostawcą usługi jest Google (Gemini API). Jeśli klucz korzysta z <b>bezpłatnego</b> planu Gemini API, Google może wykorzystywać przesłane treści do ulepszania swoich usług zgodnie z <a href="https://ai.google.dev/gemini-api/terms" rel="noopener">warunkami Gemini API</a>; w planie płatnym – nie. Dla danych firmowych i poczty zalecamy klucz w planie płatnym.</p>
