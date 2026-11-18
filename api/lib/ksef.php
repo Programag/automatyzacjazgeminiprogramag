@@ -140,6 +140,45 @@ function ksef_purchases(array $ws, string $from, string $to): array {
     return ['env' => $env, 'invoices' => $out, 'more' => $hasMore];
 }
 
+/** Faktury sprzedażowe (Subject1) z terminem płatności i e-mailem nabywcy odczytanymi z XML – dla windykacji. */
+function ksef_sales(array $ws, string $from, string $to, bool $retried = false): array {
+    [$env, $access] = ksef_access_token($ws, $retried);
+    $tz = new DateTimeZone('Europe/Warsaw');
+    $f = new DateTime($from . ' 00:00:00', $tz); $t = new DateTime($to . ' 23:59:59', $tz);
+    if ($t > new DateTime('now', $tz)) $t = new DateTime('now', $tz);
+    if ($f > $t) fail(400, 'bad_range', 'Data „od” jest późniejsza niż „do”.');
+    if ($t->getTimestamp() - $f->getTimestamp() > 92 * 86400) fail(400, 'bad_range', 'KSeF pozwala pobrać najwyżej 3 miesiące naraz – zawęź zakres dat.');
+    $r = ksef_call($env, 'POST', '/invoices/query/metadata?sortOrder=Desc&pageSize=100&pageOffset=0', $access, [
+        'subjectType' => 'Subject1',
+        'dateRange' => ['dateType' => 'Issue', 'from' => $f->format(DATE_ATOM), 'to' => $t->format(DATE_ATOM)],
+    ]);
+    if ($r['status'] === 401 && !$retried) return ksef_sales($ws, $from, $to, true);
+    if ($r['status'] !== 200 || !is_array($r['json'])) throw ksef_error($r, 'lista faktur sprzedaży');
+    $out = []; $n = 0;
+    foreach ((array) ($r['json']['invoices'] ?? []) as $i) {
+        $type = (string) ($i['invoiceType'] ?? '');
+        if (preg_match('/^Kor/i', $type)) continue;                       // korekty pomijamy
+        $row = [
+            'ksefNumber' => (string) ($i['ksefNumber'] ?? ''), 'number' => (string) ($i['invoiceNumber'] ?? ''),
+            'issueDate' => (string) ($i['issueDate'] ?? ''),
+            'buyer' => (string) ($i['buyer']['name'] ?? ''), 'buyerNip' => (string) ($i['buyer']['identifier']['value'] ?? ''),
+            'gross' => $i['grossAmount'] ?? null, 'currency' => (string) ($i['currency'] ?? 'PLN'),
+            'due' => '', 'email' => '', 'paid' => false,
+        ];
+        if ($n++ < 60 && $row['ksefNumber'] !== '') {                    // szczegóły z XML (termin, e-mail, zapłacono)
+            try {
+                $x = ksef_invoice_xml($ws, $row['ksefNumber']);
+                if (preg_match('#<(?:\w+:)?TerminPlatnosci>.*?<(?:\w+:)?Termin>\s*(\d{4}-\d{2}-\d{2})#s', $x, $mm) || preg_match('#<(?:\w+:)?TerminPlatnosci>\s*(\d{4}-\d{2}-\d{2})#', $x, $mm)) $row['due'] = $mm[1];
+                if (preg_match('#<(?:\w+:)?Podmiot2>.*?<(?:\w+:)?Email>\s*([^<\s]+)#s', $x, $mm)) $row['email'] = html_entity_decode($mm[1], ENT_XML1);
+                if ($row['buyer'] === '' && preg_match('#<(?:\w+:)?Podmiot2>.*?<(?:\w+:)?Nazwa>([^<]+)#s', $x, $mm)) $row['buyer'] = html_entity_decode(trim($mm[1]), ENT_XML1);
+                if (preg_match('#<(?:\w+:)?Zaplacono>\s*1\s*<#', $x)) $row['paid'] = true;
+            } catch (Throwable $e) { /* bez szczegółów */ }
+        }
+        $out[] = $row;
+    }
+    return ['env' => $env, 'invoices' => $out, 'more' => !empty($r['json']['hasMore'])];
+}
+
 function ksef_invoice_xml(array $ws, string $ksefNumber): string {
     if (!preg_match('/^[0-9A-Za-z\-]{20,60}$/', $ksefNumber)) fail(400, 'bad_number', 'Nieprawidłowy numer KSeF.');
     [$env, $access] = ksef_access_token($ws);

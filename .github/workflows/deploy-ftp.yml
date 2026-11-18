@@ -30,6 +30,8 @@ on:
       - regulamin.html
       - site.css
       - site.js
+      - sw.js
+      - manifest.webmanifest
       - 'img/**'
       - 'vendor/**'
       - .well-known/security.txt
@@ -77,7 +79,7 @@ jobs:
           SITE_HOST: ${{ secrets.SITE_HOST || 'paperlyai.pl' }}
         run: |
           mkdir -p _site
-          cp index.html o-aplikacji.html prywatnosc.html regulamin.html site.css site.js .htaccess _site/
+          cp index.html o-aplikacji.html prywatnosc.html regulamin.html site.css site.js sw.js manifest.webmanifest .htaccess _site/
           cp -r api _site/api
           cp -r img _site/img
           cp -r vendor _site/vendor

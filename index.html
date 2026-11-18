@@ -7,6 +7,7 @@
   <link rel="icon" type="image/png" href="img/favicon.png" />
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
   <meta name="theme-color" content="#27005f" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <meta name="description" content="PaperlyAI – automatyzacja pracy biurowej z Google Gemini w modelu BYOK (Bring Your Own Key)." />
 
   <script>
@@ -1594,6 +1595,9 @@
                   </button>
                   <div id="exportMenu" role="menu" class="hidden absolute right-0 z-30 mt-1 w-72 rounded-xl border border-slate-300 bg-canvas p-1 shadow-lg"></div>
                 </div>
+                <button type="button" id="sendMailBtn" disabled title="Wyślij wynik e-mailem z Twojego Gmaila" class="btn-default inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50">
+                  <svg data-icon="send" class="h-4 w-4"></svg><span class="hidden sm:inline">Wyślij</span>
+                </button>
                 <button type="button" id="copyBtn" disabled class="btn-default inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 transition">
                   <svg data-icon="clipboard" class="h-4 w-4"></svg>
                   <span>Kopiuj</span>
@@ -1901,6 +1905,18 @@
               <span>Przeciągnij plik tutaj lub <button type="button" id="dunPick" class="font-medium text-indigo-600 hover:underline">wybierz z dysku</button></span>
               <input type="file" id="dunFileInput" class="hidden" accept=".xlsx,.xlsm,.csv,.txt" />
             </div>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+              <button type="button" id="dunKsefBtn" class="hidden btn-default inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"><svg data-icon="receipt" class="h-4 w-4"></svg>Pobierz faktury sprzedaży z KSeF</button>
+              <button type="button" id="dunBankBtn" class="btn-default inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"><svg data-icon="banknotes" class="h-4 w-4"></svg>Wyciąg bankowy – pomiń opłacone</button>
+              <input type="file" id="dunBankInput" class="hidden" accept=".csv,.txt,.xlsx,.xlsm" />
+              <span class="text-xs text-slate-500">Wyciąg CSV lub Excel z bankowości internetowej – wpłaty dopasuję po numerze faktury w tytule albo po kwocie i nadawcy.</span>
+            </div>
+            <div id="dunKsefPanel" class="hidden mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div><label for="dunKsefFrom" class="field-label">Wystawione od</label><input id="dunKsefFrom" type="date" class="field-input" /></div>
+              <div><label for="dunKsefTo" class="field-label">do</label><input id="dunKsefTo" type="date" class="field-input" /></div>
+              <button type="button" id="dunKsefGo" class="bg-primary rounded-lg px-4 py-2 text-sm font-semibold text-white">Pobierz z KSeF</button>
+              <p class="w-full text-xs text-slate-500">Termin płatności i e-mail nabywcy odczytam z faktur. Faktury oznaczone w KSeF jako zapłacone pominę. Maks. 3 miesiące naraz.</p>
+            </div>
             <div id="dunFileInfo" class="mt-4"></div>
           </section>
 
@@ -2022,6 +2038,8 @@
               <button type="button" data-ct="xlsx" class="btn-default inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"><svg data-icon="table" class="h-4 w-4"></svg>Pobierz rejestr (Excel)</button>
               <button type="button" data-ct="backup" class="btn-default inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"><svg data-icon="download" class="h-4 w-4"></svg>Kopia zapasowa</button>
               <button type="button" data-ct="restore" class="btn-default inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"><svg data-icon="upload" class="h-4 w-4"></svg>Wczytaj kopię</button>
+              <button type="button" data-ct="gcal" class="btn-default inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"><svg data-icon="calendar" class="h-4 w-4"></svg>Terminy do Kalendarza Google</button>
+              <label class="inline-flex items-center gap-2 px-1 text-sm text-slate-600"><input type="checkbox" id="ctGcalAuto" class="h-4 w-4" />Dodawaj nowe terminy automatycznie</label>
             </div>
           </section>
           <div id="ctPlan"></div>
@@ -2380,6 +2398,19 @@
     </div>
   </div>
 
+  <!-- ============ AUTOMATYZACJE: Gmail, wysyłka, kalendarz, link, NIP, udostępnianie ============ -->
+  <div id="autoModal" class="fixed inset-0 z-[60] hidden overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="amTitle">
+    <div data-am-close class="fixed inset-0 bg-navy-950/60 backdrop-blur-sm"></div>
+    <div class="relative flex min-h-full items-start justify-center p-3 pointer-events-none sm:items-center sm:p-4">
+      <div class="pointer-events-auto relative w-full max-w-2xl rounded-2xl bg-canvas p-5 shadow-2xl sm:p-6">
+        <button type="button" data-am-close class="absolute right-3 top-3 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Zamknij"><svg data-icon="x" class="h-5 w-5"></svg></button>
+        <h2 id="amTitle" class="pr-8 text-lg font-semibold text-slate-900"></h2>
+        <p id="amSub" class="mt-1 text-sm text-slate-500 empty:hidden"></p>
+        <div id="amBody" class="mt-4"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ WYSZUKIWARKA NARZĘDZI (Ctrl+K) ============ -->
   <div id="cmdk" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true" aria-label="Wyszukaj narzędzie">
     <div class="cmdk-backdrop"></div>
@@ -2471,6 +2502,7 @@
       inbox: 'M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 0 0-2.15-1.588H6.911a2.25 2.25 0 0 0-2.15 1.588L2.35 13.177a2.25 2.25 0 0 0-.1.661Z',
       refresh: 'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99',
       send: 'M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5',
+      link: 'M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244',
       pencil: 'm16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10'
     };
 
@@ -5601,6 +5633,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       const show = (id) => ['#resultEmpty', '#resultLoading', '#resultError', '#resultContent'].forEach(s => $(s).classList.toggle('hidden', s !== id));
 
       $('#copyBtn').disabled = r.status !== 'done';
+      $('#sendMailBtn').disabled = r.status !== 'done';
       $('#exportBtn').disabled = r.status !== 'done';
       if (r.status !== 'done') toggleExportMenu(false);
       if (r.status !== 'done') $('#resultReuse').classList.add('hidden');
@@ -6046,6 +6079,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
             ${iconSvg('paperclip', 'h-4 w-4 text-slate-500')}
             <span>Przeciągnij ${el.hasAttribute('data-media') ? 'nagranie' : multiple ? 'pliki' : 'plik'} tutaj lub</span>
             <button type="button" data-pick class="font-medium text-indigo-600 hover:underline">wybierz z dysku</button>
+            ${/^chat:/.test(el.dataset.fileField) ? '' : `<span class="text-slate-400" aria-hidden="true">·</span><button type="button" data-pick-gmail class="inline-flex items-center gap-1 font-medium text-indigo-600 hover:underline">${iconSvg('mail', 'h-3.5 w-3.5')}z Gmaila</button>${linkAvailable() ? `<span class="text-slate-400" aria-hidden="true">·</span><button type="button" data-pick-link class="inline-flex items-center gap-1 font-medium text-indigo-600 hover:underline">${iconSvg('link', 'h-3.5 w-3.5')}z linku</button>` : ''}`}
             <input type="file" class="hidden" accept="${accept}" ${multiple ? 'multiple' : ''} />
           </div>
           <ul data-file-list class="mt-2 space-y-1.5"></ul>
@@ -6053,6 +6087,9 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
         const input = el.querySelector('input[type=file]');
         const drop = el.querySelector('[data-drop]');
         el.querySelector('[data-pick]').addEventListener('click', () => input.click());
+        const pg = el.querySelector('[data-pick-gmail]'), pl = el.querySelector('[data-pick-link]');
+        if (pg) pg.addEventListener('click', () => openMailPicker({ fileField: el.dataset.fileField }));
+        if (pl) pl.addEventListener('click', () => openLinkPicker({ fileField: el.dataset.fileField }));
         input.addEventListener('change', () => { addFormFiles(el.dataset.fileField, input.files); input.value = ''; });
         ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('!border-indigo-600', '!bg-indigo-50'); }));
         ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('!border-indigo-600', '!bg-indigo-50'); }));
@@ -7040,7 +7077,9 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       { id: 'pdf', icon: 'printer', label: 'PDF / drukuj' },
       { id: 'md', icon: 'document', label: 'Markdown (.md)' },
       { id: 'txt', icon: 'document', label: 'Tekst (.txt)' },
+      { id: 'gdoc', icon: 'upload', label: 'Zapisz w Dokumentach Google' },
       { sep: true },
+      { id: 'gmailsend', icon: 'send', label: 'Wyślij przez Gmail (z plikiem Word)' },
       { id: 'gmail', icon: 'mail', label: 'Nowa wiadomość w Gmailu' },
       { id: 'outlook365', icon: 'mail', label: 'Nowa wiadomość w Outlooku (Microsoft 365)' },
       { id: 'outlookcom', icon: 'mail', label: 'Nowa wiadomość w Outlook.com' },
@@ -7072,6 +7111,8 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       const tool = TOOLS[toolId];
       const r = state.results[toolId];
       if (r.status !== 'done') return;
+      if (kind === 'gdoc') { saveToGoogleDocs(toolId); return; }
+      if (kind === 'gmailsend') { openSendMail(); return; }
       const html = renderMarkdown(r.markdown);
       const base = exportBaseName(toolId);
       const title = `${tool.name} – ${new Date().toLocaleDateString('pl-PL')}`;
@@ -8921,7 +8962,7 @@ ZASADY
       try {
         const sheets = await readTableFile(file);
         if (!sheets.length) throw new Error('w pliku nie ma danych');
-        Object.assign(dun, { fileName: file.name, sheets, sheetIdx: 0, debtors: [], open: null, q: null });
+        Object.assign(dun, { fileName: file.name, sheets, sheetIdx: 0, debtors: [], open: null, q: null, paid: new Set(), bankInfo: '', sourceInfo: [] });
         guessDunMap();
         await computeDunning();
       } catch (e) {
@@ -8954,7 +8995,7 @@ ZASADY
       const rate = parsePlNumber(cfg.rate);
       const cell = (row, f) => dun.map[f] == null ? '' : String(row[dun.map[f]] == null ? '' : row[dun.map[f]]).trim();
       const groups = new Map();
-      let skipped = 0, notDue = 0;
+      let skipped = 0, notDue = 0, paidN = 0;
       for (const row of s.rows.slice(1)) {
         const amount = parsePlNumber(cell(row, 'amount'));
         const due = parseAnyDate(cell(row, 'due'));
@@ -8962,6 +9003,7 @@ ZASADY
         if (!name || !amount || amount <= 0 || !due) { skipped++; continue; }
         const days = daysBetween(due, today);
         if (days <= 0) { notDue++; continue; }
+        if (dun.paid && dun.paid.has(normInv(cell(row, 'invoice')) + '|' + amount)) { paidN++; continue; }
         const currency = (cell(row, 'currency') || 'PLN').toUpperCase().replace('ZŁ', 'PLN');
         const inv = { number: cell(row, 'invoice'), issued: parseAnyDate(cell(row, 'issued')), due, days, amount, currency };
         inv.interest = rate ? Math.round(amount * (rate / 100) * days / 365 * 100) / 100 : 0;
@@ -8994,6 +9036,9 @@ ZASADY
       if (skipped) dun.warnings.push(`Pominięto ${skipped} ${plForm(skipped, 'wiersz', 'wiersze', 'wierszy')} bez nazwy, kwoty lub poprawnego terminu płatności.`);
       if (notDue) dun.warnings.push(`${notDue} ${plForm(notDue, 'faktura nie jest', 'faktury nie są', 'faktur nie jest')} jeszcze po terminie – nie ${notDue === 1 ? 'trafiła' : 'trafiły'} do windykacji.`);
       if (!rate) dun.warnings.push('Nie podano stopy odsetek – odsetki nie zostały naliczone.');
+      (dun.sourceInfo || []).forEach(w => dun.warnings.push(w));
+      if (dun.bankInfo) dun.warnings.push(dun.bankInfo);
+      if (paidN && !dun.bankInfo) dun.warnings.push(`${paidN} ${plForm(paidN, 'faktura opłacona', 'faktury opłacone', 'faktur opłaconych')} według wyciągu – pominięte.`);
       dun.warnings = [...new Set(dun.warnings)];
       renderDunning();
     }
@@ -9066,6 +9111,7 @@ ZASADY
       if (ok) toast(`Utworzono ${ok} ${plForm(ok, 'szkic', 'szkice', 'szkiców')} w folderze Wersje robocze${noMail ? ` · ${noMail} bez adresu e-mail` : ''}`, 'success', 6000);
     }
     function renderDunning() {
+      dunSourcesUi();
       const cfg = dunCfg();
       const s = dun.sheets[dun.sheetIdx];
       const header = dunHeader();
@@ -9434,7 +9480,7 @@ ZASADY
         if (!d || d.format !== 'officeflow-contracts' || !Array.isArray(d.items)) { toast('To nie jest kopia rejestru umów Paperly.', 'error'); return; }
         const known = new Set(contracts.map(c => c.id));
         let n = 0;
-        for (const x of d.items.slice(0, 2000)) { const c = ctNormalize(x, { id: typeof x.id === 'string' ? x.id : undefined, addedAt: +x.addedAt || Date.now(), zrodlo: x.zrodlo || 'import' }); if (!c.id) c.id = 'ct' + Math.random().toString(36).slice(2); await ctSave(c); if (!known.has(c.id)) n++; }
+        for (const x of d.items.slice(0, 2000)) { const c = ctNormalize(x, { id: typeof x.id === 'string' ? x.id : undefined, addedAt: +x.addedAt || Date.now(), zrodlo: x.zrodlo || 'import', gcal: x.gcal && typeof x.gcal === 'object' ? x.gcal : {} }); if (!c.id) c.id = 'ct' + Math.random().toString(36).slice(2); await ctSave(c); if (!known.has(c.id)) n++; }
         toast(`Wczytano rejestr: ${d.items.length} ${plForm(d.items.length, 'umowa', 'umowy', 'umów')} (nowych: ${n})`, 'success');
         renderContracts();
       });
@@ -9451,12 +9497,13 @@ ZASADY
             if (!c.nazwa.trim() && !c.kontrahent.trim()) { toast('Podaj nazwę umowy lub kontrahenta.', 'info'); return; }
             delete c.isNew;
             if (c.czasNieokreslony) c.dataZakonczenia = '';
-            try { await ctSave(c); ct.editing = null; toast('Zapisano umowę w rejestrze', 'success'); delete panels.contracts; $('#ctPlan').innerHTML = ''; renderContracts(); }
+            try { await ctSave(c); ct.editing = null; toast('Zapisano umowę w rejestrze', 'success'); ctAutoCalendar(c); delete panels.contracts; $('#ctPlan').innerHTML = ''; renderContracts(); }
             catch (err) { toast(`Nie udało się zapisać: ${err.message || err}`, 'error'); }
           }
           else if (a === 'xlsx') { downloadBlob(buildXlsx([{ name: 'Rejestr umów', rows: ctExportRows() }]), `rejestr-umow-${dayKey()}.xlsx`); toast('Pobrano rejestr umów (Excel)', 'success'); }
           else if (a === 'backup') { downloadBlob(new Blob([JSON.stringify({ format: 'officeflow-contracts', version: 1, exportedAt: new Date().toISOString(), items: contracts })], { type: 'application/json' }), `rejestr-umow-kopia-${dayKey()}.json`); toast('Pobrano kopię zapasową rejestru', 'success'); }
           else if (a === 'restore') importer.click();
+          else if (a === 'gcal') ctSyncCalendar(contracts);
           return;
         }
         const ed = e.target.closest('[data-ct-edit]');
@@ -13787,6 +13834,795 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       btn.title = dark ? 'Włącz jasny motyw' : 'Włącz ciemny motyw';
     }
 
+    /* =====================================================================
+       AUTOMATYZACJE – dane bez przepisywania i kopiowania:
+       Gmail jako źródło (treść i załączniki), wysyłka wyniku z Gmaila,
+       Kalendarz Google (umowy, spotkania), pliki z linku, dane firmy po NIP,
+       Dokumenty Google i udostępnianie z telefonu (PWA).
+       Nic z tego nie wysyła treści do AI – AI rusza dopiero po kliknięciu przycisku narzędzia.
+       ===================================================================== */
+    const MP_PRESETS = {
+      recent: { label: 'Najnowsze', q: 'in:inbox newer_than:30d -category:promotions -category:social' },
+      invoices: { label: 'Faktury', q: 'has:attachment (faktura OR fv OR rachunek OR invoice OR proforma) newer_than:120d' },
+      contracts: { label: 'Umowy', q: 'has:attachment (umowa OR aneks OR porozumienie OR contract) newer_than:2y' },
+      cv: { label: 'CV i aplikacje', q: 'has:attachment (cv OR aplikacja OR "curriculum vitae" OR rekrutacja OR resume) newer_than:180d' },
+      offers: { label: 'Oferty', q: '(oferta OR wycena OR cennik OR kosztorys OR propozycja) newer_than:180d' },
+      jobs: { label: 'Ogłoszenia', q: '(ogłoszenie OR "oferta pracy" OR rekrutacja OR stanowisko OR wymagania) newer_than:180d' },
+      sheets: { label: 'Arkusze', q: 'has:attachment (filename:xlsx OR filename:xls OR filename:csv) newer_than:1y' },
+      media: { label: 'Nagrania', q: 'has:attachment (filename:mp3 OR filename:m4a OR filename:wav OR filename:ogg OR filename:mp4 OR filename:webm) newer_than:1y' },
+      attach: { label: 'Z załącznikami', q: 'has:attachment newer_than:90d -category:promotions' }
+    };
+    const MP_FIELD_PRESET = {
+      'invoices:files': 'invoices', 'contract:files': 'contracts', 'contracts:files': 'contracts', 'cv:cvFiles': 'cv', 'recruit:cvFiles': 'cv',
+      'interview:cv': 'cv', 'cv:jobFiles': 'jobs', 'interview:job': 'jobs', 'supplier:files': 'offers', 'report:files': 'sheets', 'report:prev': 'sheets', 'meeting:media': 'media'
+    };
+    const MP_TEXT_FIELDS = { 'email-content': 'recent', 'offer-problem': 'recent', 'rewrite-content': 'recent', 'analyzer-content': 'recent', 'supplier-content': 'offers', 'recruit-job': 'jobs', 'cv-job': 'jobs', 'meeting-notes': 'recent' };
+    const LINK_TEXT_FIELDS = ['recruit-job', 'cv-job', 'analyzer-content', 'rewrite-content', 'supplier-content'];
+    const NIP_FIELDS = { 'offer-company': 'offer', 'letters-recipient': 'letters' };
+    const MIME_EXT = {
+      'application/pdf': 'pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+      'text/csv': 'csv', 'text/plain': 'txt', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/heic': 'heic', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/wav': 'wav', 'audio/ogg': 'ogg', 'video/mp4': 'mp4', 'text/xml': 'xml', 'application/xml': 'xml'
+    };
+    const CT_GCAL_AUTO_KEY = 'officeflow_ct_gcal_auto';
+    let meetingCtx = null;   // spotkanie z kalendarza (uczestnicy do wysyłki notatki)
+    const mailCtx = {};      // narzędzie → wiadomość, z której wstawiono treść (odpowiedź w tym samym wątku)
+    const am = { kind: '', o: {}, busy: false, error: '', need: '', list: [], open: null, sel: new Set(), q: '', preset: '', waitTimer: 0 };
+    const amEsc = escapeHtml;
+
+    function toolOfEl(el) {
+      const f = el && el.closest('form[id^="form-"]');
+      if (f) return f.id.slice(5);
+      const v = el && el.closest('[id^="view-"]');
+      return v ? v.id.slice(5) : '';
+    }
+    function toolFileField(toolId) { const el = document.querySelector(`#form-${toolId} [data-file-field]:not([data-media])`); return el ? el.dataset.fileField : ''; }
+    function fieldLabel(id) { const l = document.querySelector(`label[for="${id}"]`); return l ? l.textContent.replace(/\*|\(.*?\)/g, '').trim() : 'pola'; }
+    function amShow(kind, title, sub, o = {}) {
+      clearInterval(am.waitTimer);
+      Object.assign(am, { kind, o, busy: false, error: '', need: '', list: [], open: null, sel: new Set() });
+      $('#amTitle').textContent = title;
+      $('#amSub').textContent = sub || '';
+      $('#autoModal').classList.remove('hidden');
+      renderAm();
+    }
+    function amHide() { $('#autoModal').classList.add('hidden'); clearInterval(am.waitTimer); am.kind = ''; }
+    function renderAm() {
+      const f = { ctcal: () => amNeedHtml(am.need), mail: amMailHtml, cal: amCalHtml, send: amSendHtml, link: amLinkHtml, nip: amNipHtml, share: amShareHtml, info: () => am.o.html || '' }[am.kind];
+      $('#amBody').innerHTML = f ? f() : '';
+      const first = $('#amBody [data-am-focus]');
+      if (first) setTimeout(() => first.focus(), 30);
+    }
+    const amBtn = (attr, label, primary, extra = '') => `<button type="button" ${attr} ${extra} class="${primary ? 'bg-primary text-white hover:bg-primary-hover' : 'btn-default'} inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold disabled:opacity-60">${label}</button>`;
+    const amSpinner = (t) => `<div class="flex items-center gap-3 py-8 text-sm text-slate-500"><span class="spinner !h-5 !w-5 !border-2"></span>${amEsc(t)}</div>`;
+
+    /* ---------- połączenie z Gmailem na potrzeby automatyzacji ---------- */
+    async function mailReady() {
+      if (gmailConnected()) return true;
+      if (srvGmailReady()) { try { await srvGmailToken(); } catch (e) { /* poniżej: prośba o połączenie */ } }
+      return gmailConnected();
+    }
+    function amNeedHtml(what) {
+      const cal = what === 'calendar';
+      return `<div class="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-slate-700">
+        <p class="font-medium text-slate-900">${cal ? 'Potrzebny dostęp do Kalendarza Google' : 'Połącz swoją skrzynkę Gmail'}</p>
+        <p class="mt-1">${cal ? 'Połącz Gmail ponownie i w oknie Google zaznacz zgodę na Kalendarz.' : 'Jednorazowo – potem wiadomości i załączniki wstawisz jednym kliknięciem, bez kopiowania.'}</p>
+        <div class="mt-3 flex flex-wrap items-center gap-2">${amBtn('data-am="connect"', `${iconSvg('mail', 'h-4 w-4')}${cal ? 'Połącz ponownie' : 'Połącz Gmail'}`, true)}<span id="amWait" class="text-xs text-slate-500"></span></div></div>`;
+    }
+    function amConnect() {
+      const retry = am.kind;
+      if (!srvSignedIn() && !gmailClientId()) { amHide(); connectGmail(); return; }
+      if (am.need === 'calendar') { inbox.gmail.token = ''; inbox.gmail.expiresAt = 0; }
+      connectGmail();
+      const t0 = Date.now();
+      const w = $('#amWait'); if (w) w.textContent = 'Czekam na zgodę w oknie Google…';
+      clearInterval(am.waitTimer);
+      am.waitTimer = setInterval(() => {
+        if (am.kind !== retry || Date.now() - t0 > 180000) { clearInterval(am.waitTimer); return; }
+        if (gmailConnected() && (am.need !== 'calendar' || inbox.gmail.calendar)) { clearInterval(am.waitTimer); if (am.o.after) { const f = am.o.after; amHide(); f(); } else if (retry === 'mail') mpSearch(); else if (retry === 'cal') calLoad(); else if (retry === 'send') { am.need = ''; const n = $('#smNeed'); if (n) n.innerHTML = ''; } }
+      }, 700);
+    }
+
+    /* ---------- wybór wiadomości i załączników z Gmaila ---------- */
+    function openMailPicker(o) {
+      const preset = o.fileField ? (MP_FIELD_PRESET[o.fileField] || 'attach') : (MP_TEXT_FIELDS[o.field] || 'recent');
+      am.preset = preset;
+      am.q = MP_PRESETS[preset].q;
+      o.tool = o.tool || (o.fileField ? o.fileField.split(':')[0] : toolOfEl($('#' + o.field)));
+      amShow('mail', o.fileField ? 'Dodaj załączniki z Gmaila' : 'Wstaw wiadomość z Gmaila', 'Wybierz wiadomość – nic nie trafia do AI, dopóki sam nie klikniesz przycisku narzędzia.', o);
+      mpSearch();
+    }
+    async function mpSearch() {
+      if (am.kind !== 'mail') return;
+      if (!(await mailReady())) { am.need = 'gmail'; renderAm(); return; }
+      Object.assign(am, { need: '', busy: true, error: '', open: null });
+      renderAm();
+      try {
+        const l = await gmailFetch(`/messages?maxResults=15&q=${enc(am.q)}`);
+        const refs = (l && l.messages) || [];
+        am.list = await Promise.all(refs.map(async ref => {
+          const m = await gmailFetch(`/messages/${enc(ref.id)}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`);
+          const h = {};
+          ((m.payload && m.payload.headers) || []).forEach(x => { h[x.name.toLowerCase()] = x.value; });
+          return { id: m.id, threadId: m.threadId, from: parseAddress(h.from), subject: decodeMimeWords(h.subject || ''), date: new Date(parseInt(m.internalDate, 10) || Date.now()), snippet: decodeEntities(m.snippet || ''), att: /mixed/i.test((m.payload && m.payload.mimeType) || '') };
+        }));
+      } catch (e) { am.error = e.message || String(e); am.list = []; }
+      am.busy = false;
+      if (am.kind === 'mail') renderAm();
+    }
+    async function mpOpen(id) {
+      am.busy = true; renderAm();
+      try {
+        const m = await gmailFetch(`/messages/${enc(id)}?format=full`);
+        const h = {};
+        ((m.payload && m.payload.headers) || []).forEach(x => { h[x.name.toLowerCase()] = x.value; });
+        const from = parseAddress(h.from);
+        const refs = gmailAttachmentRefs(m.payload).filter(r => !(r.mimeType.startsWith('image/') && (r.size < 8000 || (r.inline && r.size < 40000))));
+        am.open = {
+          id: m.id, threadId: m.threadId, from, replyTo: h['reply-to'] ? parseAddress(h['reply-to']) : from,
+          subject: decodeMimeWords(h.subject || ''), date: new Date(parseInt(m.internalDate, 10) || Date.now()),
+          messageId: h['message-id'] || '', references: h.references || '', body: gmailBody(m.payload), refs
+        };
+        am.sel = new Set(am.o.fileField ? refs.map((r, i) => i) : []);
+      } catch (e) { am.error = e.message || String(e); }
+      am.busy = false; renderAm();
+    }
+    function amMailHtml() {
+      if (am.need) return amNeedHtml(am.need);
+      const chips = Object.entries(MP_PRESETS).map(([k, p]) => `<button type="button" data-mp-preset="${k}" class="rounded-full border px-2.5 py-1 text-xs font-medium ${am.preset === k ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-300 text-slate-600 hover:bg-slate-100'}">${p.label}</button>`).join('');
+      const search = `<form data-am-form="mp-search" class="flex gap-2"><input id="mpQuery" type="search" value="${amEsc(am.q)}" class="field-input min-w-0 flex-1 text-sm" aria-label="Szukaj w Gmailu" placeholder="np. faktura od:dostawca.pl" /><button type="submit" class="btn-default shrink-0 rounded-lg px-3 text-sm font-medium">${iconSvg('search', 'h-4 w-4')}</button></form>
+        <div class="mt-2 flex flex-wrap gap-1.5">${chips}</div>`;
+      if (am.open && !am.busy) return mpDetailHtml();
+      if (am.busy) return search + amSpinner(am.open ? 'Pobieram…' : 'Szukam w Twojej skrzynce…');
+      if (am.error) return search + `<p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">${amEsc(am.error)}</p>`;
+      if (!am.list.length) return search + '<p class="mt-6 text-center text-sm text-slate-500">Brak wiadomości dla tego wyszukiwania. Zmień filtr albo wpisz inne słowa.</p>';
+      return search + `<ul class="mt-3 max-h-[55vh] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">${am.list.map(m => `
+        <li><button type="button" data-mp-open="${amEsc(m.id)}" class="block w-full px-3 py-2.5 text-left hover:bg-slate-50">
+          <span class="flex items-baseline gap-2"><span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-900">${amEsc(m.from.name || m.from.email)}</span>${m.att ? iconSvg('paperclip', 'h-3.5 w-3.5 shrink-0 text-slate-400') : ''}<span class="shrink-0 text-xs text-slate-500">${amEsc(m.date.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }))}</span></span>
+          <span class="block truncate text-sm text-slate-700">${amEsc(m.subject || '(bez tematu)')}</span>
+          <span class="block truncate text-xs text-slate-500">${amEsc(m.snippet)}</span>
+        </button></li>`).join('')}</ul>`;
+    }
+    function mpDetailHtml() {
+      const it = am.open, o = am.o;
+      const fileField = o.fileField || toolFileField(o.tool);
+      const atts = it.refs.map((r, i) => `<label class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50"><input type="checkbox" data-mp-att="${i}" ${am.sel.has(i) ? 'checked' : ''} ${fileField ? '' : 'disabled'} class="h-4 w-4" />${iconSvg('paperclip', 'h-4 w-4 text-slate-400')}<span class="min-w-0 flex-1 truncate">${amEsc(r.name)}</span><span class="text-xs text-slate-500">${formatSize(r.size)}</span></label>`).join('');
+      return `<button type="button" data-am="back" class="text-sm font-medium text-indigo-600 hover:underline">← Wróć do listy</button>
+        <div class="mt-3 rounded-xl border border-slate-200 p-3">
+          <p class="font-medium text-slate-900">${amEsc(it.subject || '(bez tematu)')}</p>
+          <p class="text-xs text-slate-500">${amEsc(formatAddress(it.from.name, it.from.email))} · ${amEsc(it.date.toLocaleString('pl-PL', { dateStyle: 'medium', timeStyle: 'short' }))}</p>
+          <div class="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap break-words text-sm text-slate-700">${amEsc(it.body.slice(0, 4000) || '(wiadomość bez treści tekstowej)')}</div>
+        </div>
+        ${o.fileField ? '' : `<label class="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" data-mp-body checked class="h-4 w-4" />Wstaw treść do pola „${amEsc(fieldLabel(o.field))}”</label>`}
+        ${it.refs.length ? `<p class="mt-3 text-sm font-medium text-slate-900">Załączniki${fileField ? '' : ' <span class="font-normal text-slate-500">(to narzędzie nie przyjmuje plików)</span>'}</p><div class="mt-1">${atts}</div>` : (o.fileField ? '<p class="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Ta wiadomość nie ma załączników – wybierz inną.</p>' : '')}
+        <div class="mt-4 flex justify-end gap-2">${amBtn('data-am="close"', 'Anuluj')}${amBtn('data-am="mp-use"', o.fileField ? 'Dodaj zaznaczone' : 'Wstaw', true)}</div>`;
+    }
+    async function gmailAttachmentFile(msgId, r) {
+      const d = await gmailFetch(`/messages/${enc(msgId)}/attachments/${enc(r.attachmentId)}`);
+      return new File([b64urlToBytes(d.data)], r.name, { type: r.mimeType || 'application/octet-stream' });
+    }
+    async function mpUse(btn) {
+      const it = am.open, o = am.o;
+      const fileField = o.fileField || toolFileField(o.tool);
+      const bodyBox = $('#amBody [data-mp-body]');
+      const wantBody = !o.fileField && bodyBox && bodyBox.checked;
+      const picks = fileField ? [...am.sel].map(i => it.refs[i]).filter(Boolean) : [];
+      if (!wantBody && !picks.length) { toast(o.fileField ? 'Zaznacz co najmniej jeden załącznik.' : 'Zaznacz treść lub załączniki.', 'info'); return; }
+      btn.disabled = true; btn.textContent = 'Pobieram…';
+      if (wantBody) {
+        const ta = $('#' + o.field);
+        const head = o.field === 'email-content' ? '' : `Od: ${formatAddress(it.from.name, it.from.email)}\nData: ${it.date.toLocaleString('pl-PL')}\nTemat: ${it.subject}\n\n`;
+        const max = ta.maxLength > 0 ? ta.maxLength : 20000;
+        ta.value = (head + it.body).slice(0, max);
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+        mailCtx[o.tool] = { id: it.id, threadId: it.threadId, messageId: it.messageId, references: it.references, subject: it.subject, email: it.replyTo.email, name: it.replyTo.name };
+        renderMailCtx(o.tool);
+      }
+      let added = 0;
+      if (picks.length) {
+        const files = [];
+        for (const r of picks) {
+          try { files.push(await gmailAttachmentFile(it.id, r)); } catch (e) { toast(`${r.name}: ${e.message || e}`, 'error'); }
+        }
+        if (files.length) { await addFormFiles(fileField, files); added = files.length; }
+      }
+      amHide();
+      toast(wantBody ? `Wstawiono wiadomość „${it.subject || 'bez tematu'}”${added ? ` i ${added} ${plForm(added, 'załącznik', 'załączniki', 'załączników')}` : ''}` : `Dodano ${added} ${plForm(added, 'plik', 'pliki', 'plików')} z Gmaila`, 'success');
+    }
+    function renderMailCtx(tool) {
+      $$(`[data-mail-ctx="${tool}"]`).forEach(el => {
+        const c = mailCtx[tool];
+        el.innerHTML = c ? `<span class="inline-flex max-w-full items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-xs text-indigo-800">${iconSvg('mail', 'h-3.5 w-3.5 shrink-0')}<span class="truncate">Z Gmaila: „${amEsc(c.subject || 'bez tematu')}” od ${amEsc(c.name || c.email)} – odpowiesz w tym wątku</span><button type="button" data-mail-ctx-clear="${tool}" class="shrink-0 rounded-full p-0.5 hover:bg-indigo-100" aria-label="Odłącz wiadomość">${iconSvg('x', 'h-3 w-3')}</button></span>` : '';
+      });
+    }
+
+    /* ---------- wysyłka wyniku przez Gmail ---------- */
+    function wrap76(b64) { return b64.replace(/.{76}/g, '$&\r\n'); }
+    async function gmailSendMessage({ to, cc, subject, text, attachments = [], ctx, draft }) {
+      const head = [`To: ${to}`];
+      if (cc) head.push(`Cc: ${cc}`);
+      head.push(`Subject: ${encodeHeaderWord(subject)}`, 'MIME-Version: 1.0');
+      if (ctx && ctx.messageId) head.push(`In-Reply-To: ${ctx.messageId}`, `References: ${[ctx.references, ctx.messageId].filter(Boolean).join(' ')}`);
+      const textPart = ['Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', wrap76(utf8ToB64(text.replace(/\r?\n/g, '\r\n')))].join('\r\n');
+      let mime;
+      if (!attachments.length) mime = head.join('\r\n') + '\r\n' + textPart;
+      else {
+        const b = 'paperly_' + Math.random().toString(36).slice(2);
+        mime = head.join('\r\n') + `\r\nContent-Type: multipart/mixed; boundary="${b}"\r\n\r\n--${b}\r\n${textPart}\r\n`
+          + attachments.map(a => `--${b}\r\nContent-Type: ${a.mimeType}; name="${encodeHeaderWord(a.name)}"\r\nContent-Disposition: attachment; filename="${encodeHeaderWord(a.name)}"\r\nContent-Transfer-Encoding: base64\r\n\r\n${wrap76(a.b64)}\r\n`).join('')
+          + `--${b}--`;
+      }
+      const message = { raw: toB64url(utf8ToB64(mime)) };
+      if (ctx && ctx.threadId) message.threadId = ctx.threadId;
+      if (draft) return gmailFetch('/drafts', { method: 'POST', body: { message } });
+      return gmailFetch('/messages/send', { method: 'POST', body: message });
+    }
+    async function resultDocx(toolId) {
+      const tool = TOOLS[toolId], r = state.results[toolId];
+      const html = renderMarkdown(r.markdown);
+      const title = `${tool.name} – ${new Date().toLocaleDateString('pl-PL')}`;
+      const lh = tool.personal ? null : activeLetterhead();
+      const imgs = (r.extras && r.extras.images) || [];
+      const images = await Promise.all(imgs.map(async im => Object.assign({}, im, await imageSize(im))));
+      return { blob: buildDocx(html, title, { letterhead: lh, images }), name: exportBaseName(toolId) + '.docx', title };
+    }
+    function resultMailParts(toolId) {
+      const r = state.results[toolId];
+      let text = htmlToText(renderMarkdown(r.markdown));
+      let subject = '';
+      const m = /^[ \t]*(?:Temat|Tytuł|Subject)[ \t]*:[ \t]*(.+)\n+/im.exec(text);
+      if (m && m.index < 300) { subject = m[1].trim(); text = (text.slice(0, m.index) + text.slice(m.index + m[0].length)).trim(); }
+      if (!subject) { const h = /^#{1,3}\s+(.+)$/m.exec(r.markdown || ''); if (h) subject = h[1].replace(/[*_`#]/g, '').trim(); }
+      return { text, subject: subject || TOOLS[toolId].name };
+    }
+    function openSendMail() {
+      const toolId = state.activeTool;
+      const r = state.results[toolId];
+      if (!r || r.status !== 'done') return;
+      const ctx = mailCtx[toolId] || null;
+      const parts = resultMailParts(toolId);
+      const meet = toolId === 'meeting' ? meetingCtx : null;
+      amShow('send', 'Wyślij przez Gmail', 'Wiadomość wyjdzie z Twojej skrzynki – sprawdź ją przed wysłaniem.', { toolId, ctx,
+        to: ctx ? formatAddressPlain(ctx.name, ctx.email) : meet ? meet.attendees.join(', ') : '',
+        subject: ctx ? replySubject(ctx.subject) : meet ? `Notatka ze spotkania: ${meet.title}` : parts.subject,
+        text: parts.text, docx: toolId !== 'email' && toolId !== 'rewrite' });
+      mailReady().then(ok => { if (!ok && am.kind === 'send') { am.need = 'gmail'; const n = $('#smNeed'); if (n) n.innerHTML = amNeedHtml('gmail'); } });
+    }
+    function formatAddressPlain(name, email) { return name ? `${name.replace(/[",<>]/g, '')} <${email}>` : email; }
+    function amSendHtml() {
+      const o = am.o;
+      return `<div id="smNeed" class="mb-3"></div>
+        ${o.ctx ? `<label class="mb-3 flex items-start gap-2 rounded-lg bg-indigo-50 p-2.5 text-sm text-indigo-900"><input type="checkbox" id="smThread" checked class="mt-0.5 h-4 w-4" /><span>Odpowiedz w wątku „${amEsc(o.ctx.subject || 'bez tematu')}”</span></label>` : ''}
+        <div class="space-y-3">
+          <div><label for="smTo" class="field-label">Do</label><input id="smTo" type="text" data-am-focus value="${amEsc(o.to)}" class="field-input" placeholder="adres@firma.pl, drugi@firma.pl" autocomplete="email" /></div>
+          <div><label for="smSubject" class="field-label">Temat</label><input id="smSubject" type="text" maxlength="250" value="${amEsc(o.subject)}" class="field-input" /></div>
+          <div><label for="smBody" class="field-label">Treść</label><textarea id="smBody" rows="10" class="field-input text-sm">${amEsc(o.text)}</textarea></div>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="smDocx" ${o.docx ? 'checked' : ''} class="h-4 w-4" />Dołącz wynik jako plik Word (.docx)</label>
+        </div>
+        <p id="smMsg" class="mt-3 text-sm"></p>
+        <div class="mt-4 flex flex-wrap justify-end gap-2">${amBtn('data-am="sm-draft"', 'Zapisz jako szkic')}${amBtn('data-am="sm-send"', `${iconSvg('send', 'h-4 w-4')}Wyślij`, true)}</div>
+        <p class="mt-3 text-xs text-slate-500">Kopia trafi do „Wysłanych” w Gmailu${inbox.gmail.email ? ` (${amEsc(inbox.gmail.email)})` : ''}. Szkic możesz jeszcze poprawić w Gmailu.</p>`;
+    }
+    const EMAIL_RE = /^[^\s@<>,;"]+@[^\s@<>,;"]+\.[^\s@<>,;"]{2,}$/;
+    function parseRecipients(v) {
+      const list = String(v || '').split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+      const bad = list.filter(s => { const m = /<([^>]+)>\s*$/.exec(s); return !EMAIL_RE.test(m ? m[1].trim() : s); });
+      return { list, bad };
+    }
+    async function smSend(draft, btn) {
+      const msg = $('#smMsg');
+      const { list, bad } = parseRecipients($('#smTo').value);
+      if (!draft && !list.length) { msg.className = 'mt-3 text-sm text-red-700'; msg.textContent = 'Podaj adres odbiorcy.'; $('#smTo').focus(); return; }
+      if (bad.length) { msg.className = 'mt-3 text-sm text-red-700'; msg.textContent = `Nieprawidłowy adres: ${bad[0]}`; $('#smTo').focus(); return; }
+      const subject = $('#smSubject').value.trim();
+      if (!subject) { msg.className = 'mt-3 text-sm text-red-700'; msg.textContent = 'Wpisz temat wiadomości.'; $('#smSubject').focus(); return; }
+      if (!(await mailReady())) { am.need = 'gmail'; $('#smNeed').innerHTML = amNeedHtml('gmail'); return; }
+      const label = btn.innerHTML;
+      $$('#amBody [data-am^="sm-"]').forEach(b => { b.disabled = true; });
+      btn.textContent = draft ? 'Zapisuję…' : 'Wysyłam…';
+      try {
+        const attachments = [];
+        if ($('#smDocx').checked) {
+          const d = await resultDocx(am.o.toolId);
+          attachments.push({ name: d.name, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', b64: await readAsBase64(d.blob) });
+        }
+        const thread = $('#smThread') && $('#smThread').checked ? am.o.ctx : null;
+        const to = list.map(s => { const m = /^(.*?)\s*<([^>]+)>\s*$/.exec(s); return m ? formatAddress(m[1].replace(/["]/g, '').trim(), m[2].trim()) : s; }).join(', ');
+        await gmailSendMessage({ to, subject, text: $('#smBody').value, attachments, ctx: thread, draft });
+        amHide();
+        toast(draft ? 'Zapisano szkic w Gmailu' : `Wysłano do: ${list.map(s => (/<([^>]+)>/.exec(s) || [0, s])[1]).join(', ')}`, 'success', 6000);
+      } catch (e) {
+        msg.className = 'mt-3 text-sm text-red-700'; msg.textContent = e.message || String(e);
+        $$('#amBody [data-am^="sm-"]').forEach(b => { b.disabled = false; });
+        btn.innerHTML = label;
+      }
+    }
+
+    /* ---------- Notatki ze spotkań: spotkanie z Kalendarza Google ---------- */
+    function openCalPicker() {
+      amShow('cal', 'Wybierz spotkanie z kalendarza', 'Uzupełnię temat, datę i uczestników. Gotową notatkę wyślesz uczestnikom przyciskiem „Wyślij”.', {});
+      calLoad();
+    }
+    async function calLoad() {
+      if (am.kind !== 'cal') return;
+      if (!(await mailReady())) { am.need = 'gmail'; renderAm(); return; }
+      if (!inbox.gmail.calendar) { am.need = 'calendar'; renderAm(); return; }
+      Object.assign(am, { need: '', busy: true, error: '' }); renderAm();
+      try {
+        const now = Date.now();
+        const d = await googleFetch(`${GCAL_API}/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=50&timeMin=${enc(new Date(now - 14 * 864e5).toISOString())}&timeMax=${enc(new Date(now + 2 * 864e5).toISOString())}`, {}, 'calendar');
+        am.list = ((d && d.items) || []).filter(e => e.status !== 'cancelled' && e.start).map(e => ({
+          id: e.id, title: e.summary || '(bez tytułu)', start: new Date(e.start.dateTime || `${e.start.date}T09:00:00`), allDay: !e.start.dateTime,
+          people: (e.attendees || []).filter(a => !a.resource).map(a => ({ email: a.email || '', name: a.displayName || '', self: !!a.self }))
+        })).reverse();
+      } catch (e) { am.error = e.message || String(e); am.list = []; }
+      am.busy = false;
+      if (am.kind === 'cal') renderAm();
+    }
+    function amCalHtml() {
+      if (am.need) return amNeedHtml(am.need);
+      if (am.busy) return amSpinner('Wczytuję spotkania z ostatnich 2 tygodni…');
+      if (am.error) return `<p class="rounded-lg bg-red-50 p-3 text-sm text-red-700">${amEsc(am.error)}</p>`;
+      if (!am.list.length) return '<p class="py-6 text-center text-sm text-slate-500">Brak spotkań w kalendarzu z ostatnich 2 tygodni.</p>';
+      return `<ul class="max-h-[60vh] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">${am.list.map((ev, i) => `
+        <li><button type="button" data-cal-pick="${i}" class="block w-full px-3 py-2.5 text-left hover:bg-slate-50">
+          <span class="flex items-baseline gap-2"><span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-900">${amEsc(ev.title)}</span><span class="shrink-0 text-xs text-slate-500">${amEsc(ev.start.toLocaleString('pl-PL', ev.allDay ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span></span>
+          <span class="block truncate text-xs text-slate-500">${ev.people.length ? amEsc(ev.people.map(p => p.name || p.email).join(', ')) : 'bez zaproszonych osób'}</span>
+        </button></li>`).join('')}</ul>`;
+    }
+    function calPick(i) {
+      const ev = am.list[i];
+      if (!ev) return;
+      $('#meeting-title').value = ev.title.slice(0, 200);
+      $('#meeting-date').value = dayKey(ev.start);
+      if (ev.people.length) $('#meeting-people').value = ev.people.map(p => p.name ? `${p.name} (${p.email})` : p.email).join(', ').slice(0, 600);
+      ['#meeting-title', '#meeting-date', '#meeting-people'].forEach(s => $(s).dispatchEvent(new Event('input', { bubbles: true })));
+      meetingCtx = { title: ev.title, attendees: ev.people.filter(p => !p.self && p.email).map(p => p.email) };
+      amHide();
+      toast(`Wybrano spotkanie „${ev.title}”${meetingCtx.attendees.length ? ` – po przygotowaniu notatki wyślesz ją ${meetingCtx.attendees.length} ${plForm(meetingCtx.attendees.length, 'uczestnikowi', 'uczestnikom', 'uczestnikom')}` : ''}`, 'success', 6000);
+    }
+
+    /* ---------- Rejestr umów → Kalendarz Google ---------- */
+    async function ctSyncCalendar(list, { quiet = false } = {}) {
+      if (!(await mailReady())) {
+        if (quiet) return;
+        amShow('ctcal', 'Terminy umów w Kalendarzu Google', 'Każdy termin (wypowiedzenie, koniec umowy, waloryzacja) trafi do kalendarza z przypomnieniem e-mail.', { after: () => ctSyncCalendar(list) });
+        am.need = 'gmail'; renderAm(); return;
+      }
+      if (!inbox.gmail.calendar) { if (!quiet) { amShow('ctcal', 'Terminy umów w Kalendarzu Google', '', { after: () => ctSyncCalendar(list) }); am.need = 'calendar'; renderAm(); } return; }
+      const today = dayKey();
+      let added = 0, updated = 0, failed = '';
+      for (const c of list) {
+        const evs = ctEvents(c).filter(e => isoOk(e.date) && e.date >= today);
+        if (!evs.length) continue;
+        c.gcal = Object.assign({}, c.gcal || {});
+        let changed = false;
+        for (const ev of evs) {
+          const prev = c.gcal[ev.kind];
+          if (prev && prev.date === ev.date) continue;
+          const days = Math.min(28, Math.max(1, +c.przypomnij || 30));
+          const body = {
+            summary: `${ev.label}: ${c.nazwa || c.kontrahent || 'umowa'}`,
+            description: [`Umowa: ${c.nazwa || '—'}`, c.kontrahent ? `Kontrahent: ${c.kontrahent}` : '', c.okresWypowiedzenia ? `Okres wypowiedzenia: ${c.okresWypowiedzenia}` : '', c.formaWypowiedzenia ? `Forma wypowiedzenia: ${c.formaWypowiedzenia}` : '', c.opiekun ? `Opiekun: ${c.opiekun}` : '', '', 'Dodane z Rejestru umów PaperlyAI.'].filter(x => x !== '').join('\n'),
+            start: { date: ev.date }, end: { date: addDaysIso(ev.date, 1) }, transparency: 'transparent',
+            reminders: { useDefault: false, overrides: [{ method: 'email', minutes: days * 1440 }, { method: 'popup', minutes: 1440 }] }
+          };
+          try {
+            let d = null;
+            if (prev && prev.id) {
+              try { d = await googleFetch(`${GCAL_API}/calendars/primary/events/${enc(prev.id)}`, { method: 'PATCH', body }, 'calendar'); updated++; }
+              catch (e) { if (!/HTTP 40[4]|HTTP 410/.test(e.message || '')) throw e; d = null; }
+            }
+            if (!d) { d = await googleFetch(`${GCAL_API}/calendars/primary/events`, { method: 'POST', body }, 'calendar'); added++; }
+            c.gcal[ev.kind] = { id: d.id, date: ev.date };
+            changed = true;
+          } catch (e) { failed = e.message || String(e); break; }
+        }
+        if (changed) await ctSave(c);
+        if (failed) break;
+      }
+      if (failed) toast(`Kalendarz: ${failed}`, 'error', 8000);
+      else if (added || updated) toast(`Kalendarz Google: ${added ? `dodano ${added} ${plForm(added, 'termin', 'terminy', 'terminów')}` : ''}${added && updated ? ', ' : ''}${updated ? `zaktualizowano ${updated}` : ''} – z przypomnieniem e-mail`, 'success', 6000);
+      else if (!quiet) toast('Wszystkie nadchodzące terminy umów są już w Kalendarzu Google.', 'info');
+    }
+    function ctAutoCalendar(c) {
+      if (storageGet(CT_GCAL_AUTO_KEY) === '1' && (gmailConnected() || srvGmailReady())) ctSyncCalendar([c], { quiet: true });
+    }
+
+    /* ---------- plik lub strona z linku (pobiera serwer PaperlyAI, z ochroną przed SSRF) ---------- */
+    function linkAvailable() { return srv.on && srvFeature('fetchUrl'); }
+    function normalizeShareUrl(u) {
+      let m;
+      if ((m = /docs\.google\.com\/document\/d\/([\w-]+)/.exec(u))) return `https://docs.google.com/document/d/${m[1]}/export?format=docx`;
+      if ((m = /docs\.google\.com\/spreadsheets\/d\/([\w-]+)/.exec(u))) return `https://docs.google.com/spreadsheets/d/${m[1]}/export?format=xlsx`;
+      if ((m = /docs\.google\.com\/presentation\/d\/([\w-]+)/.exec(u))) return `https://docs.google.com/presentation/d/${m[1]}/export/pdf`;
+      if ((m = /drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:[^#]*&)?id=)([\w-]+)/.exec(u))) return `https://drive.google.com/uc?export=download&id=${m[1]}`;
+      try {
+        const x = new URL(u);
+        if (/(^|\.)dropbox\.com$/.test(x.hostname)) { x.searchParams.set('dl', '1'); return x.toString(); }
+        if (/^(1drv\.ms|onedrive\.live\.com)$/.test(x.hostname)) { x.searchParams.set('download', '1'); return x.toString(); }
+      } catch (e) { /* niżej */ }
+      return u;
+    }
+    function openLinkPicker(o) {
+      o.tool = o.tool || (o.fileField ? o.fileField.split(':')[0] : toolOfEl($('#' + o.field)));
+      amShow('link', o.fileField ? 'Dodaj plik z linku' : 'Wstaw treść strony z linku', 'Serwer PaperlyAI pobierze plik i doda go do formularza – AI ruszy dopiero po Twoim kliknięciu.', o);
+    }
+    function amLinkHtml() {
+      return `<form data-am-form="link">
+          <label for="lkUrl" class="field-label">Link do ${am.o.fileField ? 'pliku' : 'strony (np. ogłoszenia)'}</label>
+          <div class="flex gap-2"><input id="lkUrl" type="url" required data-am-focus class="field-input min-w-0 flex-1" placeholder="https://…" /><button type="submit" class="bg-primary shrink-0 rounded-lg px-4 text-sm font-semibold text-white">Pobierz</button></div>
+          <p id="lkMsg" class="mt-2 text-sm"></p>
+        </form>
+        <p class="mt-3 text-xs leading-relaxed text-slate-500">Działa z publicznymi stronami, plikami PDF, Word i Excel oraz linkami z Dysku Google, Dokumentów Google, Dropboxa i OneDrive – udostępnionymi jako „każdy, kto ma link”. Pliki do 10 MB.</p>`;
+    }
+    async function fetchLink(url) {
+      const j = await srvApi('fetch_url', { url: normalizeShareUrl(url) });
+      const bytes = base64ToBuffer(j.data);
+      return Object.assign(j, { bytes });
+    }
+    async function linkSubmit(form) {
+      const o = am.o, msg = $('#lkMsg'), btn = form.querySelector('button[type=submit]');
+      const url = $('#lkUrl').value.trim();
+      if (!/^https?:\/\//i.test(url)) { msg.className = 'mt-2 text-sm text-red-700'; msg.textContent = 'Wklej pełny link zaczynający się od https://'; return; }
+      btn.disabled = true; btn.textContent = 'Pobieram…'; msg.textContent = '';
+      try {
+        const j = await fetchLink(url);
+        const isHtml = /html|xhtml/.test(j.mime);
+        if (isHtml || (!o.fileField && /^text\//.test(j.mime))) {
+          const page = isHtml ? pageToText(decodeText(j.bytes)) : { title: j.name, text: decodeText(j.bytes) };
+          if (!page.text.trim()) throw new Error('Na tej stronie nie znalazłem tekstu – strona może wymagać logowania albo działać tylko w przeglądarce.');
+          if (o.fileField) {
+            const name = (page.title || j.name || 'strona').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 80) + '.txt';
+            await addFormFiles(o.fileField, [new File([`Źródło: ${url}\n\n${page.text}`], name, { type: 'text/plain' })]);
+          } else {
+            const ta = $('#' + o.field);
+            ta.value = `${page.title ? page.title + '\n' : ''}Źródło: ${url}\n\n${page.text}`.slice(0, ta.maxLength > 0 ? ta.maxLength : 20000);
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        } else {
+          const field = o.fileField || toolFileField(o.tool);
+          if (!field) throw new Error('Pod tym linkiem jest plik, a to pole przyjmuje tylko tekst strony.');
+          let name = j.name || 'plik';
+          const ext = MIME_EXT[j.mime];
+          if (ext && !new RegExp(`\\.${ext}$`, 'i').test(name) && !/\.\w{2,5}$/.test(name)) name += '.' + ext;
+          if (/drive\.google\.com|docs\.google\.com/.test(url) && /^uc$|^export$/.test(name)) name = 'dokument.' + (ext || 'pdf');
+          await addFormFiles(field, [new File([j.bytes], name, { type: j.mime === 'application/octet-stream' ? '' : j.mime })]);
+        }
+        amHide();
+        toast('Pobrano z linku – sprawdź formularz i uruchom narzędzie, gdy będziesz gotowy.', 'success', 5000);
+      } catch (e) {
+        msg.className = 'mt-2 text-sm text-red-700'; msg.textContent = e.message || String(e);
+        btn.disabled = false; btn.textContent = 'Pobierz';
+      }
+    }
+    function pageToText(html) {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      doc.querySelectorAll('script,style,noscript,nav,header,footer,aside,form,svg,iframe,template').forEach(n => n.remove());
+      const main = doc.querySelector('main, article, [role=main]') || doc.body;
+      return { title: (doc.title || '').trim(), text: htmlToText(main ? main.innerHTML : '').slice(0, 60000) };
+    }
+
+    /* ---------- dane firmy po NIP (GUS na serwerze albo wykaz podatników VAT MF) ---------- */
+    async function nipLookup(nip) {
+      if (srvSignedIn() && srvFeature('gus')) { const { company } = await srvApi('gus', undefined, { nip }); return company; }
+      let res;
+      try { res = await fetch(`${WL_API}/search/nip/${nip}?date=${dayKey()}`); } catch (e) { throw new Error('Brak połączenia z wykazem podatników VAT Ministerstwa Finansów.'); }
+      const d = await res.json().catch(() => null);
+      const s = d && d.result && d.result.subject;
+      if (!res.ok) throw new Error((d && d.message) || `Wykaz MF nie odpowiada (HTTP ${res.status}).`);
+      if (!s) throw new Error('Nie znaleziono firmy o tym NIP w wykazie podatników VAT. Wpisz dane ręcznie.');
+      const addr = s.workingAddress || s.residenceAddress || '';
+      const m = /^(.*?),\s*(\d{2}-\d{3})\s+(.*)$/.exec(addr);
+      const cap = (x) => String(x || '').toLowerCase().replace(/(^|[\s\-.(])(\p{L})/gu, (a, p, l) => p + l.toUpperCase());
+      return { name: s.name, nip: s.nip, regon: s.regon || '', street: m ? cap(m[1]).replace(/^Ul\.?\s/i, 'ul. ') : cap(addr), postal: m ? m[2] : '', city: m ? cap(m[3]) : '', vat: s.statusVat, source: 'wykaz podatników VAT (MF)' };
+    }
+    function openNipPicker(field) {
+      amShow('nip', 'Dane firmy po NIP', 'Pobiorę nazwę i adres z oficjalnego rejestru – bez przepisywania.', { field });
+    }
+    function amNipHtml() {
+      const c = am.o.company;
+      return `<form data-am-form="nip"><label for="nipIn" class="field-label">NIP klienta</label>
+          <div class="flex gap-2"><input id="nipIn" inputmode="numeric" maxlength="13" data-am-focus value="${amEsc(am.o.nip || '')}" class="field-input min-w-0 flex-1" placeholder="np. 526-025-02-74" /><button type="submit" class="bg-primary shrink-0 rounded-lg px-4 text-sm font-semibold text-white">Szukaj</button></div>
+          <p id="nipMsg" class="mt-2 text-sm"></p></form>
+        ${c ? `<div class="mt-3 rounded-xl border border-slate-200 p-3 text-sm"><p class="font-medium text-slate-900">${amEsc(c.name)}</p><p class="text-slate-600">${amEsc([c.street, [c.postal, c.city].filter(Boolean).join(' ')].filter(Boolean).join(', '))}</p><p class="text-xs text-slate-500">NIP ${amEsc(c.nip)}${c.regon ? ` · REGON ${amEsc(c.regon)}` : ''}${c.vat ? ` · VAT: ${amEsc(c.vat)}` : ''} · źródło: ${amEsc(c.source || 'rejestr')}</p>${c.active === false ? '<p class="mt-1 text-xs font-medium text-amber-700">Uwaga: działalność tej firmy jest zakończona.</p>' : ''}
+          <div class="mt-3 flex justify-end">${amBtn('data-am="nip-use"', 'Wstaw do formularza', true)}</div></div>` : ''}`;
+    }
+    async function nipSubmit(form) {
+      const nip = $('#nipIn').value.replace(/\D/g, '');
+      const msg = $('#nipMsg'), btn = form.querySelector('button[type=submit]');
+      if (!validNip(nip)) { msg.className = 'mt-2 text-sm text-red-700'; msg.textContent = 'Wpisz prawidłowy NIP (10 cyfr).'; return; }
+      btn.disabled = true; btn.textContent = 'Szukam…';
+      try { am.o.company = await nipLookup(nip); am.o.nip = nip; renderAm(); }
+      catch (e) { msg.className = 'mt-2 text-sm text-red-700'; msg.textContent = e.message || String(e); btn.disabled = false; btn.textContent = 'Szukaj'; }
+    }
+    function nipUse() {
+      const c = am.o.company, id = am.o.field, el = $('#' + id);
+      if (!c || !el) return;
+      if (id === 'letters-recipient') el.value = [c.name, c.street, [c.postal, c.city].filter(Boolean).join(' '), `NIP ${c.nip}`].filter(Boolean).join('\n');
+      else el.value = c.name.slice(0, 200);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      amHide();
+      toast(`Wstawiono dane: ${c.name}`, 'success');
+    }
+
+    /* ---------- zapis wyniku w Dokumentach Google (Dysk, uprawnienie tylko do plików utworzonych tutaj) ---------- */
+    const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+    const drive = { token: '', exp: 0 };
+    function driveToken(fresh) {
+      return new Promise((resolve, reject) => {
+        if (!fresh && drive.token && drive.exp > Date.now() + 60000) { resolve(drive.token); return; }
+        const cid = gmailClientId();
+        if (!cid) { reject(new Error('Logowanie Google nie jest skonfigurowane – technik musi dodać identyfikator klienta Google.')); return; }
+        const go = () => {
+          const client = google.accounts.oauth2.initTokenClient({
+            client_id: cid, scope: DRIVE_SCOPE,
+            hint: inbox.gmail.email || (srv.me && srv.me.user && srv.me.user.email) || undefined,
+            callback: (resp) => {
+              if (resp.error) { reject(new Error(`Google: ${resp.error_description || resp.error}`)); return; }
+              drive.token = resp.access_token;
+              drive.exp = Date.now() + (parseInt(resp.expires_in, 10) || 3600) * 1000;
+              resolve(drive.token);
+            },
+            error_callback: (err) => reject(new Error(err && err.type === 'popup_failed_to_open' ? 'Przeglądarka zablokowała okno Google – zezwól na wyskakujące okienka dla tej strony i spróbuj ponownie.'
+              : err && err.type === 'popup_closed' ? 'Zamknięto okno Google bez zgody na zapis w Dokumentach.' : `Google: ${(err && (err.message || err.type)) || 'błąd logowania'}`))
+          });
+          client.requestAccessToken({ prompt: '' });
+        };
+        if (window.google && google.accounts && google.accounts.oauth2) go();
+        else loadScript(GIS_URL).then(go).catch(reject);
+      });
+    }
+    async function saveToGoogleDocs(toolId) {
+      const r = state.results[toolId];
+      if (!r || r.status !== 'done') return;
+      toast('Zapisuję w Dokumentach Google…', 'info', 2500);
+      try {
+        const d = await resultDocx(toolId);
+        const upload = async (token) => {
+          const b = 'paperly' + Math.random().toString(36).slice(2);
+          const meta = { name: d.title, mimeType: 'application/vnd.google-apps.document' };
+          const body = new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document\r\n\r\n`, d.blob, `\r\n--${b}--`]);
+          return fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${b}` }, body });
+        };
+        let res = await upload(await driveToken());
+        if (res.status === 401) res = await upload(await driveToken(true));
+        const j = await res.json().catch(() => null);
+        if (!res.ok) {
+          const m = (j && j.error && j.error.message) || `HTTP ${res.status}`;
+          throw new Error(/has not been used|is disabled|not been enabled/i.test(m) ? 'Dysk Google nie jest włączony w projekcie Google Cloud – technik musi włączyć „Google Drive API”.' : `Dysk Google: ${m}`);
+        }
+        const link = j.webViewLink || `https://docs.google.com/document/d/${j.id}/edit`;
+        amShow('info', 'Zapisano w Dokumentach Google', '', { html: `<p class="text-sm text-slate-700">Dokument „${amEsc(j.name || d.title)}” jest na Twoim Dysku Google – możesz go edytować i udostępniać współpracownikom.</p><div class="mt-4 flex justify-end gap-2">${amBtn('data-am="close"', 'Zamknij')}<a href="${amEsc(link)}" target="_blank" rel="noopener" class="bg-primary inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold text-white">Otwórz dokument</a></div>` });
+      } catch (e) { toast(e.message || String(e), 'error', 9000); }
+    }
+
+    /* ---------- udostępnianie z telefonu (PWA: „Udostępnij → PaperlyAI”) ---------- */
+    const SHARE_CACHE = 'paperly-share';
+    async function readSharedItems() {
+      if (!/[?&]shared=1\b/.test(location.search) || !window.caches) return;
+      try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* ignoruj */ }
+      try {
+        const cache = await caches.open(SHARE_CACHE);
+        const metaRes = await cache.match('/__share/meta');
+        const meta = metaRes ? await metaRes.json() : { count: 0 };
+        const files = [];
+        for (let i = 0; i < (meta.count || 0); i++) {
+          const res = await cache.match(`/__share/${i}`);
+          if (!res) continue;
+          const blob = await res.blob();
+          files.push(new File([blob], decodeURIComponent(res.headers.get('X-Name') || `plik-${i + 1}`), { type: blob.type }));
+        }
+        await caches.delete(SHARE_CACHE);
+        const text = [meta.title, meta.text, meta.url].filter(Boolean).join('\n').trim();
+        if (!files.length && !text) return;
+        amShow('share', 'Co zrobić z udostępnionym?', files.length ? files.map(f => f.name).join(', ') : text.slice(0, 120), { files, text });
+      } catch (e) { toast(`Nie udało się odebrać udostępnionych plików: ${e.message || e}`, 'error'); }
+    }
+    function shareTargets(o) {
+      if (o.files.length) {
+        const media = o.files.every(f => /^(audio|video)\//.test(f.type) || /\.(mp3|m4a|wav|ogg|webm|aac|flac|mp4)$/i.test(f.name));
+        return $$('[data-file-field]').filter(el => (media ? el.hasAttribute('data-media') : !el.hasAttribute('data-media')) && !/^chat:/.test(el.dataset.fileField))
+          .map(el => { const t = el.dataset.fileField.split(':')[0]; return { field: el.dataset.fileField, tool: t, name: (TOOLS[t] || VIEWS[t] || { name: t }).name, label: el.dataset.label }; })
+          .filter((x, i, a) => a.findIndex(y => y.tool === x.tool) === i);
+      }
+      return Object.keys(MP_TEXT_FIELDS).concat(['contract-content', 'marketing-brief']).map(id => document.getElementById(id)).filter(Boolean)
+        .map(el => { const t = toolOfEl(el); return { text: el.id, tool: t, name: (TOOLS[t] || { name: t }).name, label: fieldLabel(el.id) }; })
+        .filter((x, i, a) => a.findIndex(y => y.tool === x.tool) === i);
+    }
+    function amShareHtml() {
+      const list = shareTargets(am.o);
+      return `<ul class="grid max-h-[60vh] grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">${list.map((x, i) => `<li><button type="button" data-share-pick="${i}" class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-left hover:border-indigo-400 hover:bg-indigo-50"><span class="block text-sm font-medium text-slate-900">${amEsc(x.name)}</span><span class="block text-xs text-slate-500">${amEsc(x.label || '')}</span></button></li>`).join('')}</ul>`;
+    }
+    async function sharePick(i) {
+      const x = shareTargets(am.o)[i];
+      if (!x) return;
+      const o = am.o;
+      amHide();
+      setActiveTool(x.tool);
+      if (x.field) {
+        if (x.tool === 'contracts' && !ct.adding) { ct.adding = true; renderContracts(); }
+        await addFormFiles(x.field, o.files);
+      } else {
+        const ta = $('#' + x.text);
+        ta.value = o.text.slice(0, ta.maxLength > 0 ? ta.maxLength : 20000);
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      toast('Gotowe – sprawdź formularz i uruchom narzędzie.', 'success');
+    }
+    function registerServiceWorker() {
+      if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
+      navigator.serviceWorker.register('sw.js').catch(() => { /* bez PWA */ });
+    }
+
+    /* ---------- przyciski przy polach i zdarzenia ---------- */
+    function srcLinksHtml(id) {
+      const b = (attr, icon, label) => `<button type="button" ${attr} class="inline-flex items-center gap-1 font-medium text-indigo-600 hover:underline">${iconSvg(icon, 'h-3.5 w-3.5')}${label}</button>`;
+      const out = [];
+      if (MP_TEXT_FIELDS[id]) out.push(b(`data-src-gmail="${id}"`, 'mail', 'Wstaw z Gmaila'));
+      if (LINK_TEXT_FIELDS.includes(id) && linkAvailable()) out.push(b(`data-src-link="${id}"`, 'link', 'Wstaw z linku'));
+      if (NIP_FIELDS[id]) out.push(b(`data-src-nip="${id}"`, 'identification', 'Uzupełnij po NIP'));
+      if (id === 'meeting-title') out.push(b('data-src-cal', 'calendar', 'Wybierz z Kalendarza Google'));
+      return out.join('');
+    }
+    function injectSourceButtons() {
+      const ids = new Set([...Object.keys(MP_TEXT_FIELDS), ...LINK_TEXT_FIELDS, ...Object.keys(NIP_FIELDS), 'meeting-title']);
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        const label = document.querySelector(`label[for="${id}"]`);
+        if (!el || !label || document.querySelector(`[data-src-for="${id}"]`)) return;
+        const html = srcLinksHtml(id);
+        if (!html) return;
+        const row = document.createElement('div');
+        row.className = 'mb-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs';
+        row.dataset.srcFor = id;
+        row.innerHTML = html;
+        label.insertAdjacentElement('afterend', row);
+        if (MP_TEXT_FIELDS[id]) {
+          const chip = document.createElement('div');
+          chip.dataset.mailCtx = toolOfEl(el);
+          chip.className = 'mt-1.5 empty:hidden';
+          el.insertAdjacentElement('afterend', chip);
+        }
+      });
+    }
+    function bindAutomations() {
+      injectSourceButtons();
+      document.addEventListener('click', (e) => {
+        const g = e.target.closest('[data-src-gmail]');
+        if (g) { openMailPicker({ field: g.dataset.srcGmail }); return; }
+        const l = e.target.closest('[data-src-link]');
+        if (l) { openLinkPicker({ field: l.dataset.srcLink }); return; }
+        const n = e.target.closest('[data-src-nip]');
+        if (n) { openNipPicker(n.dataset.srcNip); return; }
+        if (e.target.closest('[data-src-cal]')) { openCalPicker(); return; }
+        const x = e.target.closest('[data-mail-ctx-clear]');
+        if (x) { delete mailCtx[x.dataset.mailCtxClear]; renderMailCtx(x.dataset.mailCtxClear); }
+      });
+      document.addEventListener('reset', (e) => {
+        const t = e.target && e.target.id && e.target.id.startsWith('form-') ? e.target.id.slice(5) : '';
+        if (t && mailCtx[t]) { delete mailCtx[t]; renderMailCtx(t); }
+        if (t === 'meeting') meetingCtx = null;
+      }, true);
+      const modal = $('#autoModal');
+      modal.addEventListener('click', (e) => {
+        if (e.target.closest('[data-am-close]') || e.target.closest('[data-am="close"]')) { amHide(); return; }
+        const a = e.target.closest('[data-am]');
+        if (a) {
+          const k = a.dataset.am;
+          if (k === 'connect') amConnect();
+          else if (k === 'back') { am.open = null; renderAm(); }
+          else if (k === 'mp-use') mpUse(a);
+          else if (k === 'sm-send') smSend(false, a);
+          else if (k === 'sm-draft') smSend(true, a);
+          else if (k === 'nip-use') nipUse();
+          return;
+        }
+        const p = e.target.closest('[data-mp-preset]');
+        if (p) { am.preset = p.dataset.mpPreset; am.q = MP_PRESETS[am.preset].q; mpSearch(); return; }
+        const op = e.target.closest('[data-mp-open]');
+        if (op) { mpOpen(op.dataset.mpOpen); return; }
+        const cp = e.target.closest('[data-cal-pick]');
+        if (cp) { calPick(+cp.dataset.calPick); return; }
+        const sp = e.target.closest('[data-share-pick]');
+        if (sp) sharePick(+sp.dataset.sharePick);
+      });
+      modal.addEventListener('change', (e) => {
+        const c = e.target.closest('[data-mp-att]');
+        if (c) { if (c.checked) am.sel.add(+c.dataset.mpAtt); else am.sel.delete(+c.dataset.mpAtt); }
+      });
+      modal.addEventListener('submit', (e) => {
+        const f = e.target.closest('[data-am-form]');
+        if (!f) return;
+        e.preventDefault();
+        if (f.dataset.amForm === 'mp-search') { am.q = $('#mpQuery').value.trim() || MP_PRESETS.recent.q; am.preset = ''; mpSearch(); }
+        else if (f.dataset.amForm === 'link') linkSubmit(f);
+        else if (f.dataset.amForm === 'nip') nipSubmit(f);
+      });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && am.kind) amHide(); });
+      $('#sendMailBtn').addEventListener('click', openSendMail);
+      const auto = $('#ctGcalAuto');
+      if (auto) {
+        auto.checked = storageGet(CT_GCAL_AUTO_KEY) === '1';
+        auto.addEventListener('change', () => { storageSet(CT_GCAL_AUTO_KEY, auto.checked ? '1' : '0'); if (auto.checked) ctSyncCalendar(contracts); });
+      }
+      registerServiceWorker();
+      readSharedItems();
+    }
+
+    /* ---------- Windykacja: faktury sprzedaży z KSeF i wyciąg bankowy ---------- */
+    const normInv = (s) => String(s || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+    function dunSourcesUi() {
+      const k = $('#dunKsefBtn');
+      if (k) k.classList.toggle('hidden', !(srvFeature('ksef') && srvSignedIn() && srv.me.workspace && srv.me.workspace.type === 'company'));
+    }
+    async function dunFromKsef(btn) {
+      const from = $('#dunKsefFrom').value, to = $('#dunKsefTo').value;
+      if (!from || !to) { toast('Wybierz zakres dat wystawienia faktur.', 'info'); return; }
+      const label = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Pobieram z KSeF…';
+      try {
+        const j = await srvApi('ksef_sales', { from, to });
+        const inv = j.invoices || [];
+        const paid = inv.filter(x => x.paid).length;
+        let noDue = 0;
+        const rows = [['Kontrahent', 'NIP', 'E-mail', 'Numer faktury', 'Data wystawienia', 'Termin płatności', 'Kwota brutto', 'Waluta']];
+        inv.filter(x => !x.paid).forEach(x => {
+          let due = x.due;
+          if (!due && isoOk(String(x.issueDate).slice(0, 10))) { due = addDaysIso(String(x.issueDate).slice(0, 10), 14); noDue++; }
+          rows.push([x.buyer || `NIP ${x.buyerNip}`, x.buyerNip, x.email, x.number, String(x.issueDate).slice(0, 10), due, x.gross == null ? '' : String(x.gross), x.currency || 'PLN']);
+        });
+        Object.assign(dun, { fileName: `KSeF – faktury sprzedaży ${from} – ${to}`, sheets: [{ name: 'KSeF', rows }], sheetIdx: 0, debtors: [], open: null, q: null, paid: new Set(), bankInfo: '',
+          sourceInfo: [paid ? `${paid} ${plForm(paid, 'faktura oznaczona', 'faktury oznaczone', 'faktur oznaczonych')} w KSeF jako zapłacone – pominięte.` : '', noDue ? `${noDue} ${plForm(noDue, 'faktura nie ma', 'faktury nie mają', 'faktur nie ma')} terminu płatności w KSeF – przyjęto 14 dni od wystawienia.` : ''].filter(Boolean) });
+        $('#dunKsefPanel').classList.add('hidden');
+        guessDunMap();
+        await computeDunning();
+        toast(`Pobrano ${inv.length} ${plForm(inv.length, 'fakturę', 'faktury', 'faktur')} sprzedaży z KSeF${j.more ? ' (pierwsze 100 – zawęź okres)' : ''}. Wgraj wyciąg bankowy, aby pominąć opłacone.`, 'success', 8000);
+      } catch (e) { toast(e.message || String(e), 'error', 9000); }
+      finally { btn.disabled = false; btn.textContent = label; }
+    }
+    async function dunBankFile(file) {
+      if (!dun.debtors.length) { toast('Najpierw wczytaj listę należności (plik z programu księgowego albo KSeF).', 'info'); return; }
+      let sheets;
+      try { sheets = await readTableFile(file); } catch (e) { toast(`Nie udało się wczytać wyciągu: ${e.message || e}`, 'error'); return; }
+      const rows = sheets.flatMap(s => s.rows);
+      const invs = dun.debtors.flatMap(d => d.invoices.map(inv => ({ d, inv, n: normInv(inv.number), paid: false })));
+      const matched = [], partial = [];
+      for (const row of rows) {
+        const cells = row.map(v => v == null ? '' : String(v).trim());
+        const txt = cells.join(' ');
+        const ntxt = normInv(txt);
+        const digits = txt.replace(/\D/g, '');
+        const amounts = cells.filter(c => /^[+]?\d[\d\s .,]*$/.test(c) && c.replace(/\D/g, '').length <= 12).map(parsePlNumber).filter(v => v > 0);
+        for (const x of invs) {
+          if (x.paid) continue;
+          const byNo = x.n.length >= 4 && /\d/.test(x.n) && ntxt.includes(x.n);
+          const nameKey = (String(x.d.name).toLowerCase().match(/[\p{L}\d]{4,}/u) || [''])[0];
+          const sameAmt = amounts.some(a => Math.abs(a - x.inv.amount) < 0.01);
+          const who = (x.d.nip && digits.includes(x.d.nip)) || (nameKey && txt.toLowerCase().includes(nameKey));
+          if (byNo && amounts.length && !amounts.some(a => a >= x.inv.amount - 0.01)) { partial.push(`${x.inv.number} (${x.d.name}): wpłata ${fmtMoney(Math.max(...amounts), x.inv.currency)} z ${fmtMoney(x.inv.amount, x.inv.currency)}`); x.paid = true; continue; }
+          if (byNo || (sameAmt && who)) { x.paid = true; matched.push(x); }
+        }
+      }
+      dun.paid = new Set([...(dun.paid || []), ...matched.map(x => x.n + '|' + x.inv.amount)]);
+      dun.bankInfo = matched.length || partial.length
+        ? [matched.length ? `Wyciąg „${file.name}”: opłacone i pominięte – ${matched.map(x => `${x.inv.number} (${x.d.name})`).join(', ')}.` : '', partial.length ? `Częściowe wpłaty (faktura zostaje w windykacji – sprawdź kwotę): ${partial.join('; ')}.` : ''].filter(Boolean).join(' ')
+        : `Wyciąg „${file.name}”: nie znalazłem wpłat pasujących do faktur z listy.`;
+      await computeDunning();
+      toast(matched.length ? `Oznaczono ${matched.length} ${plForm(matched.length, 'fakturę', 'faktury', 'faktur')} jako zapłacone na podstawie wyciągu` : 'Na wyciągu nie znalazłem wpłat do faktur z listy', matched.length ? 'success' : 'info', 7000);
+    }
+    function bindDunningSources() {
+      const k = $('#dunKsefBtn');
+      if (!k) return;
+      const today = new Date();
+      $('#dunKsefTo').value = dayKey(today);
+      $('#dunKsefFrom').value = dayKey(new Date(today.getTime() - 89 * 864e5));
+      k.addEventListener('click', () => $('#dunKsefPanel').classList.toggle('hidden'));
+      $('#dunKsefGo').addEventListener('click', (e) => dunFromKsef(e.currentTarget));
+      $('#dunBankBtn').addEventListener('click', () => $('#dunBankInput').click());
+      $('#dunBankInput').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) dunBankFile(f); });
+      dunSourcesUi();
+    }
+
     function init() {
       readGoogleRedirect();
       if (window.marked && typeof window.marked.setOptions === 'function') {
@@ -13814,6 +14650,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       bindInterview();
       bindServer();
       bindSetupGate();
+      bindAutomations();
+      bindDunningSources();
       kbLoad();
       updateAnalyzerHint();
       document.body.dataset.role = getRole();

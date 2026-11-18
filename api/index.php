@@ -51,6 +51,8 @@ run_json(function () {
         case 'ksef_test': if (!$post) break; rate_limit('ksef', 'u' . require_user()['user']['id'], 30, 600); json_out(action_ksef_test()); return;
         case 'ksef_list': if (!$post) break; rate_limit('ksef', 'u' . require_user()['user']['id'], 30, 600); json_out(action_ksef_list()); return;
         case 'ksef_xml': json_out(action_ksef_xml()); return;
+        case 'ksef_sales': if (!$post) break; rate_limit('ksef', 'u' . require_user()['user']['id'], 30, 600); json_out(action_ksef_sales()); return;
+        case 'fetch_url': if (!$post) break; rate_limit('fetch', 'u' . require_user()['user']['id'], 40, 3600); json_out(action_fetch_url()); return;
     }
     fail(404, 'unknown', 'Nieznana akcja.');
 });
@@ -67,6 +69,7 @@ function features(): array {
         'mail' => $dbOk && mail_configured(),
         'gus' => $dbOk,
         'ksef' => $dbOk,
+        'fetchUrl' => $dbOk && function_exists('curl_init'),
     ];
 }
 function health(): array {
@@ -490,6 +493,24 @@ function action_ksef_list(): array {
     try { return ['ok' => true] + ksef_purchases($s['ws'], $from, $to); }
     catch (ApiError $e) { throw $e; }
     catch (Throwable $e) { fail(502, 'ksef', $e->getMessage()); }
+}
+function action_ksef_sales(): array {
+    $s = require_company_ws(false);
+    $b = body_json();
+    $from = str_in($b, 'from', 10); $to = str_in($b, 'to', 10);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) fail(400, 'bad_range', 'Podaj daty w formacie RRRR-MM-DD.');
+    try { return ['ok' => true] + ksef_sales($s['ws'], $from, $to); }
+    catch (ApiError $e) { throw $e; }
+    catch (Throwable $e) { fail(502, 'ksef', $e->getMessage()); }
+}
+
+/* ======================================================================== plik z linku */
+function action_fetch_url(): array {
+    require_user();
+    require_once __DIR__ . '/lib/fetchurl.php';
+    $url = trim(str_in(body_json(), 'url', 2000));
+    if ($url === '') fail(400, 'bad_url', 'Wklej link do pliku lub strony.');
+    return ['ok' => true] + fetch_url_file($url);
 }
 function action_ksef_xml(): array {
     $s = require_company_ws(false);
