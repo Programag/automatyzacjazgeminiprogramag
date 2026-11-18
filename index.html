@@ -1673,12 +1673,13 @@
         <!-- ===== Widok: Skrzynka AI ===== -->
         <div id="view-inbox" class="hidden p-4 sm:p-6 max-w-[1100px] mx-auto space-y-5">
           <section class="rounded-2xl bg-canvas shadow-card border border-slate-300 p-5 sm:p-6">
-            <div class="flex flex-col lg:flex-row lg:items-start gap-4 justify-between">
+            <div class="flex flex-col gap-4">
               <div class="min-w-0">
                 <h2 class="font-semibold text-slate-900 text-lg">Nowe maile → gotowe odpowiedzi</h2>
                 <p class="mt-1 text-sm text-slate-500 max-w-2xl">Paperly czyta nieprzeczytane wiadomości, pomija newslettery i powiadomienia, a do pozostałych przygotowuje propozycję odpowiedzi. Nic nie zostanie wysłane bez Twojego zatwierdzenia.</p>
               </div>
               <div class="flex flex-wrap items-center gap-3 shrink-0">
+                <label class="model-pick" title="Model AI, który przygotuje odpowiedzi"><svg data-icon="sparkles" class="h-3.5 w-3.5"></svg><span class="sr-only">Model AI</span><select data-model-pick aria-label="Model AI"></select></label>
                 <label class="inline-flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
                   <input id="inboxAuto" type="checkbox" class="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
                   Sprawdzaj co 3 min
@@ -1847,6 +1848,7 @@
             </div>
             <div id="batchKbRow" class="mt-4"></div>
             <div class="mt-4 flex flex-wrap items-center gap-2">
+              <label class="model-pick" title="Model AI, który przygotuje odpowiedzi"><svg data-icon="sparkles" class="h-3.5 w-3.5"></svg><span class="sr-only">Model AI</span><select data-model-pick aria-label="Model AI"></select></label>
               <button type="button" id="batchTestBtn" class="btn-default rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50">Przetestuj na pierwszym wierszu</button>
               <button type="button" id="batchRunBtn" class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50"></button>
               <button type="button" id="batchStopBtn" class="hidden btn-default inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"><svg data-icon="stop" class="h-4 w-4"></svg>Zatrzymaj</button>
@@ -1952,6 +1954,7 @@
             <div id="dunSummary" class="mt-3"></div>
             <div id="dunTable" class="mt-3"></div>
             <div class="mt-4 flex flex-wrap items-center gap-2">
+              <label class="model-pick" title="Model AI, który przygotuje odpowiedzi"><svg data-icon="sparkles" class="h-3.5 w-3.5"></svg><span class="sr-only">Model AI</span><select data-model-pick aria-label="Model AI"></select></label>
               <button type="button" id="dunRunBtn" class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50"></button>
               <button type="button" id="dunStopBtn" class="hidden btn-default inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"><svg data-icon="stop" class="h-4 w-4"></svg>Zatrzymaj</button>
               <span id="dunProgress" class="text-xs text-slate-500" aria-live="polite"></span>
@@ -2018,7 +2021,8 @@
                 <h2 class="font-semibold text-slate-900">Umowy firmy</h2>
                 <p class="mt-1 text-sm text-slate-500">Najem, leasing, abonamenty, umowy z dostawcami i klientami – z terminami wypowiedzenia, końcami umów i waloryzacjami. Aplikacja przypomni o nich na czas, a terminy dodasz do kalendarza.</p>
               </div>
-              <div class="flex flex-wrap gap-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <label class="model-pick" title="Model AI, który przygotuje odpowiedzi"><svg data-icon="sparkles" class="h-3.5 w-3.5"></svg><span class="sr-only">Model AI</span><select data-model-pick aria-label="Model AI"></select></label>
                 <button type="button" data-ct="add-file" class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary-hover"><svg data-icon="upload" class="h-4 w-4"></svg>Dodaj z pliku</button>
                 <button type="button" data-ct="add-manual" class="btn-default inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium"><svg data-icon="plus" class="h-4 w-4"></svg>Dodaj ręcznie</button>
               </div>
@@ -2088,6 +2092,7 @@
               </div>
             </div>
             <div class="flex flex-wrap items-center gap-3">
+              <label class="model-pick" title="Model AI, który przygotuje odpowiedzi"><svg data-icon="sparkles" class="h-3.5 w-3.5"></svg><span class="sr-only">Model AI</span><select data-model-pick aria-label="Model AI"></select></label>
               <button type="button" id="ivStartBtn" data-iv="start" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"><svg data-icon="play" class="h-4 w-4"></svg>Zacznij rozmowę</button>
               <button type="button" id="ivExampleBtn" class="text-sm font-medium text-indigo-600 hover:underline">Wypełnij przykładem</button>
             </div>
