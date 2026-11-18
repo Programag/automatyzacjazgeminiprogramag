@@ -11428,7 +11428,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       inbox.digestBusy = true;
       renderDigest();
       try {
-        const items = Array.from(inbox.items.values()).filter(i => !['sent', 'drafted'].includes(i.state));
+        const items = Array.from(inbox.items.values()).filter(i => !['sent', 'drafted', 'skipped'].includes(i.state));
         const events = todaysEvents();
         const lines = [
           `Dzisiaj: ${new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`, '',
@@ -11573,12 +11573,12 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         const all = Array.from(inbox.items.values()).filter(it => it.kind !== 'followup');
         const pack = (it) => { const o = {}; Object.keys(it).forEach(k => { if (!INBOX_VOLATILE.has(k) && typeof it[k] !== 'function') o[k] = k === 'body' ? String(it[k] || '').slice(0, 20000) : it[k]; }); return o; };
         // obsłużone (wysłane / szkice) zostają w osobnej sekcji także po odświeżeniu – do 14 dni, maks. 30
-        const doneList = all.filter(it => ['sent', 'drafted'].includes(it.state) && it.doneAt && Date.now() - new Date(it.doneAt) < 14 * 864e5)
-          .sort((a, b) => new Date(b.doneAt) - new Date(a.doneAt)).slice(0, 30)
+        const doneList = all.filter(it => ['sent', 'drafted', 'skipped'].includes(it.state) && it.doneAt && Date.now() - new Date(it.doneAt) < 14 * 864e5)
+          .sort((a, b) => new Date(b.doneAt) - new Date(a.doneAt)).slice(0, 50)
           .map(it => Object.assign(pack(it), { savedState: it.state, body: String(it.body || '').slice(0, 4000) }));
         // najważniejsze najpierw (gotowe, błędy, w trakcie, nowe), w każdej grupie najnowsze – limit nie wyrzuca świeżych maili
         const rank = { ready: 0, 'pending-send': 0, sending: 0, drafting: 0, error: 1, analyzing: 1, queued: 1, new: 2, noreply: 3 };
-        const active = all.filter(it => !['sent', 'drafted'].includes(it.state))
+        const active = all.filter(it => !['sent', 'drafted', 'skipped'].includes(it.state))
           .sort((a, b) => ((rank[a.state] ?? 2) - (rank[b.state] ?? 2)) || (new Date(b.date || 0) - new Date(a.date || 0))).slice(0, 60)
           .map(it => {
             const o = pack(it);
@@ -11604,7 +11604,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         if (m.date) m.date = new Date(m.date);
         addInboxItem(m);
         const it = inbox.items.get(m.key);
-        if (doneState === 'sent' || doneState === 'drafted') { it.state = doneState; it.doneAt = m.doneAt ? new Date(m.doneAt) : new Date(); }
+        if (doneState === 'sent' || doneState === 'drafted' || doneState === 'skipped') { it.state = doneState; it.doneAt = m.doneAt ? new Date(m.doneAt) : new Date(); }
         else if (doneState === 'error' && it.state === 'new') { it.state = 'error'; it.error = savedError || { title: 'Nie udało się przygotować odpowiedzi', message: 'Kliknij „Spróbuj ponownie”.' }; }
       });
     }
@@ -11897,10 +11897,29 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         return;
       }
       markDone(item.key, 'skipped');
-      inbox.items.delete(item.key);
       inbox.queue = inbox.queue.filter(k => k !== item.key);
+      if (item.state === 'sent' || item.state === 'drafted') inbox.items.delete(item.key);   // „Ukryj” przy obsłużonym
+      else {
+        // nic nie znika: wiadomość trafia do sekcji „Pominięte”, skąd można ją przywrócić
+        clearTimeout(item.undoTimer);
+        if (item.analysis) cacheAnalysis(item.key, item.analysis);   // przygotowana odpowiedź wróci po przywróceniu
+        item.skippedFrom = item.state;
+        item.state = 'skipped';
+        item.doneAt = new Date();
+        toast('Przeniesiono do „Pominięte” – możesz ją przywrócić na dole listy', 'info', 4000);
+      }
       renderInboxList();
       renderInboxToolbar();
+    }
+    function unskipItem(item) {
+      const done = getDone();
+      if (done[item.key]) { delete done[item.key]; saveJson(INBOX_KEYS.done, done); }
+      if (item.analysis) { cacheAnalysis(item.key, item.analysis); applyAnalysis(item, item.analysis); }
+      else { item.state = 'new'; item.selected = false; }
+      item.skippedFrom = '';
+      renderInboxList();
+      renderInboxToolbar();
+      toast('Przywrócono wiadomość', 'success', 2500);
     }
 
     /* ---------- render ---------- */
@@ -12118,7 +12137,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
           <div class="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2">
             <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-700"><input type="checkbox" data-mail-select ${item.selected ? 'checked' : ''} />Zaznacz do analizy</label>
             <span class="text-xs text-slate-500">Nie wysłano do AI</span>
-            <button type="button" data-mail-action="analyze" class="btn-default ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium">${iconSvg('sparkles', 'h-4 w-4')}Przygotuj odpowiedź</button>
+            <button type="button" data-mail-action="skip" class="ml-auto rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-200">Pomiń</button>
+            <button type="button" data-mail-action="analyze" class="btn-default inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium">${iconSvg('sparkles', 'h-4 w-4')}Przygotuj odpowiedź</button>
           </div>`;
       } else if (st === 'followup') {
         bodyHtml = `
@@ -12154,6 +12174,12 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
               ${e.isKeyProblem && isTech() ? '<button type="button" data-action="open-settings" class="rounded-lg border border-red-300 bg-canvas px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100">Ustawienia API</button>' : ''}
               <button type="button" data-mail-action="skip" class="rounded-lg px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100">Pomiń</button>
             </div>
+          </div>`;
+      } else if (st === 'skipped') {
+        bodyHtml = `
+          <div class="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <span class="flex-1 min-w-[12rem]">Pominięto ${escapeHtml(shortTime(item.doneAt))}. Wiadomość została w Twojej skrzynce – PaperlyAI nie przygotuje na nią odpowiedzi.</span>
+            <button type="button" data-mail-action="unskip" class="btn-default rounded-lg px-3 py-1.5 text-xs font-medium">Przywróć</button>
           </div>`;
       } else if (st === 'noreply') {
         bodyHtml = `
@@ -12216,7 +12242,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
               </div>`}
           </div>`;
       }
-      const dim = st === 'noreply' || st === 'sent' || st === 'drafted';
+      const dim = st === 'noreply' || st === 'sent' || st === 'drafted' || st === 'skipped';
       return `<article id="${item.domId}" data-key="${escapeHtml(item.key)}" class="rounded-2xl border ${isFollow && st === 'followup' ? 'border-amber-200' : 'border-slate-300'} bg-canvas p-4 sm:p-5 fade-in ${dim ? 'opacity-80' : ''}">${head}${bodyHtml}</article>`;
     }
 
@@ -12233,7 +12259,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       el.replaceWith(next);
     }
 
-    const STATE_ORDER = { 'pending-send': 0, sending: 0, drafting: 0, ready: 1, new: 1.5, followup: 2, error: 3, analyzing: 4, queued: 5, noreply: 6, sent: 7, drafted: 7 };
+    const STATE_ORDER = { 'pending-send': 0, sending: 0, drafting: 0, ready: 1, new: 1.5, followup: 2, error: 3, analyzing: 4, queued: 5, noreply: 6, sent: 7, drafted: 7, skipped: 8 };
     const INBOX_FILTERS = [
       ['all', 'Wszystkie', () => true],
       ['new', 'Nowe – do wyboru', i => i.state === 'new'],
@@ -12241,7 +12267,8 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       ['followup', 'Przypomnienia', i => i.kind === 'followup' && !['sent', 'drafted'].includes(i.state)],
       ['pending', 'W trakcie', i => ['queued', 'analyzing', 'error'].includes(i.state)],
       ['noreply', 'Bez odpowiedzi', i => i.state === 'noreply'],
-      ['done', 'Obsłużone', i => ['sent', 'drafted'].includes(i.state)]
+      ['done', 'Obsłużone', i => ['sent', 'drafted'].includes(i.state)],
+      ['skipped', 'Pominięte', i => i.state === 'skipped']
     ];
     const fold = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
     function inboxMatches(item) {
@@ -12296,7 +12323,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
           const head = `<span class="text-sm font-semibold uppercase tracking-wide ${sec.tone}">${sec.label}</span><span class="rounded-full bg-slate-500/15 px-2 text-xs font-semibold text-slate-600">${its.length}</span>`;
           const cards = `<div class="mt-3 space-y-4">${its.map(inboxCardHtml).join('')}</div>`;
           return sec.fold
-            ? `<details data-inbox-section="${sec.id}" class="group rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-3" ${inbox.doneOpen ? 'open' : ''}><summary class="flex cursor-pointer list-none items-center gap-2">${head}<span class="ml-auto text-xs text-slate-500 group-open:hidden">Pokaż</span><span class="ml-auto hidden text-xs text-slate-500 group-open:inline">Ukryj</span></summary>${cards}</details>`
+            ? `<details data-inbox-section="${sec.id}" class="group rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-3" ${(inbox.openSec || {})[sec.id] ? 'open' : ''}><summary class="flex cursor-pointer list-none items-center gap-2">${head}<span class="ml-auto text-xs text-slate-500 group-open:hidden">Pokaż</span><span class="ml-auto hidden text-xs text-slate-500 group-open:inline">Ukryj</span></summary>${cards}</details>`
             : `<section data-inbox-section="${sec.id}"><div class="flex items-center gap-2 border-b border-slate-200 pb-1.5">${head}</div>${cards}</section>`;
         }).join('');
       } else list.innerHTML = items.map(inboxCardHtml).join('');
@@ -12310,14 +12337,15 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       { id: 'new', label: 'Nowe – wybierz, na które odpowiedzieć', tone: 'text-slate-700', states: ['new'] },
       { id: 'followup', label: 'Bez reakcji rozmówcy – przypomnienia', tone: 'text-amber-700', states: ['followup'] },
       { id: 'noreply', label: 'Nie wymagają odpowiedzi', tone: 'text-slate-500', states: ['noreply'] },
-      { id: 'done', label: 'Obsłużone – wysłane lub zapisane jako szkic', tone: 'text-slate-500', states: ['sent', 'drafted'], fold: true }
+      { id: 'done', label: 'Obsłużone – wysłane lub zapisane jako szkic', tone: 'text-slate-500', states: ['sent', 'drafted'], fold: true },
+      { id: 'skipped', label: 'Pominięte', tone: 'text-slate-500', states: ['skipped'], fold: true }
     ];
     function inboxSectionOf(item) { const sec = INBOX_SECTIONS.find(x => x.states.includes(item.state)); return sec ? sec.id : 'new'; }
 
     function bindInboxList() {
       const list = $('#inboxList');
       document.addEventListener('click', (e) => { if (e.target.closest('[data-inbox-retry-now]')) inboxRetryNow(); });
-      list.addEventListener('toggle', (e) => { if (e.target.matches && e.target.matches('details[data-inbox-section="done"]')) inbox.doneOpen = e.target.open; }, true);
+      list.addEventListener('toggle', (e) => { if (e.target.matches && e.target.matches('details[data-inbox-section]')) (inbox.openSec = inbox.openSec || {})[e.target.dataset.inboxSection] = e.target.open; }, true);
       list.addEventListener('input', (e) => {
         const art = e.target.closest('article');
         const item = art && inbox.items.get(art.dataset.key);
@@ -12373,6 +12401,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         else if (action === 'undo') undoSend(item);
         else if (action === 'draft') performReply(item, true);
         else if (action === 'skip' || action === 'hide') skipItem(item);
+        else if (action === 'unskip') unskipItem(item);
         else if (action === 'retry') regenerate(item, '');
         else if (action === 'force-reply') regenerate(item, 'Przygotuj odpowiedź na tę wiadomość, mimo że wcześniej uznano, że jej nie wymaga.');
         else if (action === 'regenerate') {
