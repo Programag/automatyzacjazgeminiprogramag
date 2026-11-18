@@ -4618,6 +4618,9 @@ ZASADY
         if (!sel) return;
         if (sel.value === '__custom') { sel.value = getModel(); openSettings('Wpisz nazwę modelu Gemini (bez prefiksu „models/”) i zapisz.'); setTimeout(() => { const m = document.getElementById('modelInput'); if (m) m.focus(); }, 80); return; }
         saveModel(sel.value);
+        // świadomy wybór modelu: zapomnij jego wcześniejsze „przeciążenie” i spróbuj od razu
+        setHealth(getModel(), { fails: 0, overloadedUntil: 0 });
+        if (inbox.queue.length && inbox.pausedUntil > Date.now() && !(inbox.pauseError && inbox.pauseError.dailyQuota)) inboxRetryNow();
         toast(`Odpowiedzi przygotuje: ${MODEL_LABELS[getModel()] || getModel()}`, 'info', 3000);
       });
       document.addEventListener('click', async (e) => {
@@ -5060,6 +5063,15 @@ ZASADY
           try { body = raw ? JSON.parse(raw) : null; } catch (e) { body = null; }
           if (Array.isArray(body)) body = body[0];
           if (body && body.error && /^PAPERLY_/.test(String(body.error.status || ''))) throw paperlyError(res.status, body.error);
+          if (apiKey === SERVER_KEY && !res.headers.get('X-Paperly-Upstream') && !(body && body.error)) {
+            // odpowiedź od hostingu, a nie od Google (np. limit czasu serwera) – to nie jest przeciążenie modelu
+            throw Object.assign(new GeminiError({
+              title: 'Serwer PaperlyAI przerwał zapytanie',
+              message: `Hosting odpowiedział błędem HTTP ${res.status}, zanim Google przysłał odpowiedź. To nie jest przeciążenie modelu – zmiana modelu nic nie da.`,
+              hints: ['Spróbuj ponownie za chwilę.', 'Jeśli powtarza się przy każdym zapytaniu, daj znać technikowi – trzeba sprawdzić limity czasu PHP na hostingu.'],
+              details: raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400)
+            }), { hostError: true, httpStatus: res.status });
+          }
           throw mapApiError(res.status, body, raw);
         }
 
@@ -5296,7 +5308,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
           return result;
         } catch (e) {
           if (!(e instanceof GeminiError) || e.cancelled) throw e;
-          if (e.paperly) throw e;   // limit firmy / sesja serwera – bez zmiany modelu i ponawiania
+          if (e.paperly || e.hostError) throw e;   // limit firmy / sesja / błąd hostingu – bez zmiany modelu i bez oznaczania modeli jako przeciążonych
           // Model odrzucił parametr (rozumowanie, schemat JSON, obliczenia kodem, rozdzielczość wideo) – ten sam model bez niego
           if (useThinking && payload.generationConfig.thinkingConfig && e.httpStatus === 400 && /thinking/i.test(e.details || '')) { useThinking = false; continue; }
           if (useSchema && e.httpStatus === 400 && /schema|mime/i.test(e.details || '')) { useSchema = false; continue; }
@@ -14750,6 +14762,13 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
 
     function init() {
       readGoogleRedirect();
+      // Jednorazowo: znaczniki „przeciążony” zapisane przez stary pośrednik serwera (przerywał długie odpowiedzi) są nieaktualne
+      if (storageGet('officeflow_health_reset') !== '2') {
+        const all = healthAll();
+        Object.keys(all).forEach(k => { all[k] = Object.assign({}, all[k], { fails: 0, overloadedUntil: 0 }); });
+        saveJson(HEALTH_KEY, all);
+        storageSet('officeflow_health_reset', '2');
+      }
       if (window.marked && typeof window.marked.setOptions === 'function') {
         window.marked.setOptions({ gfm: true, breaks: true });
       }

@@ -106,48 +106,68 @@ try {
     ignore_user_abort(false);
     set_time_limit(600);
 
-    $statusSent = false; $collected = ''; $respHeaders = [];
+    $statusSent = false; $collected = ''; $respHeaders = []; $lastOut = microtime(true);
+    // Nagłówki odpowiedzi wysyłamy, gdy tylko Google je przyśle (a nie dopiero z pierwszym fragmentem tekstu)
+    $sendHead = function ($ch) use (&$statusSent, &$respHeaders, $uid) {
+        if ($statusSent) return;
+        $statusSent = true;
+        http_response_code((int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE) ?: 502);
+        header('Content-Type: ' . ($respHeaders['content-type'] ?? 'application/json'));
+        header('X-Accel-Buffering: no');
+        header('X-Paperly-Upstream: google');
+        header('Access-Control-Expose-Headers: X-Goog-Upload-URL, X-Paperly-Upstream');
+        if (!empty($respHeaders['x-goog-upload-url'])) {
+            $id = bin2hex(random_bytes(16));
+            q('INSERT INTO uploads (id, user_id, url, created_at) VALUES (?, ?, ?, ?)', [$id, $uid, $respHeaders['x-goog-upload-url'], time()]);
+            header('X-Goog-Upload-URL: ' . base_url() . app_path() . '/api/gemini.php?u=' . $id);
+        }
+    };
+    $isSse = function () use (&$respHeaders) { return str_contains((string) ($respHeaders['content-type'] ?? ''), 'event-stream'); };
     $ch = curl_init($url);
     curl_setopt_array($ch, [
-        CURLOPT_CUSTOMREQUEST => $method, CURLOPT_HTTPHEADER => $headers, CURLOPT_TIMEOUT => 600, CURLOPT_CONNECTTIMEOUT => 15,
-        CURLOPT_HEADERFUNCTION => function ($ch, $line) use (&$respHeaders) {
+        CURLOPT_CUSTOMREQUEST => $method, CURLOPT_HTTPHEADER => array_merge($headers, ['Expect:']), CURLOPT_TIMEOUT => 600, CURLOPT_CONNECTTIMEOUT => 15,
+        CURLOPT_HEADERFUNCTION => function ($ch, $line) use (&$respHeaders, &$lastOut, $sendHead, $isSse, $isGenerate) {
+            if (preg_match('#^HTTP/\S+\s+\d#', $line)) $respHeaders = [];
             $q = strpos($line, ':');
             if ($q !== false) $respHeaders[strtolower(trim(substr($line, 0, $q)))] = trim(substr($line, $q + 1));
+            elseif (trim($line) === '' && $isGenerate && $isSse()) {
+                // koniec nagłówków odpowiedzi strumieniowej: wysyłamy je od razu, żeby przeglądarka i hosting nie czekały w ciszy
+                $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+                if ($code >= 200) { $sendHead($ch); echo ": start\n\n"; @flush(); $lastOut = microtime(true); }
+            }
             return strlen($line);
         },
-        CURLOPT_WRITEFUNCTION => function ($ch, $chunk) use (&$statusSent, &$collected, &$respHeaders, $isGenerate, $uid) {
-            if (!$statusSent) {
-                $statusSent = true;
-                http_response_code((int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE) ?: 502);
-                header('Content-Type: ' . ($respHeaders['content-type'] ?? 'application/json'));
-                header('X-Accel-Buffering: no');
-                if (!empty($respHeaders['x-goog-upload-url'])) {
-                    $id = bin2hex(random_bytes(16));
-                    q('INSERT INTO uploads (id, user_id, url, created_at) VALUES (?, ?, ?, ?)', [$id, $uid, $respHeaders['x-goog-upload-url'], time()]);
-                    header('X-Goog-Upload-URL: ' . base_url() . app_path() . '/api/gemini.php?u=' . $id);
-                    header('Access-Control-Expose-Headers: X-Goog-Upload-URL');
-                }
-            }
+        CURLOPT_WRITEFUNCTION => function ($ch, $chunk) use (&$collected, &$lastOut, $sendHead, $isGenerate) {
+            $sendHead($ch);
             if ($isGenerate && strlen($collected) < 4 * 1024 * 1024) $collected .= $chunk;
             echo $chunk;
             @flush();
+            $lastOut = microtime(true);
             return connection_aborted() ? 0 : strlen($chunk);
+        },
+        // Gdy model „myśli” (nawet kilka minut), co 10 s wysyłamy komentarz SSE – połączenie nie jest zrywane jako bezczynne
+        CURLOPT_NOPROGRESS => false,
+        CURLOPT_XFERINFOFUNCTION => function ($ch) use (&$statusSent, &$lastOut, $isSse) {
+            if ($statusSent && $isSse() && microtime(true) - $lastOut >= 10) {
+                echo ": ping\n\n"; @flush();
+                $lastOut = microtime(true);
+                if (connection_aborted()) return 1;
+            }
+            return 0;
         },
     ]);
     if ($body !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
     $ok = curl_exec($ch);
     $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     $err = curl_error($ch);
-    curl_close($ch);
     if (!$statusSent) {
         if ($ok === false) gem_fail(502, 'PAPERLY_UPSTREAM', 'Serwer nie połączył się z Google Gemini: ' . $err);
-        http_response_code($status ?: 502);
-        if (!empty($respHeaders['x-goog-upload-url'])) {
-            $id = bin2hex(random_bytes(16));
-            q('INSERT INTO uploads (id, user_id, url, created_at) VALUES (?, ?, ?, ?)', [$id, $uid, $respHeaders['x-goog-upload-url'], time()]);
-            header('X-Goog-Upload-URL: ' . base_url() . app_path() . '/api/gemini.php?u=' . $id);
-        }
+        $sendHead($ch);
+    } elseif ($ok === false && $err !== '' && !connection_aborted() && $isGenerate && $isSse()) {
+        // strumień przerwany po stronie serwera – przekazujemy czytelny błąd zamiast urwanej odpowiedzi
+        echo 'data: ' . json_encode(['error' => ['code' => 502, 'status' => 'UNAVAILABLE', 'message' => 'Połączenie serwera z Google zostało przerwane: ' . $err]], JSON_UNESCAPED_UNICODE) . "\n\n"; @flush();
     }
+    curl_close($ch);
     // Zużycie tokenów z ostatniego fragmentu odpowiedzi (usageMetadata)
     if ($isGenerate) {
         if ($status < 200 || $status >= 300) {
