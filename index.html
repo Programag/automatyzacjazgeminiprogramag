@@ -11576,8 +11576,20 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         const doneList = all.filter(it => ['sent', 'drafted'].includes(it.state) && it.doneAt && Date.now() - new Date(it.doneAt) < 14 * 864e5)
           .sort((a, b) => new Date(b.doneAt) - new Date(a.doneAt)).slice(0, 30)
           .map(it => Object.assign(pack(it), { savedState: it.state, body: String(it.body || '').slice(0, 4000) }));
-        const list = all.filter(it => !['sent', 'drafted'].includes(it.state)).slice(0, 40).map(pack).concat(doneList);
-        try { localStorage.setItem(INBOX_ITEMS_KEY, JSON.stringify(list)); } catch (e) { /* za mało miejsca – lista wróci po sprawdzeniu poczty */ }
+        // najważniejsze najpierw (gotowe, błędy, w trakcie, nowe), w każdej grupie najnowsze – limit nie wyrzuca świeżych maili
+        const rank = { ready: 0, 'pending-send': 0, sending: 0, drafting: 0, error: 1, analyzing: 1, queued: 1, new: 2, noreply: 3 };
+        const active = all.filter(it => !['sent', 'drafted'].includes(it.state))
+          .sort((a, b) => ((rank[a.state] ?? 2) - (rank[b.state] ?? 2)) || (new Date(b.date || 0) - new Date(a.date || 0))).slice(0, 60)
+          .map(it => {
+            const o = pack(it);
+            // przerwane lub nieudane przygotowanie wraca po odświeżeniu jako „Wymaga uwagi” z przyciskiem „Spróbuj ponownie”
+            if (['queued', 'analyzing'].includes(it.state)) Object.assign(o, { savedState: 'error', savedError: { title: 'Przygotowanie odpowiedzi przerwane', message: 'Strona została odświeżona albo zamknięta w trakcie przygotowywania odpowiedzi. Kliknij „Spróbuj ponownie”.' } });
+            else if (it.state === 'error') Object.assign(o, { savedState: 'error', savedError: { title: (it.error && it.error.title) || 'Nie udało się przygotować odpowiedzi', message: (it.error && it.error.message) || String(it.error || '') } });
+            return o;
+          });
+        const write = (items) => { try { localStorage.setItem(INBOX_ITEMS_KEY, JSON.stringify(items)); return true; } catch (e) { return false; } };
+        // za mało miejsca w przeglądarce – zapisujemy krótsze treści zamiast nic
+        if (!write(active.concat(doneList))) write(active.map(o => Object.assign({}, o, { body: String(o.body || '').slice(0, 3000) })).concat(doneList.slice(0, 10)));
       }, 300);
     }
     function restoreInboxItems() {
@@ -11586,15 +11598,14 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       const done = getDone();
       (Array.isArray(list) ? list : []).forEach(m => {
         if (!m || !m.key || inbox.items.has(m.key)) return;
-        const doneState = m.savedState;
-        delete m.savedState;
+        const doneState = m.savedState, savedError = m.savedError;
+        delete m.savedState; delete m.savedError;
         if (done[m.key] && !doneState) return;
         if (m.date) m.date = new Date(m.date);
         addInboxItem(m);
-        if (doneState === 'sent' || doneState === 'drafted') {
-          const it = inbox.items.get(m.key);
-          it.state = doneState; it.doneAt = m.doneAt ? new Date(m.doneAt) : new Date();
-        }
+        const it = inbox.items.get(m.key);
+        if (doneState === 'sent' || doneState === 'drafted') { it.state = doneState; it.doneAt = m.doneAt ? new Date(m.doneAt) : new Date(); }
+        else if (doneState === 'error' && it.state === 'new') { it.state = 'error'; it.error = savedError || { title: 'Nie udało się przygotować odpowiedzi', message: 'Kliknij „Spróbuj ponownie”.' }; }
       });
     }
     function selectedNewItems() { return Array.from(inbox.items.values()).filter(it => it.state === 'new' && it.selected); }
@@ -12210,6 +12221,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     }
 
     function renderInboxCard(item) {
+      saveInboxItems();   // każda zmiana stanu trafia do pamięci przeglądarki (odświeżenie niczego nie gubi)
       const el = document.getElementById(item.domId);
       if (!el) { renderInboxList(); return; }
       const sec = el.closest('[data-inbox-section]');
