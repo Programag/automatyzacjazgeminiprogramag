@@ -1,7 +1,3 @@
 # Konfiguracja serwera z hasłami – tworzona przy wgrywaniu z sekretów GitHub, nigdy w repozytorium
 api/_config.php
 
-# Wersja bez gradientów – tworzona przy wgrywaniu (.github/scripts/flatten.py)
-index-bez-gradientow.html
-o-aplikacji-bez-gradientow.html
-site-bez-gradientow.css

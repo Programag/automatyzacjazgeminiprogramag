@@ -85,16 +85,8 @@ jobs:
           cp -r vendor _site/vendor
           mkdir -p _site/.well-known && cp .well-known/security.txt _site/.well-known/security.txt
           rm -f _site/api/_config.php
-          # Druga wersja wyglądu (bez gradientów) – tworzona z bieżących plików, więc ma te same funkcje.
-          # Gdy się nie uda, wgrywana jest zwykła wersja z oznaczeniem, żeby przełącznik nie prowadził do błędu 404.
-          if ! python3 .github/scripts/flatten.py . _site; then
-            echo "::warning::Nie udało się utworzyć wersji bez gradientów – pod jej adresem będzie zwykła wersja."
-            sed '0,/<html lang="pl">/s//<html lang="pl" data-look="flat">/' index.html > _site/index-bez-gradientow.html
-            sed '0,/<html lang="pl">/s//<html lang="pl" data-look="flat">/' o-aplikacji.html > _site/o-aplikacji-bez-gradientow.html
-            cp site.css _site/site-bez-gradientow.css
-          fi
           python3 .github/scripts/fill-pages.py _site
-          test -s _site/index.html && test -s _site/index-bez-gradientow.html && test -s _site/api/index.php
+          test -s _site/index.html && test -s _site/api/index.php
 
       - name: Utwórz konfigurację serwera z sekretów
         env:

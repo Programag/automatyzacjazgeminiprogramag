@@ -8,6 +8,13 @@ AddType application/manifest+json .webmanifest
   RewriteRule ^polityka-prywatnosci/?$ prywatnosc.html [L]
   RewriteRule ^regulamin/?$ regulamin.html [L]
   RewriteRule ^o-aplikacji/?$ o-aplikacji.html [L]
+  # dawna wersja „bez gradientów” jest teraz jedynym wyglądem – stare adresy prowadzą do zwykłych stron
+  RewriteCond %{REQUEST_URI} ^(.*/)index-bez-gradientow\.html$
+  RewriteRule ^ %1 [R=301,L]
+  RewriteCond %{REQUEST_URI} ^(.*/)o-aplikacji-bez-gradientow\.html$
+  RewriteRule ^ %1o-aplikacji.html [R=301,L]
+  RewriteCond %{REQUEST_URI} ^(.*/)site-bez-gradientow\.css$
+  RewriteRule ^ %1site.css [R=301,L]
   # Pliki ukryte (np. .git, .env, stan wgrywania) są niedostępne – oprócz /.well-known/
   RewriteRule (^|/)\.(?!well-known/) - [F,L]
   # Typowe skanowane ścieżki (kopie zapasowe, panele innych systemów) – od razu 404
