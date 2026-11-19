@@ -14517,9 +14517,23 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       if (draft) return gmailFetch('/drafts', { method: 'POST', body: { message } });
       return gmailFetch('/messages/send', { method: 'POST', body: message });
     }
-    async function resultDocx(toolId) {
+    // Część wyniku przeznaczona dla odbiorcy: w „Korekcie i tonie” tylko sekcja „Wynik”,
+    // bez „Co zmieniono” i „Uwag tłumacza” (to informacje dla Ciebie, nie dla klienta)
+    function recipientMarkdown(toolId, md) {
+      md = String(md || '');
+      if (toolId !== 'rewrite') return md;
+      // nagłówek sekcji jako „## Wynik” albo pogrubiony „**Wynik**” / „**Wynik:**”
+      const head = (names) => new RegExp(`^[ \\t]*(?:#{1,3}[ \\t]*)?\\**[ \\t]*(?:${names})[ \\t]*:?[ \\t]*\\**[ \\t]*:?[ \\t]*$`, 'im');
+      const start = head('Wynik|Tekst po zmianach|Poprawiony tekst|Tłumaczenie').exec(md);
+      let body = start ? md.slice(start.index + start[0].length) : md;
+      const end = head('Co zmieniono|Uwagi tłumacza|Wprowadzone zmiany|Lista zmian').exec(body);
+      if (end) body = body.slice(0, end.index);
+      body = body.replace(/^\s*(-{3,}|\*{3,})\s*$/gm, '').trim();
+      return body || md;
+    }
+    async function resultDocx(toolId, forRecipient) {
       const tool = TOOLS[toolId], r = state.results[toolId];
-      const html = renderMarkdown(r.markdown);
+      const html = renderMarkdown(forRecipient ? recipientMarkdown(toolId, r.markdown) : r.markdown);
       const title = `${tool.name} – ${new Date().toLocaleDateString('pl-PL')}`;
       const lh = tool.personal ? null : activeLetterhead();
       const imgs = (r.extras && r.extras.images) || [];
@@ -14528,12 +14542,14 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     }
     function resultMailParts(toolId) {
       const r = state.results[toolId];
-      let text = htmlToText(renderMarkdown(r.markdown));
+      const md = recipientMarkdown(toolId, r.markdown);
+      let text = htmlToText(renderMarkdown(md));
       let subject = '';
       const m = /^[ \t]*(?:Temat|Tytuł|Subject)[ \t]*:[ \t]*(.+)\n+/im.exec(text);
       if (m && m.index < 300) { subject = m[1].trim(); text = (text.slice(0, m.index) + text.slice(m.index + m[0].length)).trim(); }
-      if (!subject) { const h = /^#{1,3}\s+(.+)$/m.exec(r.markdown || ''); if (h) subject = h[1].replace(/[*_`#]/g, '').trim(); }
-      return { text, subject: subject || TOOLS[toolId].name };
+      if (!subject) { const h = /^#{1,3}\s+(.+)$/m.exec(md); if (h) subject = h[1].replace(/[*_`#]/g, '').trim(); }
+      // poprawiony tekst nie ma własnego tematu – pole zostaje puste do wpisania (zamiast nazwy narzędzia)
+      return { text, subject: subject || (toolId === 'rewrite' ? '' : TOOLS[toolId].name) };
     }
     function openSendMail() {
       const toolId = state.activeTool;
@@ -14583,7 +14599,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       try {
         const attachments = [];
         if ($('#smDocx').checked) {
-          const d = await resultDocx(am.o.toolId);
+          const d = await resultDocx(am.o.toolId, true);
           attachments.push({ name: d.name, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', b64: await readAsBase64(d.blob) });
         }
         const thread = $('#smThread') && $('#smThread').checked ? am.o.ctx : null;
