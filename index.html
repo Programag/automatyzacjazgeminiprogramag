@@ -851,6 +851,14 @@
 
 
     /* Wybór modelu AI przy generowaniu */
+    /* Pasek postępu generowania (etapy: przygotowanie, wysyłanie, myślenie, pisanie) */
+    .gp-track { height: 8px; border-radius: 999px; background: rgb(var(--c-slate-300) / .55); overflow: hidden; }
+    .gp-fill { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #7a2cf0, #a400e3 55%, #f9aa63); transition: width .3s linear; }
+    .gp-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 8px; font-size: 11px; line-height: 1.2; color: rgb(var(--c-slate-400)); list-style: none; padding: 0; }
+    .gp-steps li { position: relative; padding-top: 7px; border-top: 2px solid rgb(var(--c-slate-300) / .6); text-align: left; }
+    .gp-steps li.is-on { color: rgb(var(--c-slate-800)); font-weight: 600; border-top-color: #a400e3; }
+    .gp-steps li.is-done { color: rgb(var(--c-slate-600)); border-top-color: #a400e3; }
+    @media (prefers-reduced-motion: reduce) { .gp-fill { transition: none; } }
     .model-pick { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 3px 4px 3px 10px; border-radius: 999px; border: 1px solid rgb(var(--c-slate-300)); background: rgb(var(--c-canvas)); color: rgb(var(--brand, 164 0 227)); transition: border-color .15s, box-shadow .15s; }
     .model-pick:hover, .model-pick:focus-within { border-color: rgb(var(--btn-pri) / .6); box-shadow: 0 0 0 3px rgb(var(--btn-pri) / .12); }
     .model-pick select { appearance: none; -webkit-appearance: none; border: 0; background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23a400e3'%3E%3Cpath d='M5.2 7.5 10 12.3l4.8-4.8'/%3E%3C/svg%3E") no-repeat right 4px center / 14px; padding: 2px 22px 2px 0; font-size: 12px; font-weight: 600; color: rgb(var(--c-slate-800)); cursor: pointer; outline: none; min-width: 0; flex: 1 1 auto; max-width: 230px; text-overflow: ellipsis; }
@@ -1620,6 +1628,7 @@
                 <div class="spinner"></div>
                 <p class="mt-5 font-medium text-slate-900">Gemini analizuje dane…</p>
                 <p id="loadingStep" class="mt-1 text-sm text-slate-500">Przygotowuję zapytanie</p>
+                <div id="loadingProgress" data-gp class="mt-5 w-full max-w-sm"></div>
                 <p id="loadingTimer" class="mt-3 font-mono text-xs text-slate-400">0,0 s</p>
                 <p id="loadingHint" class="hidden mt-4 max-w-xs text-xs leading-relaxed text-slate-400">Przy dużym obciążeniu serwerów Google odpowiedź może potrwać dłużej. W razie potrzeby aplikacja sama ponowi zapytanie.</p>
                 <div class="fx-skeleton mt-7 w-full max-w-sm space-y-2.5" aria-hidden="true"><span></span><span style="width:92%"></span><span style="width:78%"></span><span style="width:60%"></span></div>
@@ -1649,6 +1658,7 @@
               </div>
 
               <!-- Wynik -->
+              <div id="streamProgress" data-gp class="hidden absolute inset-x-0 top-0 z-10 border-b border-slate-200 bg-canvas/95 px-5 py-2.5 backdrop-blur sm:px-7"></div>
               <div id="resultContent" class="hidden absolute inset-0 overflow-y-auto scroll-thin p-5 sm:p-7">
                 <div id="resultReuse" class="hidden mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900"><span id="resultReuseText" class="min-w-0 flex-1"></span><button type="button" id="resultReuseBtn" class="shrink-0 font-semibold underline underline-offset-2 hover:no-underline">Wygeneruj od nowa</button></div>
                 <div id="resultNotice" class="hidden mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"></div>
@@ -5032,7 +5042,8 @@ ZASADY
     }
 
     // Jedna próba: wysyła zapytanie i czyta strumień odpowiedzi (Server-Sent Events)
-    async function streamOnce({ url, apiKey, payload, onText, signal, headersTimeout = HEADERS_TIMEOUT_MS }) {
+    async function streamOnce({ url, apiKey, payload, onText: onTextRaw, onProgress, signal, headersTimeout = HEADERS_TIMEOUT_MS }) {
+      const onText = onProgress ? (t) => { onProgress({ ev: 'text', chars: t.length }); if (onTextRaw) onTextRaw(t); } : onTextRaw;
       const controller = new AbortController();
       let abortReason = null;
       let reader = null;
@@ -5063,6 +5074,7 @@ ZASADY
           throw networkError(e, abortReason, headersTimeout);
         }
         resetIdle();
+        if (res.ok && onProgress) onProgress({ ev: 'wait' });
 
         if (!res.ok) {
           const raw = await res.text().catch(() => '');
@@ -5271,11 +5283,89 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
     }
 
     // Każde zapytanie do Gemini zapala animowaną linię w górnym pasku
+    /* =====================================================================
+       PASEK POSTĘPU – oparty na tym, co faktycznie się dzieje:
+       przygotowanie danych → wysyłanie (do przyjęcia przez Google) → Gemini myśli (do pierwszego słowa)
+       → pisanie (liczone po znakach, które naprawdę dotarły). Czas „zostało ok.” wynika z pomiarów
+       poprzednich odpowiedzi tego narzędzia i modelu, a w trakcie pisania – z rzeczywistej prędkości.
+       ===================================================================== */
+    const PERF_KEY = 'officeflow_perf';
+    const GP_STEPS = [['prep', 'Przygotowanie'], ['send', 'Wysyłanie'], ['think', 'Gemini myśli'], ['write', 'Pisanie']];
+    function perfStats(key) {
+      const list = ((loadJson(PERF_KEY, {}) || {})[key] || []).slice(-8);
+      const med = (f, d) => { const v = list.map(x => x[f]).filter(n => n > 0).sort((a, b) => a - b); return v.length ? v[Math.floor(v.length / 2)] : d; };
+      return { ttft: med('ttft', 7000), chars: med('chars', 1800), writeMs: med('writeMs', 9000), n: list.length };
+    }
+    function perfRecord(key, sample) {
+      const all = loadJson(PERF_KEY, {}) || {};
+      all[key] = (all[key] || []).concat([sample]).slice(-8);
+      const keys = Object.keys(all);
+      if (keys.length > 60) delete all[keys[0]];
+      saveJson(PERF_KEY, all);
+    }
+    function fmtEta(ms) { const s = Math.max(1, Math.round(ms / 1000)); return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60 ? (s % 60) + ' s' : ''}`.trim(); }
+    function makeProgress(key, paint) {
+      const now = Date.now();
+      const p = { key, phase: 'prep', label: 'Przygotowuję dane', sub: 0, pct: 0, eta: 0, phaseAt: now, sentAt: 0, firstAt: 0, chars: 0, stats: perfStats(key), timer: 0, ended: false };
+      const compute = () => {
+        const t = Date.now(), st = p.stats;
+        let pct = p.pct, eta = 0;
+        if (p.phase === 'prep') pct = 2 + 10 * Math.min(1, p.sub || 0);
+        else if (p.phase === 'send') { pct = 12 + 6 * (1 - Math.exp(-(t - p.phaseAt) / 1500)); eta = st.ttft + st.writeMs; }
+        else if (p.phase === 'think') { const el = t - p.phaseAt; pct = 18 + 27 * (1 - Math.exp(-el / st.ttft)); eta = Math.max(1000, st.ttft - el) + st.writeMs; }
+        else if (p.phase === 'write') {
+          const f = p.chars / Math.max(200, st.chars);
+          pct = 45 + 53 * (f <= 0.85 ? f : 0.85 + 0.15 * (1 - Math.exp(-(f - 0.85) * 4)));
+          const el = t - p.firstAt;
+          const rate = el > 600 && p.chars > 60 ? p.chars / el : st.chars / Math.max(1000, st.writeMs);
+          eta = Math.max(0, (Math.max(st.chars, p.chars * 1.05) - p.chars) / Math.max(rate, 0.01));
+        } else if (p.phase === 'done') pct = 100;
+        p.pct = Math.max(p.pct, Math.min(p.phase === 'done' ? 100 : 99, pct));
+        // bez wcześniejszych pomiarów nie zgadujemy czasu przed rozpoczęciem pisania
+        p.eta = p.phase === 'write' || st.n ? eta : 0;
+      };
+      const tick = () => { if (p.ended && p.phase !== 'done') return; compute(); try { paint(p); } catch (e) { /* element zniknął */ } };
+      p.prep = (label, sub) => { if (p.phase !== 'prep') { if (label) p.label = label; tick(); return; } if (label) p.label = label; if (sub != null) p.sub = Math.max(p.sub, sub); tick(); };
+      p.event = (e) => {
+        const t = Date.now();
+        if (e.ev === 'send') { if (p.phase !== 'write') { p.phase = 'send'; p.phaseAt = t; } p.sentAt = t; p.chars = 0; p.label = e.label || 'Wysyłam zapytanie do Gemini'; }
+        else if (e.ev === 'wait') { if (p.phase === 'send') { p.phase = 'think'; p.phaseAt = t; p.label = 'Gemini czyta dane i myśli nad odpowiedzią'; } }
+        else if (e.ev === 'text') { if (p.phase !== 'write') { p.phase = 'write'; p.firstAt = t; } p.chars = e.chars; p.label = `Gemini pisze · ${e.chars.toLocaleString('pl-PL')} znaków`; }
+        else if (e.ev === 'status' && e.label) p.label = e.label;
+        tick();
+      };
+      p.done = (ok) => {
+        if (p.ended) return;
+        p.ended = true;
+        clearInterval(p.timer);
+        if (ok && p.firstAt && p.sentAt && p.chars) perfRecord(key, { ttft: p.firstAt - p.sentAt, chars: p.chars, writeMs: Date.now() - p.firstAt });
+        if (ok) { p.phase = 'done'; p.label = 'Gotowe'; compute(); try { paint(p); } catch (e) { /* brak */ } }
+      };
+      p.timer = setInterval(tick, 250);
+      tick();
+      return p;
+    }
+    function gpPaint(root, p) {
+      if (!root || !p) return;
+      if (!root.querySelector('.gp-track')) {
+        root.innerHTML = `<div class="gp-track" role="progressbar" aria-label="Postęp przygotowania odpowiedzi" aria-valuemin="0" aria-valuemax="100"><div class="gp-fill"></div></div>
+          <div class="mt-1.5 flex items-baseline justify-between gap-3 text-xs"><span class="gp-stage min-w-0 truncate text-left text-slate-600"></span><span class="gp-pct shrink-0 font-semibold tabular-nums text-slate-800"></span></div>
+          <ol class="gp-steps">${GP_STEPS.map(([id, l]) => `<li data-gp-step="${id}">${l}</li>`).join('')}</ol>`;
+      }
+      root.querySelector('.gp-fill').style.width = p.pct.toFixed(1) + '%';
+      root.querySelector('.gp-track').setAttribute('aria-valuenow', String(Math.floor(p.pct)));
+      root.querySelector('.gp-stage').textContent = p.label;
+      root.querySelector('.gp-pct').textContent = `${Math.floor(p.pct)}%${p.eta > 1500 && p.phase !== 'done' ? ` · zostało ok. ${fmtEta(p.eta)}` : ''}`;
+      const idx = GP_STEPS.findIndex(x => x[0] === p.phase);
+      root.querySelectorAll('[data-gp-step]').forEach((li, i) => { li.classList.toggle('is-done', p.phase === 'done' || i < idx); li.classList.toggle('is-on', i === idx); });
+    }
+
     async function callGemini(opts) {
       aiBusy(1);
       try { return await callGeminiCore(opts); } finally { aiBusy(-1); }
     }
-    async function callGeminiCore({ apiKey, model, systemInstruction, userText, turns, temperature, thinkingLevel, responseSchema, attachments, codeExecution, maxOutputTokens, mediaResolution, onText, onStatus, signal, force }) {
+    async function callGeminiCore({ apiKey, model, systemInstruction, userText, turns, temperature, thinkingLevel, responseSchema, attachments, codeExecution, maxOutputTokens, mediaResolution, onText, onStatus, onProgress, signal, force }) {
+      if (onProgress) { const os = onStatus; onStatus = (msg) => { onProgress({ ev: 'status', label: msg }); if (os) os(msg); }; }
       let useThinking = true;
       let useSchema = !!responseSchema;
       let useCode = !!codeExecution;
@@ -5307,7 +5397,8 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
           // Obliczenia kodem i nagrania dźwięku/wideo potrzebują więcej czasu przed pierwszym fragmentem odpowiedzi
           const slow = !!payload.tools || (attachments || []).some(a => /^(audio|video)\//.test(a.mimeType || ''));
           sent++;
-          const acc = await streamOnce({ url, apiKey, payload, onText, signal, headersTimeout: slow ? HEADERS_TIMEOUT_LONG_MS : HEADERS_TIMEOUT_MS });
+          if (onProgress) onProgress({ ev: 'send', label: sent > 1 ? `Ponawiam zapytanie (${current})` : '' });
+          const acc = await streamOnce({ url, apiKey, payload, onText, onProgress, signal, headersTimeout: slow ? HEADERS_TIMEOUT_LONG_MS : HEADERS_TIMEOUT_MS });
           const result = Object.assign(finalizeResponse(acc), { modelUsed: current });
           if (extraNotice) result.notice = [result.notice, extraNotice].filter(Boolean).join(' ');
           markHealthy(current);
@@ -5586,12 +5677,20 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       tick();
       loadingTimerId = setInterval(tick, 100);
       const statusText = state.results[state.activeTool].statusText;
+      if (state.results[state.activeTool].progress) return;   // prawdziwe etapy pokazuje pasek postępu
       if (statusText) { setLoadingStep(statusText); return; }
       let i = Math.min(LOADING_STEPS.length - 1, Math.floor((Date.now() - startedAt) / 2500));
       setLoadingStep(LOADING_STEPS[i]);
       loadingStepId = setInterval(() => {
         if (i < LOADING_STEPS.length - 1) { i++; setLoadingStep(LOADING_STEPS[i]); }
       }, 2500);
+    }
+    function paintToolProgress(toolId) {
+      if (state.activeTool !== toolId || state.view !== 'tools') return;
+      const r = state.results[toolId];
+      if (!r || !r.progress) return;
+      if (r.status === 'loading') gpPaint($('#loadingProgress'), r.progress);
+      else if (r.status === 'streaming') gpPaint($('#streamProgress'), r.progress);
     }
     function stopLoadingAnimation() {
       clearInterval(loadingTimerId); clearInterval(loadingStepId);
@@ -5670,15 +5769,22 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       $('#resultCard').classList.toggle('is-working', r.status === 'loading' || r.status === 'streaming');
       $('#resultBody').classList.toggle('is-streaming', r.status === 'streaming');
 
+      const sp = $('#streamProgress');
+      sp.classList.toggle('hidden', !(r.status === 'streaming' && r.progress));
+      $('#resultContent').style.paddingTop = r.status === 'streaming' && r.progress ? '6.5rem' : '';
       if (r.status === 'loading') {
         show('#resultLoading');
         $('#resultMeta').textContent = 'Generowanie w toku…';
+        $('#loadingStep').classList.toggle('hidden', !!r.progress);
+        $('#loadingProgress').innerHTML = '';
         startLoadingAnimation(r.startedAt);
+        if (r.progress) gpPaint($('#loadingProgress'), r.progress);
         return;
       }
       stopLoadingAnimation();
 
       if (r.status === 'streaming') {
+        if (r.progress) { sp.innerHTML = ''; gpPaint(sp, r.progress); }
         show('#resultContent');
         $('#resultMeta').textContent = 'Generowanie… treść pojawia się na bieżąco';
         $('#resultNotice').classList.add('hidden');
@@ -5861,6 +5967,8 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       const hadFiles = refine ? !!r.hadFiles : fileList.length > 0;
       const controller = new AbortController();
       Object.assign(r, { status: 'loading', error: null, notice: '', markdown: '', data: null, extras: null, reused: 0, statusText: '', startedAt: Date.now(), controller });
+      if (r.progress) r.progress.done(false);
+      r.progress = makeProgress(`tool:${toolId}:${getModel()}`, () => paintToolProgress(toolId));
       setFormBusy(toolId, true);
       renderMenu();
       if (state.activeTool === toolId) renderResult();
@@ -5870,6 +5978,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       let uploaded = [];
       const onStatus = (msg) => {
         r.statusText = msg;
+        if (r.progress) r.progress.prep(msg);
         if (isActive() && r.status === 'loading') { clearInterval(loadingStepId); setLoadingStep(msg); }
       };
       try {
@@ -5889,6 +5998,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
           mediaResolution: hasVideo ? 'MEDIA_RESOLUTION_LOW' : undefined,
           force: !!opts.force,
           signal: controller.signal,
+          onProgress: (e) => { if (r.progress) r.progress.event(e); },
           // Wyniki w JSON (np. faktury) pokazujemy dopiero po przetworzeniu, bez podglądu na żywo
           onText: tool.responseSchema ? undefined : (text) => {
             const first = r.status !== 'streaming';
@@ -5902,6 +6012,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
           onStatus
         });
         if (streamed && r.status === 'streaming') { r.markdown = out.text; await typerDrain(r); }
+        if (r.progress) r.progress.done(true);
         const secs = ((Date.now() - r.startedAt) / 1000).toFixed(1).replace('.', ',');
         const tokens = out.usage && out.usage.totalTokenCount ? ` · ${out.usage.totalTokenCount.toLocaleString('pl-PL')} tokenów` : '';
         const requested = getModel();
@@ -5927,6 +6038,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
         if (!isActive()) toast(`Gotowe: ${tool.short}`, 'success');
         else setTimeout(() => fxBurst($('#resultCard')), 60);
       } catch (e) {
+        if (r.progress) r.progress.done(false);
         const err = e instanceof GeminiError ? e : new GeminiError({ title: 'Nieoczekiwany błąd', message: 'Wystąpił nieoczekiwany błąd aplikacji.', details: String(e && e.stack || e) });
         if (previous && !(err.cancelled && r.markdown.trim())) {
           // Nieudana poprawka nie kasuje poprzedniego wyniku
@@ -5947,6 +6059,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
         }
       } finally {
         uploaded.forEach(deleteGeminiFile);
+        r.progress = null;
         r.controller = null;
         r.statusText = '';
         setFormBusy(toolId, false);
@@ -8645,7 +8758,7 @@ ZASADY
           : `<div class="flex gap-3">
               <div class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-canvas">${iconSvg('sparkles', 'h-4 w-4')}</div>
               <div class="min-w-0 flex-1">
-                ${m.status === 'loading' ? `<p class="flex items-center gap-2 text-sm text-slate-500"><span class="h-3.5 w-3.5 rounded-full border-2 border-slate-300 border-t-indigo-600" style="animation: spin .8s linear infinite"></span>${escapeHtml(m.statusText || 'Czytam dokumenty…')}</p>` : ''}
+                ${m.status === 'loading' || m.status === 'streaming' ? `<div data-chat-gp class="${m.status === 'streaming' ? 'mb-3 ' : ''}w-full max-w-md"></div>` : ''}
                 ${m.text ? `<article class="md-output${m.status === 'streaming' ? ' is-streaming' : ''}">${renderMarkdown(m.status === 'streaming' ? m.text.slice(0, m.twShown == null ? m.text.length : m.twShown) : m.text)}</article>` : ''}
                 ${m.status === 'error' ? `<div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"><strong>${escapeHtml(m.error.title)}</strong> – ${escapeHtml(m.error.message)}${hintsForRole(m.error.hints || []).length ? `<br><span class="text-xs">${escapeHtml(hintsForRole(m.error.hints)[0])}</span>` : ''}</div>` : ''}
                 ${m.status === 'cancelled' ? '<p class="text-sm text-slate-500">Przerwano.</p>' : ''}
@@ -8654,6 +8767,7 @@ ZASADY
                 ${m.status === 'done' ? `<div class="mt-1.5 flex items-center gap-3 text-xs text-slate-500"><span>${escapeHtml(m.meta || '')}</span><button type="button" data-chat-copy="${i}" class="font-medium text-indigo-600 hover:underline">Kopiuj</button></div>` : ''}
               </div>
             </div>`).join('');
+        { const live = chat.messages.find(x => x.progress); if (live) gpPaint(box.querySelector('[data-chat-gp]'), live.progress); }
       }
       $$('#chatMessages a').forEach(a => { a.target = '_blank'; a.rel = 'noopener noreferrer'; });
       if (nearBottom || chat.busy) box.scrollTop = box.scrollHeight;
@@ -8684,7 +8798,8 @@ ZASADY
       $('#chatInput').value = '';
       renderChat();
       let uploaded = [];
-      const onStatus = (msg) => { answer.statusText = msg; scheduleChatRender(); };
+      const onStatus = (msg) => { answer.statusText = msg; if (answer.progress) answer.progress.prep(msg); scheduleChatRender(); };
+      answer.progress = makeProgress(`chat:${getModel()}`, (p) => gpPaint(document.querySelector('#chatMessages [data-chat-gp]'), p));
       try {
         const exact = $('#chatExact').checked && hasTableFiles(files);
         const attachments = files.flatMap(f => [Object.assign({}, f, { label: 'Dokument' }), ...(f.extraParts || []).map(x => Object.assign({ label: f.name }, x))]);
@@ -8696,6 +8811,7 @@ ZASADY
           apiKey, model: getModel(), thinkingLevel: getThinkingLevel(), temperature: 0.2,
           systemInstruction: SYSTEM_CHAT, turns: chatTurns(chat.messages.slice(0, -1), intro), attachments,
           codeExecution: exact, signal, onStatus,
+          onProgress: (e) => answer.progress.event(e),
           onText: (t) => { if (answer.status !== 'streaming') { answer.twShown = 0; answer.twCarry = 0; answer.twFinish = false; } answer.text = t; answer.status = 'streaming'; scheduleChatRender(); }
         });
         if (answer.status === 'streaming') {
@@ -8703,6 +8819,7 @@ ZASADY
           const t0 = Date.now();
           while (!document.hidden && !fxReduced() && (answer.twShown || 0) < answer.text.length && Date.now() - t0 < 6000) await new Promise(res => setTimeout(res, 40));
         }
+        answer.progress.done(true);
         Object.assign(answer, {
           text: out.text, status: 'done', notice: out.notice || '',
           extras: (out.steps && out.steps.length) || (out.images && out.images.length) ? { steps: out.steps, images: out.images } : null,
@@ -8714,6 +8831,7 @@ ZASADY
         else if (err.partial && err.partial.trim()) Object.assign(answer, { text: err.partial, status: 'done', notice: `Połączenie zostało przerwane (${err.title}) – odpowiedź może być niekompletna.`, meta: timeNow() });
         else Object.assign(answer, { status: 'error', error: err, text: '' });
       } finally {
+        if (answer.progress) { answer.progress.done(false); delete answer.progress; }
         chat.busy = false;
         chat.controller = null;
         uploaded.forEach(deleteGeminiFile);
@@ -11594,7 +11712,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     }
     /* ---------- lista maili zapamiętana w przeglądarce (nie znika po odświeżeniu) ---------- */
     const INBOX_ITEMS_KEY = 'officeflow_inbox_items';
-    const INBOX_VOLATILE = new Set(['domId', 'state', 'analysis', 'draft', 'error', 'showOriginal', 'selected', 'pendingInstruction', 'livePreview', 'meeting', 'sendTimer', 'sendAt', 'actionError', 'countdownTimer', 'attempts', 'forceNow', 'undoTimer']);
+    const INBOX_VOLATILE = new Set(['domId', 'state', 'analysis', 'draft', 'error', 'showOriginal', 'selected', 'pendingInstruction', 'livePreview', 'progress', 'meeting', 'sendTimer', 'sendAt', 'actionError', 'countdownTimer', 'attempts', 'forceNow', 'undoTimer']);
     let inboxSaveTimer = 0;
     function saveInboxItems() {
       clearTimeout(inboxSaveTimer);
@@ -11829,14 +11947,18 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     async function analyzeMail(item, instruction, force) {
       const prefs = getInboxPrefs();
       const isFollowUp = item.kind === 'followup';
+      if (item.progress) item.progress.done(false);
+      const prog = item.progress = makeProgress(`inbox:${getModel()}`, (p) => gpPaint(document.querySelector(`#${item.domId} [data-gp]`), p));
       let att = { parts: [], meta: [] };
-      if (!isFollowUp && item.bodyMissing) await ensureMailBody(item);   // mail z drugiego urządzenia – treść prosto ze skrzynki
+      if (!isFollowUp && item.bodyMissing) { prog.prep('Pobieram treść wiadomości ze skrzynki', 0.15); await ensureMailBody(item); }   // mail z drugiego urządzenia – treść prosto ze skrzynki
+      if (!isFollowUp && ((item.attachmentRefs || []).length || item.hasAttachments)) prog.prep('Pobieram i odczytuję załączniki', 0.3);
       if (!isFollowUp) {
         try { att = await withTimeout(loadMailAttachments(item), 90000, () => new Error('timeout')); } catch (e) { att = { parts: [], meta: [{ name: 'załączniki', used: false, reason: 'nie udało się pobrać listy' }] }; }
       }
       item.attachmentsMeta = att.meta;
       let kbAtt = [];
-      if (prefs.useKb !== false && kbCount()) { try { kbAtt = await kbParts(); } catch (e) { kbAtt = []; } }
+      if (prefs.useKb !== false && kbCount()) { prog.prep('Dołączam bazę wiedzy firmy', 0.7); try { kbAtt = await kbParts(); } catch (e) { kbAtt = []; } }
+      prog.prep('Składam zapytanie', 1);
       const cal = calendarFor(item.provider);
       const slots = cal && cal.ok ? cal.slots : [];
       const snippets = snippetsForPrompt();
@@ -11887,8 +12009,10 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         responseSchema: INBOX_SCHEMA,
         attachments: [...kbAtt, ...att.parts],
         force,
-        onText: (txt) => inboxLivePreview(item, txt)
+        onText: (txt) => inboxLivePreview(item, txt),
+        onProgress: (e) => prog.event(e)
       });
+      prog.done(true);
       item.livePreview = '';
       let a;
       try { a = parseJsonLoose(out.text); } catch (e) {
@@ -11936,6 +12060,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
             await applyMailLabel(item);
             if (item.state === 'ready') inbox.pendingNotify.push(item);
           } catch (e) {
+            if (item.progress) item.progress.done(false);
             const srvCode = e && e.paperly ? String(e.paperlyStatus || '') : '';
             if (srvCode && srvCode !== 'PAPERLY_RATE') {
               // Błąd serwera PaperlyAI (limit dzienny, brak klucza, sesja, za duże pliki) – ponawianie nic nie da: pokazujemy powód
@@ -12336,7 +12461,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         bodyHtml = `
           <div class="mt-4 flex items-center gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">
             ${st === 'analyzing'
-              ? `<span class="h-4 w-4 shrink-0 rounded-full border-2 border-indigo-200 border-t-indigo-600" style="animation: spin .8s linear infinite"></span><span class="min-w-0 flex-1"><span data-live-label>${isFollow ? 'Gemini przygotowuje przypomnienie…' : 'Gemini analizuje wiadomość' + ((item.attachmentRefs || []).length || item.hasAttachments ? ' z załącznikami' : '') + ' i przygotowuje odpowiedź…'}</span><span data-live-preview class="${item.livePreview ? '' : 'hidden '}mt-2 block max-h-48 overflow-y-auto whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700">${escapeHtml(item.livePreview || '')}</span></span>`
+              ? `<span class="min-w-0 flex-1"><span data-live-label class="font-medium text-slate-700">${isFollow ? 'Gemini przygotowuje przypomnienie…' : 'Gemini analizuje wiadomość' + ((item.attachmentRefs || []).length || item.hasAttachments ? ' z załącznikami' : '') + ' i przygotowuje odpowiedź…'}</span><span data-gp class="mt-3 block"></span><span data-live-preview class="${item.livePreview ? '' : 'hidden '}mt-2 block max-h-48 overflow-y-auto whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700">${escapeHtml(item.livePreview || '')}</span></span>`
               : inbox.pausedUntil > Date.now() && inbox.pauseError
                 ? `<span class="h-2 w-2 shrink-0 rounded-full bg-amber-500"></span><span class="min-w-0 flex-1">Wstrzymane: ${escapeHtml(inbox.pauseError.title || 'limit Gemini')}. Ponowię automatycznie ok. ${hhmm(new Date(inbox.pausedUntil))}${item.attempts ? ` (próba ${item.attempts + 1} z ${INBOX_MAX_ATTEMPTS})` : ''}.</span><button type="button" data-inbox-retry-now class="btn-default shrink-0 rounded-lg px-3 py-1 text-xs font-medium">Spróbuj teraz</button>`
                 : '<span class="h-2 w-2 shrink-0 rounded-full bg-slate-400 pulse-dot"></span>W kolejce do przygotowania odpowiedzi'}
@@ -12435,6 +12560,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       const next = wrap.firstElementChild;
       next.classList.remove('fade-in');
       el.replaceWith(next);
+      if (item.state === 'analyzing' && item.progress) gpPaint(next.querySelector('[data-gp]'), item.progress);
     }
 
     const STATE_ORDER = { 'pending-send': 0, sending: 0, drafting: 0, ready: 1, new: 1.5, followup: 2, error: 3, analyzing: 4, queued: 5, noreply: 6, sent: 7, drafted: 7, skipped: 8 };
