@@ -37,6 +37,9 @@ run_json(function () {
         case 'invite_create': if (!$post) break; rate_limit('invite_create', 'u' . require_user()['user']['id'], 30, 3600); json_out(action_invite_create()); return;
         case 'invite_delete': if (!$post) break; json_out(action_invite_delete()); return;
         case 'usage': json_out(action_usage()); return;
+        case 'ai_speed': json_out(action_ai_speed()); return;
+        case 'ai_effects': json_out(action_ai_effects()); return;
+        case 'ai_cancel': if (!$post) break; require_user(); ai_cancel_request(preg_replace('/[^a-f0-9]/', '', strtolower((string) (body_json()['id'] ?? '')))); json_out(['ok' => true]); return;
         case 'sync': json_out($post ? action_sync_push() : action_sync_pull()); return;
         case 'google_token': json_out(action_google_token()); return;
         case 'google_disconnect': if (!$post) break; json_out(action_google_disconnect()); return;
@@ -302,6 +305,51 @@ function action_usage(): array {
     $since = date('Y-m-d', strtotime('-29 days'));
     $days = qall('SELECT day, SUM(requests) AS requests, SUM(tokens_in) AS tin, SUM(tokens_out) AS tout FROM usage_daily WHERE ws_id = ? AND day >= ? GROUP BY day ORDER BY day', [(int) $s['ws']['id'], $since]);
     return ['days' => array_map(fn($d) => ['day' => $d['day'], 'requests' => (int) $d['requests'], 'tokens' => (int) $d['tin'] + (int) $d['tout']], $days)];
+}
+
+/* ======================================================================== szybkość modeli i efekty AI */
+/** Szybkość modeli w całej firmie: mediana czasu do pierwszego słowa z ostatnich godzin (bez treści zapytań). */
+function action_ai_speed(): array {
+    $s = require_ws();
+    $wsId = (int) $s['ws']['id'];
+    $out = [];
+    foreach ([3 * 3600, 24 * 3600] as $win) {
+        $rows = qall('SELECT model, status, ttfb_ms, total_ms, created_at FROM ai_calls WHERE ws_id = ? AND created_at >= ? AND model <> \'\' ORDER BY id DESC LIMIT 400', [$wsId, time() - $win]);
+        $by = [];
+        foreach ($rows as $r) $by[$r['model']][] = $r;
+        foreach ($by as $model => $list) {
+            if (isset($out[$model]) || ($win < 86400 && count($list) < 2)) continue;
+            $ok = array_values(array_filter($list, fn($r) => (int) $r['status'] === 200 && (int) $r['ttfb_ms'] > 0));
+            $t = array_map(fn($r) => (int) $r['ttfb_ms'], $ok); sort($t);
+            $slow = array_values(array_filter($list, fn($r) => (int) $r['status'] === 499));
+            $fail = array_values(array_filter($list, fn($r) => (int) $r['status'] !== 200 && (int) $r['status'] !== 499 && (int) $r['status'] !== 400));
+            $out[$model] = [
+                'model' => $model, 'n' => count($list), 'ok' => count($ok), 'slow' => count($slow), 'fail' => count($fail),
+                'median' => $t ? $t[intdiv(count($t), 2)] : 0, 'p90' => $t ? $t[min(count($t) - 1, (int) floor(count($t) * 0.9))] : 0,
+                'slowMin' => $slow ? (int) round(array_sum(array_map(fn($r) => (int) $r['total_ms'], $slow)) / count($slow)) : 0,
+                'last' => (int) $list[0]['created_at'] * 1000, 'windowH' => $win / 3600,
+            ];
+        }
+    }
+    return ['models' => array_values($out), 'at' => time() * 1000];
+}
+
+/** Efekty AI w miesiącu: udane wyniki według narzędzia (cała firma dla właściciela/technika, własne dla pracownika). */
+function action_ai_effects(): array {
+    $s = require_ws();
+    $wsId = (int) $s['ws']['id']; $uid = (int) $s['user']['id'];
+    $month = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['month'] ?? '')) ? (string) $_GET['month'] : date('Y-m');
+    $all = is_manager($s) && ($_GET['scope'] ?? '') !== 'me';
+    $where = 'ws_id = ? AND day LIKE ? AND status = 200 AND ttfb_ms > 0' . ($all ? '' : ' AND user_id = ?');
+    $args = $all ? [$wsId, $month . '-%'] : [$wsId, $month . '-%', $uid];
+    $tools = qall("SELECT tool, COUNT(*) AS n FROM ai_calls WHERE $where GROUP BY tool", $args);
+    $people = $all ? qall("SELECT a.user_id, u.name, u.email, COUNT(*) AS n FROM ai_calls a LEFT JOIN users u ON u.id = a.user_id WHERE a.ws_id = ? AND a.day LIKE ? AND a.status = 200 AND a.ttfb_ms > 0 GROUP BY a.user_id, u.name, u.email ORDER BY n DESC", [$wsId, $month . '-%']) : [];
+    $since = qall("SELECT MIN(day) AS d FROM ai_calls WHERE ws_id = ?", [$wsId]);
+    return [
+        'month' => $month, 'scope' => $all ? 'company' : 'me', 'since' => (string) ($since[0]['d'] ?? ''),
+        'tools' => array_map(fn($r) => ['tool' => (string) $r['tool'], 'n' => (int) $r['n']], $tools),
+        'people' => array_map(fn($r) => ['name' => (string) ($r['name'] ?: $r['email'] ?: 'Osoba'), 'n' => (int) $r['n'], 'me' => (int) $r['user_id'] === $uid], $people),
+    ];
 }
 
 /* ======================================================================== synchronizacja danych */

@@ -107,6 +107,11 @@ try {
     set_time_limit(600);
 
     $statusSent = false; $collected = ''; $respHeaders = []; $lastOut = microtime(true); $atBoundary = true;
+    // Pomiar (czas do pierwszego fragmentu od Google, całość) i anulowanie zapytania przez aplikację
+    // (gdy dwa modele są pytane naraz, wolniejszy jest odwoływany – nie zużywa dalej tokenów)
+    $tStart = microtime(true); $tFirst = 0.0; $cancelled = false; $lastCancelCheck = 0.0;
+    $reqId = preg_replace('/[^a-f0-9]/', '', strtolower((string) ($_SERVER['HTTP_X_PAPERLY_REQ'] ?? '')));
+    $reqId = strlen($reqId) >= 16 ? substr($reqId, 0, 40) : '';
     // Nagłówki odpowiedzi wysyłamy, gdy tylko Google je przyśle (a nie dopiero z pierwszym fragmentem tekstu)
     $sendHead = function ($ch) use (&$statusSent, &$respHeaders, $uid) {
         if ($statusSent) return;
@@ -145,20 +150,27 @@ try {
             }
             return strlen($line);
         },
-        CURLOPT_WRITEFUNCTION => function ($ch, $chunk) use (&$collected, &$atBoundary, $sendHead, $isGenerate, $isSse, $push) {
+        CURLOPT_WRITEFUNCTION => function ($ch, $chunk) use (&$collected, &$atBoundary, &$tFirst, &$cancelled, $sendHead, $isGenerate, $isSse, $push) {
+            if (!$tFirst) $tFirst = microtime(true);
             $sendHead($ch);
             if ($isGenerate && strlen($collected) < 4 * 1024 * 1024) $collected .= $chunk;
             // dopełnienie tylko na granicy zdarzeń SSE (pusta linia) – nigdy w środku fragmentu odpowiedzi
             $atBoundary = (bool) preg_match('/\r?\n\r?\n$/', $chunk);
             $push($chunk, $isGenerate && $isSse() && $atBoundary);
-            return connection_aborted() ? 0 : strlen($chunk);
+            if (connection_aborted()) { $cancelled = true; return 0; }
+            return strlen($chunk);
         },
         // Gdy model „myśli” (nawet kilka minut), co 10 s wysyłamy komentarz SSE – połączenie nie jest zrywane jako bezczynne
         CURLOPT_NOPROGRESS => false,
-        CURLOPT_XFERINFOFUNCTION => function ($ch) use (&$statusSent, &$lastOut, &$atBoundary, $isSse, $push) {
+        CURLOPT_XFERINFOFUNCTION => function ($ch) use (&$statusSent, &$lastOut, &$atBoundary, &$cancelled, &$lastCancelCheck, $reqId, $isSse, $push) {
             if ($statusSent && $atBoundary && $isSse() && microtime(true) - $lastOut >= 10) {
                 $push(": ping\n\n", true);
-                if (connection_aborted()) return 1;
+                if (connection_aborted()) { $cancelled = true; return 1; }
+            }
+            // przed pierwszym fragmentem nic nie wysyłamy do przeglądarki, więc o odwołaniu informuje osobne zapytanie
+            if ($reqId !== '' && !$statusSent && microtime(true) - $lastCancelCheck >= 1.5) {
+                $lastCancelCheck = microtime(true);
+                if (ai_cancel_requested($reqId)) { $cancelled = true; return 1; }
             }
             return 0;
         },
@@ -167,6 +179,13 @@ try {
     $ok = curl_exec_dns($ch, $url);
     $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     $err = curl_error($ch);
+    if ($isGenerate) ai_call_record($s, $p, $cancelled ? 499 : ($ok === false && !$status ? 0 : $status), $tStart, $tFirst);
+    if ($cancelled && !$statusSent) {
+        // odwołane przed odpowiedzią (wygrał szybszy model) – nie zużywa dziennego limitu osoby
+        ai_cancel_clear($reqId);
+        q('UPDATE usage_daily SET requests = CASE WHEN requests > 0 THEN requests - 1 ELSE 0 END WHERE day = ? AND user_id = ? AND ws_id = ?', [date('Y-m-d'), $uid, $wsId]);
+        gem_fail(499, 'PAPERLY_CANCELLED', 'Zapytanie odwołane – odpowiedział szybszy model.');
+    }
     if (!$statusSent) {
         if ($ok === false && curl_errno($ch) === CURLE_COULDNT_RESOLVE_HOST) gem_fail(502, 'PAPERLY_UPSTREAM', 'Serwer PaperlyAI chwilowo nie może odnaleźć adresu Google (awaria DNS na hostingu). Nic nie zostało wysłane – spróbuj ponownie za minutę.');
         if ($ok === false) gem_fail(502, 'PAPERLY_UPSTREAM', 'Serwer nie połączył się z Google Gemini: ' . $err);
@@ -178,7 +197,7 @@ try {
     curl_close($ch);
     // Zużycie tokenów z ostatniego fragmentu odpowiedzi (usageMetadata)
     if ($isGenerate) {
-        if ($status < 200 || $status >= 300) {
+        if ($status < 200 || $status >= 300 || ($cancelled && !$tFirst)) {
             // Zapytanie odrzucone przez Google nie zużywa limitu firmy
             q('UPDATE usage_daily SET requests = CASE WHEN requests > 0 THEN requests - 1 ELSE 0 END WHERE day = ? AND user_id = ? AND ws_id = ?', [date('Y-m-d'), $uid, $wsId]);
         } elseif (preg_match_all('/"promptTokenCount"\s*:\s*(\d+)/', $collected, $pm) && $pm[1]) {

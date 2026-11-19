@@ -1983,7 +1983,7 @@
               <button type="button" class="stat-tile" data-tool-link="inbox"><b id="statInbox">0</b><span>czeka w Skrzynce AI</span></button>
               <button type="button" class="stat-tile" data-tool-link="contracts"><b id="statContracts">0</b><span>umów wymaga uwagi</span></button>
               <div class="stat-tile"><b id="statUsage">0</b><span>zapytań do AI dziś</span></div>
-              <div class="stat-tile"><b id="statKb">0</b><span>dokumentów w bazie wiedzy</span></div>
+              <button type="button" class="stat-tile" data-effects-open><b id="statSaved">0 min</b><span>zaoszczędzone z AI w tym miesiącu</span></button>
             </div>
           </section>
 
@@ -2162,6 +2162,18 @@
           </section>
 
           <section class="rounded-2xl bg-canvas border border-slate-300 p-5 sm:p-6">
+            <h3 class="flex items-center gap-2 font-semibold text-slate-900"><svg data-icon="chart" class="h-5 w-5 text-slate-500"></svg>Efekty AI</h3>
+            <p class="mt-1 text-sm text-slate-500">Ile wyników przygotowała AI i ile to mniej więcej czasu pracy – do pokazania, że narzędzie się opłaca.</p>
+            <div id="adminEffects" class="mt-3"></div>
+          </section>
+
+          <section class="rounded-2xl bg-canvas border border-slate-300 p-5 sm:p-6">
+            <h3 class="flex items-center gap-2 font-semibold text-slate-900"><svg data-icon="bolt" class="h-5 w-5 text-slate-500"></svg>Szybkość modeli</h3>
+            <p class="mt-1 text-sm text-slate-500">Czas do pierwszego słowa odpowiedzi według ostatnich pomiarów. W trybie „Automatycznie” aplikacja wybiera najszybszy model, a gdy ten długo milczy – pyta równolegle drugi.</p>
+            <div id="adminSpeed" class="mt-3"></div>
+          </section>
+
+          <section class="rounded-2xl bg-canvas border border-slate-300 p-5 sm:p-6">
             <h3 class="flex items-center gap-2 font-semibold text-slate-900"><svg data-icon="chart" class="h-5 w-5 text-slate-500"></svg>Zużycie AI</h3>
             <div id="adminUsage" class="mt-3"></div>
           </section>
@@ -2233,7 +2245,7 @@
             </div>
             <input id="modelInput" type="text" list="modelSuggestions" autocomplete="off" spellcheck="false" class="field-input font-mono text-sm" />
             <datalist id="modelSuggestions"></datalist>
-            <p class="mt-1.5 text-xs text-slate-500">Gdy Google wycofa model, wpisz tu nazwę nowego (bez prefiksu „models/”).</p>
+            <p class="mt-1.5 text-xs text-slate-500"><code>auto</code> – aplikacja sama wybiera model, który teraz odpowiada najszybciej. Gdy Google wycofa model, wpisz tu nazwę nowego (bez prefiksu „models/”).</p>
           </div>
 
           <div>
@@ -4279,7 +4291,11 @@ ZASADY
     function srvAfterInit() {
       renderSrvChrome();
       if (!srv.on) return;
-      if (srvSignedIn() && srvWs()) { syncStart(); srvGmailRestore(); srvStartMeTimer(); }
+      if (srvSignedIn() && srvWs()) {
+        syncStart(); srvGmailRestore(); srvStartMeTimer();
+        refreshServerSpeed(true);
+        setInterval(() => { if (!document.hidden) refreshServerSpeed(); }, 5 * 60e3);
+      }
       srvHandleUrl();
       srvHandleInvite();
     }
@@ -4623,12 +4639,12 @@ ZASADY
       document.addEventListener('change', (e) => {
         const sel = e.target.closest && e.target.closest('select[data-model-pick]');
         if (!sel) return;
-        if (sel.value === '__custom') { sel.value = getModel(); openSettings('Wpisz nazwę modelu Gemini (bez prefiksu „models/”) i zapisz.'); setTimeout(() => { const m = document.getElementById('modelInput'); if (m) m.focus(); }, 80); return; }
+        if (sel.value === '__custom') { sel.value = getModelSetting(); openSettings('Wpisz nazwę modelu Gemini (bez prefiksu „models/”) i zapisz.'); setTimeout(() => { const m = document.getElementById('modelInput'); if (m) m.focus(); }, 80); return; }
         saveModel(sel.value);
         // świadomy wybór modelu: zapomnij jego wcześniejsze „przeciążenie” i spróbuj od razu
-        setHealth(getModel(), { fails: 0, overloadedUntil: 0 });
+        if (!isAutoModel()) setHealth(getModel(), { fails: 0, overloadedUntil: 0 });
         if (inbox.queue.length && inbox.pausedUntil > Date.now() && !(inbox.pauseError && inbox.pauseError.dailyQuota)) inboxRetryNow();
-        toast(`Odpowiedzi przygotuje: ${MODEL_LABELS[getModel()] || getModel()}`, 'info', 3000);
+        toast(isAutoModel() ? 'Model wybierany automatycznie – za każdym razem ten, który teraz odpowiada najszybciej' : `Odpowiedzi przygotuje: ${MODEL_LABELS[getModel()] || getModel()}`, 'info', 3500);
       });
       document.addEventListener('click', async (e) => {
         const g = e.target.closest('[data-gus]');
@@ -4762,14 +4778,21 @@ ZASADY
       const v = String(value || '').trim().replace(/^models\//, '');
       return /^[A-Za-z0-9.\-_]+$/.test(v) ? v : DEFAULT_MODEL;
     }
+    // Ustawienie modelu: „auto” (domyślnie) – aplikacja sama wybiera model, który teraz odpowiada najszybciej
+    const MODEL_AUTO = 'auto';
+    function getModelSetting() {
+      const v = String(storageGet(STORAGE_MODEL) || state.memoryModel || MODEL_AUTO).trim();
+      return v === MODEL_AUTO ? MODEL_AUTO : normalizeModel(v);
+    }
+    function isAutoModel() { return getModelSetting() === MODEL_AUTO; }
     function getModel() {
-      return normalizeModel(storageGet(STORAGE_MODEL) || state.memoryModel || DEFAULT_MODEL);
+      return isAutoModel() ? autoModel() : getModelSetting();
     }
     function saveModel(value) {
-      const model = normalizeModel(value);
-      if (model === DEFAULT_MODEL) storageRemove(STORAGE_MODEL);
+      const v = String(value || '').trim();
+      const model = v === MODEL_AUTO || v === '' ? MODEL_AUTO : normalizeModel(v);
+      if (model === MODEL_AUTO) { storageRemove(STORAGE_MODEL); state.memoryModel = null; }
       else if (!storageSet(STORAGE_MODEL, model)) state.memoryModel = model;
-      if (model === DEFAULT_MODEL) state.memoryModel = null;
       renderModelLabel();
       return model;
     }
@@ -4799,15 +4822,18 @@ ZASADY
       'gemini-3.8-flash': 'Gemini 3.8 Flash – najnowszy, najwolniejszy'
     };
     function renderModelPickers() {
-      const cur = getModel();
-      const ids = [...new Set([...MODEL_SUGGESTIONS, cur])];
-      const html = ids.map(id => `<option value="${escapeHtml(id)}" ${id === cur ? 'selected' : ''}>${escapeHtml(MODEL_LABELS[id] || id)}${id === DEFAULT_MODEL ? ' (domyślny)' : ''}</option>`).join('')
+      const setting = getModelSetting();
+      const ids = [...new Set([...MODEL_SUGGESTIONS, ...(setting === MODEL_AUTO ? [] : [setting])])];
+      const fast = autoModel(), est = modelSpeedEstimate(fast);
+      const autoLabel = `Automatycznie – najszybszy (teraz ${(MODEL_LABELS[fast] || fast).replace(/^Gemini /, '').replace(/ – .*$/, '')}${est.src !== 'base' ? `, ok. ${Math.max(1, Math.round(est.ms / 1000))} s` : ''})`;
+      const html = `<option value="${MODEL_AUTO}">${escapeHtml(autoLabel)}</option>`
+        + ids.map(id => `<option value="${escapeHtml(id)}">${escapeHtml(MODEL_LABELS[id] || id)}</option>`).join('')
         + (isTech() ? '<option value="__custom">Inny model…</option>' : '');
-      document.querySelectorAll('select[data-model-pick]').forEach(sel => { if (sel._html !== html) { sel.innerHTML = html; sel._html = html; } sel.value = cur; });
+      document.querySelectorAll('select[data-model-pick]').forEach(sel => { if (sel._html !== html) { sel.innerHTML = html; sel._html = html; } sel.value = setting; });
     }
     function renderModelLabel() {
       const el = document.getElementById('sidebarModel');
-      if (el) el.textContent = getModel();
+      if (el) el.textContent = isAutoModel() ? `auto (${getModel()})` : getModel();
       renderModelPickers();
       if (typeof renderAdminIfVisible === 'function') renderAdminIfVisible();
     }
@@ -5051,7 +5077,7 @@ ZASADY
     }
 
     // Jedna próba: wysyła zapytanie i czyta strumień odpowiedzi (Server-Sent Events)
-    async function streamOnce({ url, apiKey, payload, onText: onTextRaw, onProgress, signal, headersTimeout = HEADERS_TIMEOUT_MS }) {
+    async function streamOnce({ url, apiKey, payload, onText: onTextRaw, onProgress, signal, headersTimeout = HEADERS_TIMEOUT_MS, meta }) {
       const onText = onProgress ? (t) => { onProgress({ ev: 'text', chars: t.length }); if (onTextRaw) onTextRaw(t); } : onTextRaw;
       const controller = new AbortController();
       let abortReason = null;
@@ -5075,7 +5101,8 @@ ZASADY
         try {
           res = await fetch(gemUrl(url, apiKey), {
             method: 'POST',
-            headers: authHeaders(apiKey, { 'Content-Type': 'application/json' }),
+            headers: authHeaders(apiKey, Object.assign({ 'Content-Type': 'application/json' }, apiKey === SERVER_KEY && meta
+              ? Object.assign({ 'X-Paperly-Req': meta.reqId || '', 'X-Paperly-Tool': String(meta.tool || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 32) }, meta.hedge ? { 'X-Paperly-Hedge': '1' } : {}) : {})),
             body: JSON.stringify(payload),
             signal: controller.signal
           });
@@ -5384,11 +5411,124 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       root.querySelectorAll('[data-gp-step]').forEach((li, i) => { li.classList.toggle('is-done', p.phase === 'done' || i < idx); li.classList.toggle('is-on', i === idx); });
     }
 
+    /* ---------- szybkość modeli: pomiary, ranking, drugie zapytanie gdy model długo milczy ---------- */
+    const SPEED_KEY = 'officeflow_model_speed';
+    // Punkt wyjścia z pomiarów na prawdziwym Gemini (19.11.2026, ten sam mail): czas do pierwszego słowa
+    const SPEED_BASE = { 'gemini-3.6-flash': 15000, 'gemini-3.7-flash': 90000, 'gemini-3.8-flash': 150000 };
+    const SPEED_WINDOW_MS = 3 * 3600e3;
+    const speedSrv = { data: null, at: 0, busy: false };
+    function speedRecord(model, ms, kind) {
+      if (!model) return;
+      const all = loadJson(SPEED_KEY, {}) || {};
+      all[model] = (all[model] || []).concat([[Date.now(), Math.max(0, Math.round(ms)), kind]]).slice(-12);
+      Object.keys(all).forEach(k => { all[k] = all[k].filter(x => x[0] > Date.now() - 86400e3); if (!all[k].length) delete all[k]; });
+      saveJson(SPEED_KEY, all);
+    }
+    const median = (a) => { const v = a.slice().sort((x, y) => x - y); return v[Math.floor(v.length / 2)]; };
+    /** Szacowany czas do pierwszego słowa: pomiary z tej przeglądarki, całej firmy (serwer) albo punkt wyjścia. */
+    function modelSpeedEstimate(model) {
+      const now = Date.now();
+      const loc = ((loadJson(SPEED_KEY, {}) || {})[model] || []).filter(x => x[0] > now - SPEED_WINDOW_MS)
+        .map(([, ms, kind]) => kind === 'ok' ? ms : kind === 'slow' ? Math.max(ms * 1.3, 20000) : 90000);
+      const srvRow = speedSrv.data && now - speedSrv.at < 15 * 60e3 ? speedSrv.data.find(r => r.model === model) : null;
+      let srvMs = 0;
+      if (srvRow && srvRow.n) {
+        srvMs = srvRow.ok ? srvRow.median : srvRow.slow ? Math.max(srvRow.slowMin * 1.3, 20000) : 90000;
+        if (srvRow.fail > srvRow.ok) srvMs = Math.max(srvMs, 90000);
+      }
+      if (loc.length >= 2) return { ms: median(loc), src: 'local', n: loc.length };
+      if (srvMs) return { ms: srvMs, src: 'company', n: srvRow.n };
+      if (loc.length) return { ms: loc[0], src: 'local', n: 1 };
+      return { ms: SPEED_BASE[model] || 60000, src: 'base', n: 0 };
+    }
+    function rankModels(list) {
+      const now = Date.now();
+      const ok = list.filter(m => !((healthOf(m).unavailableUntil || 0) > now));
+      return ok.map((m, i) => ({ m, i, ms: modelSpeedEstimate(m).ms + (modelBlockedUntil(m) > now ? 1e9 : 0) }))
+        .sort((a, b) => a.ms - b.ms || a.i - b.i).map(x => x.m);
+    }
+    function autoModel() { return rankModels(MODEL_SUGGESTIONS)[0] || DEFAULT_MODEL; }
+    async function refreshServerSpeed(force) {
+      if (!srv.on || !srvSignedIn() || speedSrv.busy || (!force && Date.now() - speedSrv.at < 2 * 60e3)) return;
+      speedSrv.busy = true;
+      try { const j = await srvApi('ai_speed'); speedSrv.data = j.models || []; speedSrv.at = Date.now(); renderModelPickers(); }
+      catch (e) { /* bez pomiarów firmy */ } finally { speedSrv.busy = false; }
+    }
+    // Gdy model długo nie zaczyna pisać, pytamy równolegle drugi (szybszy z pozostałych albo ten sam jeszcze raz) – wygrywa pierwsze słowo
+    function hedgePlan(current, chain, tried, slow) {
+      if (!isAutoModel() || slow) return null;
+      const est = modelSpeedEstimate(current).ms;
+      const alt = chain.find(m => m !== current && !tried.has(m) && modelBlockedUntil(m) <= Date.now());
+      const target = alt && modelSpeedEstimate(alt).ms <= est * 2 ? alt : current;
+      return { model: target, after: Math.min(35000, Math.max(12000, Math.round(est * 1.6))) };
+    }
+    function randHex(n) { const a = new Uint8Array(n / 2); crypto.getRandomValues(a); return Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); }
+    function cancelRemote(apiKey, reqId) { if (apiKey === SERVER_KEY && reqId) srvApi('ai_cancel', { id: reqId }).catch(() => {}); }
+    function noteRaceFailure(model, err, tried) {
+      if (!(err instanceof GeminiError)) return;
+      if (err.httpStatus === 400 && /thinking/i.test(err.details || '')) { markNoMinimal(model); return; }
+      if (err.dailyQuota) { recordRejected(model); markExhausted(model, err.retryAfter); tried.add(model); return; }
+      if (err.transient || err.httpStatus === 500) { speedRecord(model, 0, 'fail'); recordRejected(model); markOverloaded(model); tried.add(model); }
+    }
+    function raceStreams({ apiKey, primary, plan, buildFor, onText, onProgress, onStatus, signal, headersTimeout, tried, tool }) {
+      return new Promise((resolve, reject) => {
+        const runs = [];
+        let winner = null, settled = false, hedgeTimer = 0;
+        const onUser = () => runs.forEach(r => { if (!r.done) { r.ctrl.abort(); cancelRemote(apiKey, r.reqId); } });
+        const finish = (ok, v) => {
+          if (settled) return;
+          settled = true; clearTimeout(hedgeTimer);
+          if (signal) signal.removeEventListener('abort', onUser);
+          if (ok) resolve(v); else reject(v);
+        };
+        if (signal) { if (signal.aborted) return reject(networkError(null, 'cancel')); signal.addEventListener('abort', onUser); }
+        const claim = (r) => {
+          if (!winner) {
+            winner = r;
+            clearTimeout(hedgeTimer);
+            speedRecord(r.model, Date.now() - r.t0, 'ok');
+            runs.forEach(o => { if (o !== r && !o.done) { o.lost = true; o.ctrl.abort(); cancelRemote(apiKey, o.reqId); speedRecord(o.model, Date.now() - o.t0, 'slow'); } });
+          }
+          return winner === r;
+        };
+        const start = (model, isHedge) => {
+          const r = { model, isHedge, ctrl: new AbortController(), reqId: randHex(32), t0: Date.now(), done: false, lost: false };
+          runs.push(r);
+          const { url, payload } = buildFor(model);
+          streamOnce({ url, apiKey, payload, signal: r.ctrl.signal, headersTimeout, meta: { reqId: r.reqId, tool, hedge: isHedge },
+            onText: (t) => { if (claim(r) && onText) onText(t); },
+            onProgress: onProgress ? (e) => { if (e.ev === 'text') { if (claim(r)) onProgress(e); } else if (!winner && e.ev === 'wait' && !isHedge) onProgress(e); } : null
+          }).then(acc => {
+            r.done = true;
+            if (r.lost) return;
+            if (claim(r)) finish(true, { acc, model });
+          }, err => {
+            r.done = true;
+            if (r.lost) return;
+            if (signal && signal.aborted) return finish(false, err);
+            if (winner === r) return finish(false, Object.assign(err, { raceModel: model }));
+            if (runs.some(o => o !== r && !o.done && !o.lost)) { noteRaceFailure(model, err, tried); return; }   // drugie zapytanie jeszcze trwa
+            finish(false, Object.assign(err, { raceModel: model }));
+          });
+        };
+        start(primary, false);
+        if (plan) hedgeTimer = setTimeout(() => {
+          if (settled || winner) return;
+          if (onStatus) onStatus(plan.model === primary ? `Gemini długo nie odpowiada – wysyłam równolegle drugie zapytanie, wygra szybsze` : `${primary} długo nie odpowiada – pytam równolegle ${plan.model}, wygra szybszy`);
+          start(plan.model, true);
+        }, plan.after);
+      });
+    }
+    function aiToolName() {
+      try { return state.view === 'tools' ? state.activeTool : state.view || ''; } catch (e) { return ''; }
+    }
+
     async function callGemini(opts) {
       aiBusy(1);
       try { return await callGeminiCore(opts); } finally { aiBusy(-1); }
     }
-    async function callGeminiCore({ apiKey, model, systemInstruction, userText, turns, temperature, thinkingLevel, responseSchema, attachments, codeExecution, maxOutputTokens, mediaResolution, onText, onStatus, onProgress, signal, force }) {
+    async function callGeminiCore({ apiKey, model, systemInstruction, userText, turns, temperature, thinkingLevel, responseSchema, attachments, codeExecution, maxOutputTokens, mediaResolution, onText, onStatus, onProgress, signal, force, tool }) {
+      tool = tool || aiToolName();
       if (onProgress) { const os = onStatus; onStatus = (msg) => { onProgress({ ev: 'status', label: msg }); if (os) os(msg); }; }
       let useThinking = true;
       const levelFor = (m) => thinkingLevel === 'minimal' && noMinimal(m) ? 'low' : thinkingLevel;
@@ -5396,14 +5536,15 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       let useCode = !!codeExecution;
       let useMediaRes = mediaResolution || null;
       let extraNotice = '';
-      const chain = modelChain(model);
+      // Tryb automatyczny: kolejność modeli według bieżących pomiarów szybkości (najszybszy pierwszy)
+      const chain = isAutoModel() ? rankModels([...new Set([model, ...MODEL_SUGGESTIONS, ...modelChain(model)])]) : modelChain(model);
       const tried = new Set();
       let lastErr = null, sent = 0, minuteWaits = 0;
       for (;;) {
         if (signal && signal.aborted) throw networkError(null, 'cancel');
         const now = Date.now();
         // Pierwszy model, który nie jest przeciążony, ma limit i jest dostępny; „Spróbuj mimo to” pomija tylko przeciążenie
-        const current = chain.find(m => !tried.has(m) && (modelBlockedUntil(m) <= now
+        let current = chain.find(m => !tried.has(m) && (modelBlockedUntil(m) <= now
           || (force && !sent && !((healthOf(m).exhaustedUntil || 0) > now) && !((healthOf(m).unavailableUntil || 0) > now))));
         if (!current) {
           if (lastErr) {
@@ -5416,20 +5557,28 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
           }
           throw notSentError(chain);
         }
-        const url = `${API_BASE}/${encodeURIComponent(current)}:streamGenerateContent?alt=sse`;
-        const payload = buildPayload({ model: current, systemInstruction, userText, turns, temperature, thinkingLevel: useThinking ? levelFor(current) : null, responseSchema: useSchema ? responseSchema : null, attachments, codeExecution: useCode, maxOutputTokens, mediaResolution: useMediaRes });
+        const buildFor = (m) => ({
+          url: `${API_BASE}/${encodeURIComponent(m)}:streamGenerateContent?alt=sse`,
+          payload: buildPayload({ model: m, systemInstruction, userText, turns, temperature, thinkingLevel: useThinking ? levelFor(m) : null, responseSchema: useSchema ? responseSchema : null, attachments, codeExecution: useCode, maxOutputTokens, mediaResolution: useMediaRes })
+        });
+        const payload = buildFor(current).payload;
         try {
           // Obliczenia kodem i nagrania dźwięku/wideo potrzebują więcej czasu przed pierwszym fragmentem odpowiedzi
           const slow = !!payload.tools || (attachments || []).some(a => /^(audio|video)\//.test(a.mimeType || ''));
           sent++;
           if (onProgress) onProgress({ ev: 'send', label: sent > 1 ? `Ponawiam zapytanie (${current})` : '' });
-          const acc = await streamOnce({ url, apiKey, payload, onText, onProgress, signal, headersTimeout: slow ? HEADERS_TIMEOUT_LONG_MS : HEADERS_TIMEOUT_MS });
-          const result = Object.assign(finalizeResponse(acc), { modelUsed: current });
+          const plan = hedgePlan(current, chain, tried, slow);
+          const won = await raceStreams({ apiKey, primary: current, plan, buildFor, onText, onProgress, onStatus, signal, tried, tool,
+            headersTimeout: slow ? HEADERS_TIMEOUT_LONG_MS : HEADERS_TIMEOUT_MS });
+          if (won.model !== current) { sent++; current = won.model; }
+          const result = Object.assign(finalizeResponse(won.acc), { modelUsed: current });
           if (extraNotice) result.notice = [result.notice, extraNotice].filter(Boolean).join(' ');
           markHealthy(current);
           recordUsage(current, result.usage);
+          effectsRecord(tool);
           return result;
         } catch (e) {
+          if (e && e.raceModel) current = e.raceModel;
           if (!(e instanceof GeminiError) || e.cancelled) throw e;
           if (e.paperly || e.hostError) throw e;   // limit firmy / sesja / błąd hostingu – bez zmiany modelu i bez oznaczania modeli jako przeciążonych
           // Model odrzucił parametr (rozumowanie, schemat JSON, obliczenia kodem, rozdzielczość wideo) – ten sam model bez niego
@@ -5479,6 +5628,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
           }
           // Przeciążenie, błąd serwera lub brak odpowiedzi – model odpoczywa (2–30 min), próbujemy kolejnego, każdy najwyżej raz
           if (e.transient || e.httpStatus === 500) {
+            speedRecord(current, 0, 'fail');
             recordRejected(current);
             markOverloaded(current);
             tried.add(current);
@@ -6014,7 +6164,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       try {
         if (useKb) attachments.unshift(...await kbParts({ signal: controller.signal, onStatus }));
         uploaded = await prepareMediaAttachments(attachments, { signal: controller.signal, onStatus });
-        const out = await callGemini({
+        const out = await callGemini({ tool: toolId,
           apiKey,
           model: getModel(),
           thinkingLevel: getThinkingLevel(),
@@ -7779,7 +7929,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       setDictateBtn(btn, 'busy');
       try {
         const label = (document.querySelector(`label[for="${target.id}"]`) || {}).textContent || target.getAttribute('aria-label') || target.placeholder || '';
-        const out = await callGemini({
+        const out = await callGemini({ tool: 'aux',
           apiKey: getApiKey(), model: getModel(), thinkingLevel: 'minimal', temperature: 0.1,
           systemInstruction: SYSTEM_DICTATION,
           userText: `Pole, do którego trafi tekst: ${label.replace(/\s+/g, ' ').trim() || 'pole tekstowe'}.\nPrzepisz nagranie.`,
@@ -7911,7 +8061,7 @@ ZASADY
         if (!items) {
           if (!getApiKey()) throw new Error('Brak klucza Gemini.');
           const now = new Date();
-          const out = await callGemini({
+          const out = await callGemini({ tool: 'aux',
             apiKey: getApiKey(), model: getModel(), thinkingLevel: 'minimal', temperature: 0.1,
             systemInstruction: SYSTEM_DEADLINES, responseSchema: DEADLINE_SCHEMA,
             userText: `### DZISIAJ\n${now.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} (${dayKey(now)})\n\n### TEKST\n"""\n${String(src.text || '').slice(0, 40000)}\n"""\n\nZwróć terminy jako JSON zgodny ze schematem.`
@@ -8837,7 +8987,7 @@ ZASADY
         if (useKb) attachments.push(...await kbParts({ signal, onStatus }));
         uploaded = await prepareMediaAttachments(attachments, { signal, onStatus });
         const intro = [files.length ? `### DOKUMENTY\n${describeFiles(files)}` : '', useKb ? KB_PROMPT : '', exact ? CODE_PROMPT : ''].filter(Boolean).join('\n\n');
-        const out = await callGemini({
+        const out = await callGemini({ tool: 'chat',
           apiKey, model: getModel(), thinkingLevel: getThinkingLevel(), temperature: 0.2,
           systemInstruction: SYSTEM_CHAT, turns: chatTurns(chat.messages.slice(0, -1), intro), attachments,
           codeExecution: exact, signal, onStatus,
@@ -9014,7 +9164,7 @@ ZASADY
     }
     function batchTemplateText() { return $('#batchPrompt').value.trim(); }
     async function batchWorker(it, signal, onStatus, kb) {
-      const out = await callGemini({
+      const out = await callGemini({ tool: 'batch',
         apiKey: getApiKey(), model: getModel(), thinkingLevel: getThinkingLevel(), temperature: 0.6,
         systemInstruction: SYSTEM_BATCH + (kb.length ? `\n\n${KB_PROMPT}` : ''),
         userText: batchRowPrompt(it.row, batchHeader(), batchTemplateText()),
@@ -9239,7 +9389,7 @@ ZASADY
       ].join('\n\n');
     }
     async function dunWorker(d, signal, onStatus, kb) {
-      const out = await callGemini({
+      const out = await callGemini({ tool: 'dunning',
         apiKey: getApiKey(), model: getModel(), thinkingLevel: getThinkingLevel(), temperature: 0.3,
         systemInstruction: SYSTEM_DUNNING + (kb.length ? `\n\n${KB_PROMPT}` : ''),
         userText: dunLetterPrompt(d), attachments: kb, signal, onStatus
@@ -9541,7 +9691,7 @@ ZASADY
       renderContracts();
       const attachments = files.flatMap(f => [Object.assign({}, f, { label: 'Umowa' }), ...(f.extraParts || []).map(x => Object.assign({ label: f.name }, x))]);
       try {
-        const out = await callGemini({
+        const out = await callGemini({ tool: 'contracts',
           apiKey: getApiKey(), model: getModel(), thinkingLevel: getThinkingLevel(), temperature: 0.1,
           systemInstruction: SYSTEM_CONTRACT_REG, responseSchema: CONTRACT_SCHEMA, attachments,
           userText: `### DZISIAJ\n${dayKey()}\n\n### UMOWA W ZAŁĄCZNIKACH\n${describeFiles(files)}\n\nWyodrębnij dane jako JSON zgodny ze schematem.`
@@ -9781,7 +9931,7 @@ ZASADY
         p.viaAi = false;
         if (!list.length) {
           if (!getApiKey()) throw new Error('Brak klucza Gemini.');
-          const out = await callGemini({ apiKey: getApiKey(), model: getModel(), thinkingLevel: 'minimal', temperature: 0.1, systemInstruction: SYSTEM_TASKS, responseSchema: TASK_SCHEMA,
+          const out = await callGemini({ tool: 'aux', apiKey: getApiKey(), model: getModel(), thinkingLevel: 'minimal', temperature: 0.1, systemInstruction: SYSTEM_TASKS, responseSchema: TASK_SCHEMA,
             userText: `### DZISIAJ\n${dayKey()}\n\n### TEKST\n"""\n${String(src.text || '').slice(0, 40000)}\n"""\n\nZwróć zadania jako JSON zgodny ze schematem.` });
           list = (parseJsonLoose(out.text) || {}).zadania || [];
           p.viaAi = true;
@@ -9972,7 +10122,7 @@ ZASADY
       Object.assign(iv, { busy: true, error: null, phase: 'preparing', controller: new AbortController() });
       renderInterview();
       try {
-        const out = await callGemini({
+        const out = await callGemini({ tool: 'interview',
           apiKey: getApiKey(), model: getModel(), thinkingLevel: 'minimal', temperature: 0.7,
           systemInstruction: SYSTEM_INTERVIEW_Q, responseSchema: IV_Q_SCHEMA, attachments, force: !!force, signal: iv.controller.signal,
           userText: [
@@ -10015,7 +10165,7 @@ ZASADY
           const q = plan.pytania[i], a = iv.answers[i];
           return `#### Pytanie ${i + 1} (${q.typ || 'pytanie'})\n${q.pytanie}\n${a.audio ? `Odpowiedź nagrana – załącznik „odpowiedz-${i + 1}.${ivAudioExt(a.audio.type)}” (${fmtDuration(a.secs)}).` : ''}${a.text.trim() ? `\nOdpowiedź pisemna:\n"""\n${a.text.trim()}\n"""` : ''}${!a.audio && !a.text.trim() ? 'Kandydat pominął to pytanie.' : ''}`;
         }).join('\n\n');
-        const out = await callGemini({
+        const out = await callGemini({ tool: 'interview',
           apiKey: getApiKey(), model: getModel(), thinkingLevel: getThinkingLevel(), temperature: 0.3,
           systemInstruction: SYSTEM_INTERVIEW_EVAL, responseSchema: IV_EVAL_SCHEMA, attachments, force: !!force, signal: iv.controller.signal,
           maxOutputTokens: 16384, mediaResolution: undefined,
@@ -10453,7 +10603,7 @@ ZASADY
       setKeyMsg('#apiKeyWarning', '');
       setKeyMsg('#apiKeyTestResult', '');
       $('#deleteKeyBtn').classList.toggle('hidden', !key);
-      $('#modelInput').value = getModel();
+      $('#modelInput').value = getModelSetting();
       $('#thinkingSelect').value = getThinkingLevel();
       const reasonEl = $('#settingsReason');
       reasonEl.textContent = reason || '';
@@ -10511,8 +10661,9 @@ ZASADY
       btn.disabled = true;
       btn.innerHTML = `<span class="h-4 w-4 rounded-full border-2 border-slate-300 border-t-indigo-600" style="animation: spin .8s linear infinite"></span>Testowanie…`;
       try {
-        const model = normalizeModel($('#modelInput').value);
-        $('#modelInput').value = model;
+        const raw = $('#modelInput').value.trim();
+        const model = raw === MODEL_AUTO || !raw ? autoModel() : normalizeModel(raw);
+        if (raw !== MODEL_AUTO && raw) $('#modelInput').value = model;
         const info = await testApiKey(value, model);
         res.className = 'mt-1.5 text-xs text-emerald-700 font-medium';
         res.textContent = `✓ Połączenie poprawne – model ${info && info.displayName ? info.displayName : model} jest dostępny dla tego klucza.`;
@@ -11616,7 +11767,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
             ? (events.length ? events.map(e => `- ${e.allDay ? 'cały dzień' : `${hhmm(e.start)}–${hhmm(e.end)}`} ${e.title}`).join('\n') : '(brak spotkań)')
             : '(kalendarz niepołączony)'
         ];
-        const out = await callGemini({
+        const out = await callGemini({ tool: 'digest',
           apiKey: getApiKey(), model: getModel(), thinkingLevel: getThinkingLevel(),
           systemInstruction: SYSTEM_DIGEST, userText: lines.join('\n'), temperature: 0.4
         });
@@ -12030,7 +12181,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         lines.push('', '### POLECENIE UŻYTKOWNIKA DO TEJ ODPOWIEDZI', instruction, 'Wiadomość wymaga odpowiedzi – ustaw needsReply = true i przygotuj odpowiedź zgodnie z poleceniem.');
       }
       lines.push('', 'Zwróć wynik wyłącznie jako obiekt JSON zgodny ze schematem.');
-      const out = await callGemini({
+      const out = await callGemini({ tool: 'inbox',
         apiKey: getApiKey(),
         model: getModel(),
         thinkingLevel: getThinkingLevel(),
@@ -13191,8 +13342,92 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       if (t) t.addEventListener('change', () => { saveJson('officeflow_paid_plan', t.checked); renderUsagePanel(); });
     }
 
+    /* ---------- efekty AI: liczba wyników i szacunek zaoszczędzonego czasu ---------- */
+    // Minuty, które zajmuje zrobienie tego samego ręcznie (ostrożny szacunek); „aux” = zapytania pomocnicze, nieliczone
+    const EFFECT_MINUTES = { email: 10, inbox: 8, offer: 30, letters: 20, rewrite: 5, marketing: 15, analyzer: 20, chat: 5, compare: 15, supplier: 30, contract: 25,
+      contracts: 10, meeting: 20, invoices: 5, dunning: 15, report: 40, recruit: 15, cv: 30, batch: 2, digest: 5, ksefinvoice: 8, interview: 0, aux: 0 };
+    const EFFECTS_KEY = 'officeflow_effects';
+    const effectsCache = { data: null, at: 0, month: '' };
+    function monthKey(d = new Date()) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+    function effectsRecord(tool) {
+      const all = loadJson(EFFECTS_KEY, {}) || {};
+      const m = monthKey();
+      all[m] = all[m] || {};
+      all[m][tool || 'inne'] = (all[m][tool || 'inne'] || 0) + 1;
+      Object.keys(all).sort().slice(0, -13).forEach(k => delete all[k]);
+      saveJson(EFFECTS_KEY, all);
+      effectsCache.at = 0;
+    }
+    function effectToolLabel(id) {
+      if (id === 'aux') return 'Pomocnicze (terminy, zadania, dyktowanie)';
+      if (id === 'digest') return 'Podsumowanie dnia';
+      if (id === 'ksefinvoice') return 'Faktury z opisu (KSeF)';
+      const t = toolInfo(id); return t ? (t.short || t.name) : (id ? id : 'Inne');
+    }
+    async function loadEffects(month, scope) {
+      month = month || monthKey();
+      if (effectsCache.data && effectsCache.month === month + (scope || '') && Date.now() - effectsCache.at < 60e3) return effectsCache.data;
+      let d;
+      if (srv.on && srvSignedIn() && srvWs()) {
+        try { d = await srvApi('ai_effects', undefined, Object.assign({ month }, scope ? { scope } : {})); d.src = 'server'; }
+        catch (e) { d = null; }
+      }
+      if (!d) {
+        const loc = (loadJson(EFFECTS_KEY, {}) || {})[month] || {};
+        d = { month, scope: 'me', src: 'local', tools: Object.entries(loc).map(([tool, n]) => ({ tool, n })), people: [] };
+      }
+      Object.assign(effectsCache, { data: d, at: Date.now(), month: month + (scope || '') });
+      return d;
+    }
+    function effectsSum(d) {
+      const rows = (d.tools || []).map(r => ({ tool: r.tool, n: r.n, min: EFFECT_MINUTES[r.tool] != null ? EFFECT_MINUTES[r.tool] : 5 }))
+        .map(r => Object.assign(r, { total: r.n * r.min })).sort((a, b) => b.total - a.total || b.n - a.n);
+      return { rows, results: rows.filter(r => r.tool !== 'aux').reduce((a, r) => a + r.n, 0), minutes: rows.reduce((a, r) => a + r.total, 0) };
+    }
+    function fmtMinutes(m) { const h = Math.floor(m / 60), r = Math.round(m % 60); return h ? `${h} h${r ? ` ${r} min` : ''}` : `${r} min`; }
+    function monthNamePl(month) { const [y, m] = month.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' }); }
+    async function renderEffectsTile() {
+      const el = document.getElementById('statSaved');
+      if (!el) return;
+      try { const d = await loadEffects(); el.textContent = fmtMinutes(effectsSum(d).minutes); } catch (e) { /* zostaje 0 */ }
+    }
+    function effectsHtml(d) {
+      const sum = effectsSum(d);
+      const prev = (() => { const [y, m] = d.month.split('-').map(Number); return monthKey(new Date(y, m - 2, 1)); })();
+      const next = (() => { const [y, m] = d.month.split('-').map(Number); return monthKey(new Date(y, m, 1)); })();
+      const nav = `<div class="flex items-center gap-2 text-sm"><button type="button" class="btn-default rounded-lg px-2 py-1" data-effects-month="${prev}" aria-label="Poprzedni miesiąc">‹</button><span class="font-medium text-slate-900 capitalize">${escapeHtml(monthNamePl(d.month))}</span>${d.month < monthKey() ? `<button type="button" class="btn-default rounded-lg px-2 py-1" data-effects-month="${next}" aria-label="Następny miesiąc">›</button>` : ''}</div>`;
+      const who = d.scope === 'company' ? 'cała firma' : 'Twoje wyniki';
+      const head = sum.results
+        ? `<p class="mt-3 text-base text-slate-800">AI przygotowała <strong>${sum.results}</strong> ${sum.results === 1 ? 'wynik' : sum.results % 10 >= 2 && sum.results % 10 <= 4 && (sum.results % 100 < 12 || sum.results % 100 > 14) ? 'wyniki' : 'wyników'} (${who}) – szacunkowo <strong>${fmtMinutes(sum.minutes)}</strong> zaoszczędzonej pracy.</p>`
+        : `<p class="mt-3 text-sm text-slate-500">W tym miesiącu nie ma jeszcze wyników AI${d.src === 'server' ? '' : ' w tej przeglądarce'}.</p>`;
+      const table = sum.rows.length ? `<div class="mt-3 overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-slate-300 text-left text-xs text-slate-500"><th class="py-1.5 pr-4 font-medium">Narzędzie</th><th class="py-1.5 pr-4 font-medium">Wyniki</th><th class="py-1.5 pr-4 font-medium">Ręcznie (szacunek)</th><th class="py-1.5 font-medium">Zaoszczędzone</th></tr></thead><tbody>${sum.rows.map(r => `<tr class="border-b border-slate-200"><td class="py-1.5 pr-4">${escapeHtml(effectToolLabel(r.tool))}</td><td class="py-1.5 pr-4 tabular-nums">${r.n}</td><td class="py-1.5 pr-4 text-slate-500">${r.min ? `${r.min} min` : '—'}</td><td class="py-1.5 tabular-nums">${r.total ? fmtMinutes(r.total) : '—'}</td></tr>`).join('')}</tbody></table></div>` : '';
+      const people = (d.people || []).length > 1 ? `<div class="mt-4 text-sm font-medium text-slate-900">Według osób</div><ul class="mt-1 space-y-0.5 text-sm text-slate-700">${d.people.map(p => `<li>${escapeHtml(p.name)}${p.me ? ' (Ty)' : ''}: <span class="tabular-nums">${p.n}</span></li>`).join('')}</ul>` : '';
+      const note = `<p class="mt-3 text-xs leading-relaxed text-slate-500">Szacunek: tyle mniej więcej trwa przygotowanie takiej rzeczy ręcznie (kolumna „Ręcznie”). Liczą się tylko udane wyniki AI – bez błędów, zapytań odwołanych i pomocniczych.${d.src === 'server' ? (d.since ? ` Pomiary na serwerze od ${fmtDatePl(d.since)}.` : '') : ' Liczone w tej przeglądarce.'}</p>`;
+      return nav + head + table + people + note;
+    }
+    async function renderAdminEffects(month) {
+      const el = document.getElementById('adminEffects');
+      if (!el) return;
+      try { el.innerHTML = effectsHtml(await loadEffects(month)); } catch (e) { el.innerHTML = `<p class="text-sm text-red-700">${escapeHtml(e.message || String(e))}</p>`; }
+    }
+    async function openEffects(month) {
+      const d = await loadEffects(month);
+      amShow('info', 'Efekty AI', d.scope === 'company' ? 'Cała firma' : 'Twoje wyniki', { html: `<div data-effects-box>${effectsHtml(d)}</div>` });
+    }
+    function renderAdminSpeed() {
+      const el = document.getElementById('adminSpeed');
+      if (!el) return;
+      const fast = autoModel();
+      const rows = MODEL_SUGGESTIONS.map(m => { const e = modelSpeedEstimate(m), row = speedSrv.data && speedSrv.data.find(r => r.model === m); return { m, e, row }; });
+      const src = (e) => e.src === 'local' ? `pomiary w tej przeglądarce (${e.n})` : e.src === 'company' ? `pomiary w firmie (${e.n})` : 'pomiar wyjściowy z 19.11.2026';
+      el.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-slate-300 text-left text-xs text-slate-500"><th class="py-1.5 pr-4 font-medium">Model</th><th class="py-1.5 pr-4 font-medium">Do pierwszego słowa</th><th class="py-1.5 pr-4 font-medium">Ostatnie godziny (firma)</th><th class="py-1.5 font-medium">Źródło</th></tr></thead><tbody>${rows.map(({ m, e, row }) => `<tr class="border-b border-slate-200"><td class="py-1.5 pr-4"><span class="font-mono">${escapeHtml(m)}</span>${m === fast ? ' <span class="rounded-full bg-emerald-100 px-2 text-xs font-semibold text-emerald-800">najszybszy teraz</span>' : ''}${modelBlockedUntil(m) > Date.now() ? ' <span class="rounded-full bg-amber-100 px-2 text-xs font-semibold text-amber-800">odpoczywa</span>' : ''}</td><td class="py-1.5 pr-4 tabular-nums">ok. ${Math.max(1, Math.round(e.ms / 1000))} s</td><td class="py-1.5 pr-4 text-slate-600">${row ? `${row.ok} udanych${row.fail ? `, ${row.fail} błędów` : ''}${row.slow ? `, ${row.slow}× wolniejszy od drugiego` : ''}${row.ok ? ` · mediana ${Math.round(row.median / 100) / 10} s, 9 na 10 do ${Math.round(row.p90 / 100) / 10} s` : ''}` : '—'}</td><td class="py-1.5 text-xs text-slate-500">${src(e)}</td></tr>`).join('')}</tbody></table></div>
+        <p class="mt-2 text-xs text-slate-500">Tryb modelu: <strong>${isAutoModel() ? 'Automatycznie (najszybszy)' : `stały – ${escapeHtml(getModel())}`}</strong>. Zmienisz go w wyborze modelu przy każdym narzędziu.</p>`;
+    }
+
     function renderAdmin() {
       renderUsagePanel();
+      renderAdminEffects();
+      renderAdminSpeed();
       renderSrvAdmin();
       const key = getApiKey();
       const g = gmailClientId(), m = msClientId();
@@ -13412,6 +13647,13 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         const toolLink = e.target.closest('[data-tool-link]');
         if (toolLink) { setActiveTool(toolLink.dataset.toolLink); return; }
         if (e.target.closest('[data-action="open-settings"]')) { openSettings(); }
+        if (e.target.closest('[data-effects-open]')) { openEffects(); return; }
+        const em = e.target.closest('[data-effects-month]');
+        if (em) {
+          const month = em.dataset.effectsMonth;
+          if (em.closest('#adminEffects')) renderAdminEffects(month);
+          else loadEffects(month).then(d => { const box = document.querySelector('[data-effects-box]'); if (box) box.innerHTML = effectsHtml(d); });
+        }
       });
 
       $$('.tool-form').forEach(form => {
@@ -13473,7 +13715,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         toast(`Model zmieniony na ${e.suggestedModel}`, 'success');
         runTool(state.activeTool);
       });
-      $('#resetModelBtn').addEventListener('click', () => { $('#modelInput').value = DEFAULT_MODEL; });
+      $('#resetModelBtn').addEventListener('click', () => { $('#modelInput').value = MODEL_AUTO; });
 
       $('#openAdminBtn').addEventListener('click', () => showAdmin());
       $('#themeToggle').addEventListener('click', (e) => {
@@ -13717,7 +13959,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       countUp($('#statUsage'), usageToday());
       countUp($('#statInbox'), typeof inboxCounts === 'function' ? inboxCounts().ready : 0);
       countUp($('#statContracts'), ctAttention());
-      countUp($('#statKb'), kbCount());
+      renderEffectsTile();
       renderHomeSuggest($('#heroAskInput').value);
       renderHomeGrid();
       renderHomeRecent();
@@ -15146,7 +15388,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       setActiveTool(TOOLS[savedTool] || VIEWS[savedTool] || savedTool === 'inbox' || (savedTool === 'admin' && isTech()) ? savedTool : 'home');
       initInbox();
       ctLoad();
-      $('#modelSuggestions').innerHTML = MODEL_SUGGESTIONS.map(m => `<option value="${m}"></option>`).join('');
+      $('#modelSuggestions').innerHTML = [MODEL_AUTO, ...MODEL_SUGGESTIONS].map(m => `<option value="${m}"></option>`).join('');
       renderModelLabel();
       renderApiStatus();
       const setup = readSetupFromUrl();

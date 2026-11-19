@@ -241,4 +241,6 @@ function job_cleanup(callable $log, array &$stats): void {
     q('DELETE FROM invites WHERE expires_at < ?', [time() - 30 * 86400]);
     q('DELETE FROM notices WHERE created_at < ?', [time() - 400 * 86400]);
     q('DELETE FROM rate_limits WHERE win < ?', [time() - 2 * 86400]);
+    q('DELETE FROM ai_calls WHERE created_at < ?', [time() - 400 * 86400]);
+    foreach ((array) @glob(rtrim(sys_get_temp_dir(), '/\\') . '/paperly_cancel_*') as $f) if (@filemtime($f) < time() - 3600) @unlink($f);
 }

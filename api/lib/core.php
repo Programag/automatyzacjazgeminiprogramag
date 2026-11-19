@@ -13,7 +13,7 @@ if (PHP_VERSION_ID < 80000) {
 }
 
 const PAPERLY_VERSION = '2026.11.17';
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 mb_internal_encoding('UTF-8');
 date_default_timezone_set('Europe/Warsaw');
@@ -218,8 +218,15 @@ function migrate(PDO $pdo): void {
         "CREATE TABLE IF NOT EXISTS notices (k VARCHAR(190) NOT NULL PRIMARY KEY, created_at BIGINT NOT NULL DEFAULT 0)$TAIL",
         "CREATE TABLE IF NOT EXISTS rate_limits (k CHAR(64) NOT NULL, win BIGINT NOT NULL, n INT NOT NULL DEFAULT 0, PRIMARY KEY (k, win))$TAIL",
         "CREATE TABLE IF NOT EXISTS user_secrets (user_id BIGINT NOT NULL PRIMARY KEY, gemini_enc TEXT, updated_at BIGINT NOT NULL DEFAULT 0)$TAIL",
+        // pomiar każdego zapytania AI (szybkość modeli, podsumowanie efektów) – bez treści
+        "CREATE TABLE IF NOT EXISTS ai_calls (id $ID, ws_id BIGINT NOT NULL DEFAULT 0, user_id BIGINT NOT NULL DEFAULT 0, day CHAR(10) NOT NULL DEFAULT '', model VARCHAR(64) NOT NULL DEFAULT '', tool VARCHAR(32) NOT NULL DEFAULT '', hedge TINYINT NOT NULL DEFAULT 0, status INT NOT NULL DEFAULT 0, ttfb_ms INT NOT NULL DEFAULT 0, total_ms INT NOT NULL DEFAULT 0, created_at BIGINT NOT NULL DEFAULT 0" . ($sqlite ? '' : ', INDEX ai_calls_ws (ws_id, created_at)') . ")$TAIL",
+        // subskrypcje powiadomień na telefon / komputer (Web Push)
+        "CREATE TABLE IF NOT EXISTS push_subs (id $ID, user_id BIGINT NOT NULL, ws_id BIGINT NOT NULL DEFAULT 0, endpoint_hash CHAR(64) NOT NULL, endpoint TEXT, p256dh VARCHAR(200) NOT NULL DEFAULT '', auth VARCHAR(64) NOT NULL DEFAULT '', ua VARCHAR(190) NOT NULL DEFAULT '', created_at BIGINT NOT NULL DEFAULT 0, last_ok BIGINT NOT NULL DEFAULT 0, fails INT NOT NULL DEFAULT 0, UNIQUE (endpoint_hash))$TAIL",
+        // faktury wystawione w KSeF z aplikacji
+        "CREATE TABLE IF NOT EXISTS ksef_issued (id $ID, ws_id BIGINT NOT NULL, user_id BIGINT NOT NULL DEFAULT 0, env VARCHAR(8) NOT NULL DEFAULT '', number VARCHAR(64) NOT NULL DEFAULT '', buyer VARCHAR(255) NOT NULL DEFAULT '', buyer_nip VARCHAR(16) NOT NULL DEFAULT '', buyer_email VARCHAR(190) NOT NULL DEFAULT '', issue_date CHAR(10) NOT NULL DEFAULT '', due_date CHAR(10) NOT NULL DEFAULT '', net VARCHAR(24) NOT NULL DEFAULT '', gross VARCHAR(24) NOT NULL DEFAULT '', currency CHAR(3) NOT NULL DEFAULT 'PLN', status VARCHAR(16) NOT NULL DEFAULT '', session_ref VARCHAR(100) NOT NULL DEFAULT '', invoice_ref VARCHAR(100) NOT NULL DEFAULT '', ksef_number VARCHAR(64) NOT NULL DEFAULT '', error TEXT, xml $BIG, paid TINYINT NOT NULL DEFAULT 0, created_at BIGINT NOT NULL DEFAULT 0, updated_at BIGINT NOT NULL DEFAULT 0)$TAIL",
     ];
     foreach ($tables as $sql) $pdo->exec($sql);
+    if ($sqlite) $pdo->exec('CREATE INDEX IF NOT EXISTS ai_calls_ws ON ai_calls (ws_id, created_at)');
     if ($sqlite) $pdo->exec("INSERT OR REPLACE INTO meta (k, v) VALUES ('schema', '" . SCHEMA_VERSION . "')");
     else $pdo->exec("REPLACE INTO meta (k, v) VALUES ('schema', '" . SCHEMA_VERSION . "')");
 }
@@ -322,6 +329,26 @@ function curl_exec_dns($ch, string $url) {
     if ($out !== false) dns_remember($ch, $host);
     return $out;
 }
+
+/* ------------------------------------------------------------------ pomiar zapytań AI */
+// Narzędzia, dla których liczymy efekty (nazwa z nagłówka X-Paperly-Tool wysyłanego przez aplikację)
+function ai_tool_name(): string { return substr(preg_replace('/[^a-z0-9_\-]/', '', strtolower((string) ($_SERVER['HTTP_X_PAPERLY_TOOL'] ?? ''))), 0, 32); }
+function ai_call_record(array $s, string $path, int $status, float $tStart, float $tFirst): void {
+    try {
+        $model = preg_match('#^v1beta/models/([A-Za-z0-9.\-_]+):#', $path, $m) ? $m[1] : '';
+        $now = microtime(true);
+        q('INSERT INTO ai_calls (ws_id, user_id, day, model, tool, hedge, status, ttfb_ms, total_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+            (int) ($s['ws']['id'] ?? 0), (int) ($s['user']['id'] ?? 0), date('Y-m-d'), $model, ai_tool_name(),
+            !empty($_SERVER['HTTP_X_PAPERLY_HEDGE']) ? 1 : 0, $status,
+            $tFirst ? (int) round(($tFirst - $tStart) * 1000) : 0, (int) round(($now - $tStart) * 1000), time(),
+        ]);
+    } catch (Throwable $e) { error_log('PaperlyAI ai_calls: ' . $e->getMessage()); }
+}
+// Odwołanie zapytania, które jeszcze czeka na Google (znacznik w pliku tymczasowym – sprawdzany co 1,5 s)
+function ai_cancel_file(string $id): string { return rtrim(sys_get_temp_dir(), '/\\') . '/paperly_cancel_' . $id; }
+function ai_cancel_request(string $id): void { if (preg_match('/^[a-f0-9]{16,40}$/', $id)) @file_put_contents(ai_cancel_file($id), (string) time()); }
+function ai_cancel_requested(string $id): bool { return $id !== '' && @is_file(ai_cancel_file($id)); }
+function ai_cancel_clear(string $id): void { if ($id !== '') @unlink(ai_cancel_file($id)); }
 
 /* ------------------------------------------------------------------ HTTP do usług zewnętrznych */
 function http_request(string $method, string $url, array $headers = [], ?string $body = null, int $timeout = 30): array {
