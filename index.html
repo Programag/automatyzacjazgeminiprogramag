@@ -3812,7 +3812,7 @@ ZASADY
     const SRV_INVITE_KEY = 'paperly_invite';
     // Dane firmy (wspólne dla zespołu) i dane osoby – synchronizowane z serwerem
     const SYNC_WS_LS = ['officeflow_letterhead', 'officeflow_snippets', 'officeflow_cost_categories', 'officeflow_dunning'];
-    const SYNC_USER_LS = ['officeflow_history', 'officeflow_inbox_prefs', 'officeflow_followups', 'officeflow_inbox_done', 'officeflow_theme', 'officeflow_gemini_model', 'officeflow_thinking_level', 'officeflow_letterhead_use', 'officeflow_interview_speak'];
+    const SYNC_USER_LS = ['officeflow_history', 'officeflow_inbox_prefs', 'officeflow_followups', 'officeflow_inbox_done', 'officeflow_inbox_cache', 'officeflow_inbox_shared', 'officeflow_theme', 'officeflow_gemini_model', 'officeflow_thinking_level', 'officeflow_letterhead_use', 'officeflow_interview_speak'];
     const SYNC_WATCH = new RegExp('^(' + SYNC_WS_LS.concat(SYNC_USER_LS).join('|') + ')$');
     const SYNC_ITEM_MAX = 14 * 1024 * 1024;
     const srv = { on: false, health: null, me: null, url: {}, admin: null, adminLoading: false, lostShown: false, meTimer: null };
@@ -4067,6 +4067,12 @@ ZASADY
             try { o = JSON.parse(it.v) || {}; } catch (e) { o = {}; }
             o.context = getInboxPrefs().context;
             storageSet(key, JSON.stringify(o));
+          } else if (INBOX_MERGE_KEYS.includes(key)) {
+            // Skrzynka AI na kilku urządzeniach: łączymy dane z obu stron zamiast nadpisywać
+            const merged = inboxMergeSync(key, it.v);
+            storageSet(key, merged);
+            if (merged !== it.v) sync.dirty = true;
+            sync.inboxChanged = true;
           } else storageSet(key, it.v);
           st.h[id] = hashStr(it.v);
           return 'ls';
@@ -4166,6 +4172,7 @@ ZASADY
       } finally {
         sync.busy = false;
         if (changedIdb) { kbLoad(); ctLoad(); }
+        if (sync.inboxChanged) { sync.inboxChanged = false; try { inboxReconcile(); } catch (e) { /* lista odświeży się przy następnym sprawdzeniu */ } }
         if (changedLs) {
           const t = storageGet('officeflow_theme');
           if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; renderThemeToggle(); }
@@ -10545,7 +10552,8 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       return scriptPromises[src];
     }
 
-    function getDone() {
+    // Stany maili wspólne dla wszystkich urządzeń: sent / drafted / skipped / hidden / read (przeczytany w skrzynce) / restored (przywrócony)
+    function getDoneRaw() {
       const done = loadJson(INBOX_KEYS.done, {});
       const limit = Date.now() - 45 * 864e5;
       let changed = false;
@@ -10553,12 +10561,18 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       if (changed) saveJson(INBOX_KEYS.done, done);
       return done;
     }
-    function markDone(key, status) {
-      const done = getDone();
-      done[key] = { status, at: Date.now() };
+    function getDone() {
+      const raw = getDoneRaw(), out = {};
+      for (const k of Object.keys(raw)) if (raw[k].status !== 'restored') out[k] = raw[k];
+      return out;
+    }
+    function markDone(key, status, text) {
+      const done = getDoneRaw();
+      done[key] = Object.assign({ status, at: Date.now() }, text ? { text: String(text).slice(0, 4000) } : {});
       saveJson(INBOX_KEYS.done, done);
+      if (status === 'restored') return;
       const cache = loadJson(INBOX_KEYS.cache, {});
-      if (cache[key]) { delete cache[key]; saveJson(INBOX_KEYS.cache, cache); }
+      if (cache[key] && status !== 'skipped') { delete cache[key]; saveJson(INBOX_KEYS.cache, cache); }
     }
     function cacheAnalysis(key, analysis) {
       const cache = loadJson(INBOX_KEYS.cache, {});
@@ -10744,6 +10758,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
     async function gmailList(prefs, skip) {
       const q = `in:inbox is:unread newer_than:${prefs.days}d -category:promotions -category:social -category:forums`;
       const list = await gmailFetch(`/messages?maxResults=${prefs.maxCount}&q=${encodeURIComponent(q)}`);
+      (inbox.seenIds = inbox.seenIds || {}).gmail = new Set(((list && list.messages) || []).map(r => 'gmail:' + r.id));
       const out = [];
       for (const ref of (list && list.messages) || []) {
         const key = 'gmail:' + ref.id;
@@ -10899,6 +10914,7 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny ze schematem.`;
       const select = 'id,subject,from,replyTo,toRecipients,receivedDateTime,body,bodyPreview,conversationId,categories,hasAttachments';
       const data = await graphFetch(`/me/mailFolders/inbox/messages?$filter=${encodeURIComponent(filter)}&$orderby=receivedDateTime desc&$top=${prefs.maxCount}&$select=${select}`,
         { headers: { Prefer: 'outlook.body-content-type="text"' } });
+      (inbox.seenIds = inbox.seenIds || {}).outlook = new Set(((data && data.value) || []).map(m => 'outlook:' + m.id));
       const out = [];
       for (const m of (data && data.value) || []) {
         const key = 'outlook:' + m.id;
@@ -11544,6 +11560,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         try {
           const msgs = p === 'gmail' ? await gmailList(prefs, skip) : await outlookList(prefs, skip);
           msgs.forEach(m => { if (!skip(m.key)) { addInboxItem(m); added++; } });
+          try { await pruneReadItems(p); } catch (e) { /* sprawdzimy przy następnym razie */ }
         } catch (e) {
           inbox.providerErrors[p] = e;
           if (e.auth) renderConnections();
@@ -11600,9 +11617,128 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
             return o;
           });
         const write = (items) => { try { localStorage.setItem(INBOX_ITEMS_KEY, JSON.stringify(items)); return true; } catch (e) { return false; } };
+        // lista maili wspólna dla telefonu i komputera (synchronizowana przez serwer, scalana z drugim urządzeniem)
+        try {
+          const shared = JSON.stringify(sharedCanonical([...(loadJson(INBOX_SHARED_KEY, []) || []), ...all.map(sharedRecord)]));
+          if (storageGet(INBOX_SHARED_KEY) !== shared) storageSet(INBOX_SHARED_KEY, shared);
+        } catch (e) { /* brak miejsca – wspólna lista zaktualizuje się później */ }
         // za mało miejsca w przeglądarce – zapisujemy krótsze treści zamiast nic
         if (!write(active.concat(doneList))) write(active.map(o => Object.assign({}, o, { body: String(o.body || '').slice(0, 3000) })).concat(doneList.slice(0, 10)));
       }, 300);
+    }
+    const INBOX_SHARED_KEY = 'officeflow_inbox_shared';
+    const INBOX_MERGE_KEYS = ['officeflow_inbox_done', 'officeflow_inbox_cache', 'officeflow_inbox_shared'];
+    const SHARED_FIELDS = ['key', 'provider', 'id', 'threadId', 'fromName', 'fromEmail', 'replyToName', 'replyToEmail', 'to', 'subject', 'messageId', 'references', 'snippet', 'attachmentRefs', 'hasAttachments', 'account'];
+    function sharedRecord(it) {
+      if (!it || it.kind === 'followup' || !it.key) return null;
+      const r = {};
+      SHARED_FIELDS.forEach(f => { if (it[f] !== undefined && it[f] !== '') r[f] = it[f]; });
+      r.date = it.date ? new Date(it.date).toISOString() : '';
+      if (r.snippet) r.snippet = String(r.snippet).slice(0, 240);
+      return r;   // pełna treść maila nie trafia na serwer – drugie urządzenie pobierze ją z Gmaila/Outlooka, gdy będzie potrzebna
+    }
+    // Ta sama zawartość daje na każdym urządzeniu ten sam wynik (kolejność, wybór duplikatu, limit) – bez przepychanek przy synchronizacji
+    function sharedCanonical(list) {
+      const done = getDoneRaw();
+      const keep = (k) => { const d = done[k]; return !d || ['sent', 'drafted', 'skipped', 'restored'].includes(d.status) && (d.status === 'restored' || d.at > Date.now() - 14 * 864e5); };
+      const by = new Map();
+      for (const r of list) {
+        if (!r || typeof r.key !== 'string' || !keep(r.key)) continue;
+        const prev = by.get(r.key);
+        if (!prev) { by.set(r.key, r); continue; }
+        const a = JSON.stringify(prev), b = JSON.stringify(r);
+        if (b.length > a.length || (b.length === a.length && b > a)) by.set(r.key, r);
+      }
+      return [...by.values()].sort((a, b) => ((Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)).slice(0, 80);
+    }
+    function sortedObj(o) { const out = {}; Object.keys(o).sort().forEach(k => { out[k] = o[k]; }); return out; }
+    function inboxMergeSync(key, remoteStr) {
+      let remote;
+      try { remote = JSON.parse(remoteStr); } catch (e) { return remoteStr; }
+      let local = null;
+      try { local = JSON.parse(storageGet(key) || 'null'); } catch (e) { local = null; }
+      if (key === INBOX_SHARED_KEY) return JSON.stringify(sharedCanonical([...(Array.isArray(local) ? local : []), ...(Array.isArray(remote) ? remote : [])]));
+      if (!remote || typeof remote !== 'object') return remoteStr;
+      const out = Object.assign({}, local && typeof local === 'object' ? local : {});
+      for (const [k, v] of Object.entries(remote)) {
+        const l = out[k];
+        if (!l || (v && (v.at || 0) > (l.at || 0)) || (v && l && (v.at || 0) === (l.at || 0) && JSON.stringify(v) > JSON.stringify(l))) out[k] = v;
+      }
+      if (key === INBOX_KEYS.cache) {
+        const keys = Object.keys(out).sort((a, b) => ((out[b] && out[b].at) || 0) - ((out[a] && out[a].at) || 0) || (a < b ? -1 : 1));
+        keys.slice(80).forEach(k => delete out[k]);
+      }
+      return JSON.stringify(sortedObj(out));
+    }
+    // Po synchronizacji: dołącz maile z drugiego urządzenia i przenieś ich stany (wysłane, pominięte, przygotowane odpowiedzi)
+    function inboxReconcile() {
+      const done = getDoneRaw();
+      const cache = loadJson(INBOX_KEYS.cache, {}) || {};
+      const shared = loadJson(INBOX_SHARED_KEY, []);
+      let changed = false;
+      for (const r of Array.isArray(shared) ? shared : []) {
+        if (!r || !r.key || inbox.items.has(r.key)) continue;
+        const d = done[r.key];
+        if (d && !['sent', 'drafted', 'skipped', 'restored'].includes(d.status)) continue;
+        addInboxItem(Object.assign({}, r, { date: r.date ? new Date(r.date) : new Date(), bodyMissing: true }));
+        changed = true;
+      }
+      for (const it of [...inbox.items.values()]) {
+        if (it.kind === 'followup' || ['queued', 'analyzing', 'sending', 'pending-send', 'drafting'].includes(it.state)) continue;
+        const d = done[it.key], st = d ? d.status : '';
+        if (st === 'sent' || st === 'drafted' || st === 'skipped') {
+          if (it.state !== st) { it.state = st; it.doneAt = new Date(d.at); changed = true; }
+          if (d.text && !it.doneText) { it.doneText = d.text; changed = true; }
+        } else if (st && st !== 'restored') {
+          inbox.items.delete(it.key); changed = true;          // przeczytany / ukryty na innym urządzeniu
+        } else if (it.state === 'skipped') {
+          const c = cache[it.key];
+          if (c && c.analysis) applyAnalysis(it, c.analysis); else { it.state = 'new'; it.selected = false; }
+          changed = true;
+        } else if (it.state === 'new' && cache[it.key] && cache[it.key].analysis) {
+          applyAnalysis(it, cache[it.key].analysis); changed = true;   // odpowiedź przygotowana na drugim urządzeniu
+        }
+      }
+      if (!changed) return;
+      inbox.queue = inbox.queue.filter(k => inbox.items.has(k));
+      const list = document.getElementById('inboxList');
+      if (list && !list.contains(document.activeElement)) renderInboxList(); else saveInboxItems();
+      renderInboxToolbar();
+      updateInboxBadge();
+    }
+    async function ensureMailBody(item) {
+      if (!item.bodyMissing) return;
+      if (item.provider === 'gmail') {
+        const m = await gmailFetch(`/messages/${enc(item.id)}?format=full`);
+        const h = {};
+        ((m.payload && m.payload.headers) || []).forEach(x => { h[x.name.toLowerCase()] = x.value; });
+        item.body = gmailBody(m.payload);
+        item.attachmentRefs = gmailAttachmentRefs(m.payload);
+        if (!item.messageId) item.messageId = h['message-id'] || '';
+        if (!item.references) item.references = h.references || '';
+      } else {
+        const m = await graphFetch(`/me/messages/${enc(item.id)}?$select=body,hasAttachments`, { headers: { Prefer: 'outlook.body-content-type="text"' } });
+        item.body = m && m.body && m.body.content ? (String(m.body.contentType).toLowerCase() === 'html' ? htmlToText(m.body.content) : m.body.content) : '';
+        item.hasAttachments = !!(m && m.hasAttachments);
+      }
+      item.bodyMissing = false;
+      saveInboxItems();
+    }
+    // Maile „nowe” i „bez odpowiedzi”, które nie są już nieprzeczytane w skrzynce (przeczytane, zarchiwizowane, usunięte) – znikają z listy
+    async function pruneReadItems(provider) {
+      const seen = (inbox.seenIds || {})[provider];
+      if (!seen) return 0;
+      const cand = [...inbox.items.values()].filter(it => it.provider === provider && it.kind !== 'followup' && ['new', 'noreply'].includes(it.state) && !seen.has(it.key)).slice(0, 15);
+      let n = 0;
+      for (const it of cand) {
+        let gone = false;
+        try {
+          if (provider === 'gmail') { const m = await gmailFetch(`/messages/${enc(it.id)}?format=minimal`); const l = (m && m.labelIds) || []; gone = !l.includes('UNREAD') || !l.includes('INBOX'); }
+          else { const m = await graphFetch(`/me/messages/${enc(it.id)}?$select=isRead`); gone = !!(m && m.isRead); }
+        } catch (e) { gone = /HTTP 40[4]|HTTP 410|not.?found|ErrorItemNotFound/i.test(`${e.message || ''} ${e.details || ''}`); }
+        if (gone && inbox.items.has(it.key) && ['new', 'noreply'].includes(it.state)) { markDone(it.key, 'read'); inbox.items.delete(it.key); n++; }
+      }
+      return n;
     }
     function restoreInboxItems() {
       let list = [];
@@ -11668,6 +11804,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       const prefs = getInboxPrefs();
       const isFollowUp = item.kind === 'followup';
       let att = { parts: [], meta: [] };
+      if (!isFollowUp && item.bodyMissing) await ensureMailBody(item);   // mail z drugiego urządzenia – treść prosto ze skrzynki
       if (!isFollowUp) {
         try { att = await withTimeout(loadMailAttachments(item), 90000, () => new Error('timeout')); } catch (e) { att = { parts: [], meta: [{ name: 'załączniki', used: false, reason: 'nie udało się pobrać listy' }] }; }
       }
@@ -11873,6 +12010,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       const prev = item.state;
       item.state = asDraft ? 'drafting' : 'sending';
       renderInboxCard(item);
+      if (item.bodyMissing) { try { await ensureMailBody(item); } catch (e) { /* odpowiedź pójdzie bez cytatu */ } }
       try {
         if (item.provider === 'gmail') await gmailReply(item, text, asDraft);
         else await outlookReply(item, text, asDraft);
@@ -11880,7 +12018,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         item.doneAt = new Date();
         item.doneText = text;
         saveInboxItems();
-        if (item.kind !== 'followup') markDone(item.key, item.state);
+        if (item.kind !== 'followup') markDone(item.key, item.state, text);
         if (!asDraft) recordFollowUp(item, text);
         toast(asDraft ? 'Zapisano szkic odpowiedzi' : `Wysłano odpowiedź do ${item.replyToEmail}`, 'success');
       } catch (e) {
@@ -11908,9 +12046,10 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         removeInboxItem(item);
         return;
       }
-      markDone(item.key, 'skipped');
+      const handled = item.state === 'sent' || item.state === 'drafted';
+      markDone(item.key, handled ? 'hidden' : 'skipped');
       inbox.queue = inbox.queue.filter(k => k !== item.key);
-      if (item.state === 'sent' || item.state === 'drafted') inbox.items.delete(item.key);   // „Ukryj” przy obsłużonym
+      if (handled) inbox.items.delete(item.key);   // „Ukryj” przy obsłużonym – znika na wszystkich urządzeniach
       else {
         // nic nie znika: wiadomość trafia do sekcji „Pominięte”, skąd można ją przywrócić
         clearTimeout(item.undoTimer);
@@ -11924,8 +12063,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       renderInboxToolbar();
     }
     function unskipItem(item) {
-      const done = getDone();
-      if (done[item.key]) { delete done[item.key]; saveJson(INBOX_KEYS.done, done); }
+      markDone(item.key, 'restored');
       if (item.analysis) { cacheAnalysis(item.key, item.analysis); applyAnalysis(item, item.analysis); }
       else { item.state = 'new'; item.selected = false; }
       item.skippedFrom = '';
@@ -12139,7 +12277,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         ${attHtml}
         <details class="mt-2 text-sm" ${item.showOriginal ? 'open' : ''} data-original>
           <summary class="cursor-pointer select-none text-xs font-medium text-indigo-600 hover:underline underline-offset-2">${isFollow ? 'Pokaż wiadomość rozmówcy' : 'Pokaż oryginalną wiadomość'}</summary>
-          <div class="mail-original mt-2 max-h-72 overflow-y-auto scroll-thin rounded-lg border border-slate-200 bg-slate-50 p-3 text-[13px] text-slate-700">${escapeHtml(item.body || item.snippet || '(pusta wiadomość)')}</div>
+          <div class="mail-original mt-2 max-h-72 overflow-y-auto scroll-thin rounded-lg border border-slate-200 bg-slate-50 p-3 text-[13px] text-slate-700">${item.bodyMissing ? '<span class="text-slate-500">Wczytuję treść ze skrzynki…</span>' : escapeHtml(item.body || item.snippet || '(pusta wiadomość)')}</div>
         </details>`;
 
       let bodyHtml = '';
@@ -12357,7 +12495,17 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     function bindInboxList() {
       const list = $('#inboxList');
       document.addEventListener('click', (e) => { if (e.target.closest('[data-inbox-retry-now]')) inboxRetryNow(); });
-      list.addEventListener('toggle', (e) => { if (e.target.matches && e.target.matches('details[data-inbox-section]')) (inbox.openSec = inbox.openSec || {})[e.target.dataset.inboxSection] = e.target.open; }, true);
+      list.addEventListener('toggle', (e) => {
+        if (!e.target.matches) return;
+        if (e.target.matches('details[data-inbox-section]')) (inbox.openSec = inbox.openSec || {})[e.target.dataset.inboxSection] = e.target.open;
+        if (e.target.matches('details[data-original]') && e.target.open) {
+          const art = e.target.closest('article'), item = art && inbox.items.get(art.dataset.key);
+          if (item && item.bodyMissing) {
+            item.showOriginal = true;
+            ensureMailBody(item).catch(err => { item.bodyMissing = false; item.body = `${item.snippet || ''}\n\n(Nie udało się wczytać pełnej treści: ${err.message || err})`; }).finally(() => renderInboxCard(item));
+          }
+        }
+      }, true);
       list.addEventListener('input', (e) => {
         const art = e.target.closest('article');
         const item = art && inbox.items.get(art.dataset.key);
@@ -12912,6 +13060,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     function initInbox() {
       restoreGmailSession();
       restoreInboxItems();
+      inboxReconcile();
       const prefs = getInboxPrefs();
       $('#inboxTone').value = prefs.tone;
       $('#inboxMax').value = String(prefs.maxCount);
