@@ -4546,6 +4546,7 @@ ZASADY
           ${me.usage ? `<p class="mt-1 text-xs text-slate-500">AI firmy dziś: ${me.usage.today}${me.usage.limit ? ` z ${me.usage.limit}` : ''} zapytań</p>` : ''}
           <p class="mt-1 text-xs text-slate-500">${escapeHtml(syncStatusText())}</p>
         </div>
+        ${srvFeature('push') ? `<div id="pushBox">${pushBoxHtml(p)}</div>` : ''}
         ${srvFeature('mail') ? `<div>
           <p class="field-label">Powiadomienia e-mail</p>
           <div class="space-y-2 text-sm text-slate-700">
@@ -4561,6 +4562,79 @@ ZASADY
       const lo = body.querySelector('[data-pf="logout"]');
       if (lo) lo.textContent = 'Wyloguj z serwera';
     }
+    /* ---------- powiadomienia na telefon i komputer (Web Push) ---------- */
+    const push = { state: 'unknown', busy: false };
+    function pushSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && window.isSecureContext; }
+    function isIos() { return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+    function isStandalone() { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }
+    async function pushSubscription() {
+      if (!pushSupported()) return null;
+      const reg = await navigator.serviceWorker.getRegistration();
+      return reg ? reg.pushManager.getSubscription() : null;
+    }
+    async function pushRefreshState() {
+      if (!pushSupported()) push.state = isIos() && !isStandalone() ? 'ios-install' : 'unsupported';
+      else if (Notification.permission === 'denied') push.state = 'denied';
+      else push.state = (await pushSubscription().catch(() => null)) ? 'on' : 'off';
+      const box = document.getElementById('pushBox');
+      if (box && srv.me) box.innerHTML = pushBoxHtml(srv.me.prefs || {});
+    }
+    function pushBoxHtml(p) {
+      const st = push.state;
+      if (st === 'unknown') setTimeout(pushRefreshState, 0);
+      const chk = (id, key, label) => `<label class="flex items-start gap-2"><input type="checkbox" data-push-pref="${key}" ${p[key] !== false ? 'checked' : ''} class="mt-0.5 h-4 w-4" /><span>${label}</span></label>`;
+      const status = st === 'on' ? '<span class="font-medium text-emerald-700">Włączone na tym urządzeniu</span>'
+        : st === 'denied' ? '<span class="text-amber-800">Zablokowane w ustawieniach przeglądarki – zezwól tej stronie na powiadomienia i spróbuj ponownie.</span>'
+        : st === 'ios-install' ? '<span class="text-slate-700">Na iPhonie i iPadzie: najpierw dodaj PaperlyAI do ekranu początkowego (Udostępnij → „Do ekranu początkowego”), otwórz ją stamtąd i włącz powiadomienia tutaj.</span>'
+        : st === 'unsupported' ? '<span class="text-slate-500">Ta przeglądarka nie obsługuje powiadomień.</span>'
+        : '<span class="text-slate-600">Wyłączone na tym urządzeniu</span>';
+      return `<p class="field-label">Powiadomienia na telefon i komputer</p>
+        <p class="text-sm">${status}</p>
+        <div class="mt-2 space-y-1.5 text-sm text-slate-700">
+          ${chk('pm', 'pushMail', 'Nowa poczta w Gmailu (nadawca i temat)')}
+          ${chk('pi', 'pushInbox', 'Odpowiedzi w Skrzynce AI czekają na zatwierdzenie')}
+          ${chk('pv', 'pushInvoices', 'Jutro lub dziś mija termin płatności wystawionej faktury')}
+          ${chk('pc', 'pushContracts', 'Terminy z rejestru umów (właściciel i technik)')}
+        </div>
+        <div class="mt-2 flex flex-wrap gap-2">
+          ${st === 'on' ? '<button type="button" data-srvp="push-test" class="btn-default px-3 py-1.5 text-sm font-medium">Wyślij próbne</button><button type="button" data-srvp="push-off" class="btn-default px-3 py-1.5 text-sm font-medium">Wyłącz na tym urządzeniu</button>'
+          : st === 'off' || st === 'denied' ? `<button type="button" data-srvp="push-on" class="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-hover" ${push.busy ? 'disabled' : ''}>Włącz na tym urządzeniu</button>` : ''}
+        </div>
+        <p class="mt-1 text-xs text-slate-500">Działa także przy zamkniętej aplikacji. Powiadomienie zawiera tylko nadawcę, temat albo termin – bez treści maili. Włącz osobno na każdym telefonie i komputerze.</p>`;
+    }
+    function urlB64ToBytes(b64) { const p = '='.repeat((4 - b64.length % 4) % 4); const raw = atob((b64 + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, c => c.charCodeAt(0)); }
+    async function pushEnable() {
+      if (push.busy) return;
+      push.busy = true;
+      try {
+        if (!pushSupported()) throw new Error(isIos() ? 'Na iPhonie najpierw dodaj PaperlyAI do ekranu początkowego i otwórz ją stamtąd.' : 'Ta przeglądarka nie obsługuje powiadomień.');
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') throw new Error('Nie zezwolono na powiadomienia – możesz to zmienić w ustawieniach przeglądarki dla tej strony.');
+        let reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) { await navigator.serviceWorker.register('sw.js'); }
+        reg = await navigator.serviceWorker.ready;
+        const { key } = await srvApi('push_key');
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToBytes(key) });
+        await srvApi('push_subscribe', sub.toJSON());
+        toast('Powiadomienia włączone na tym urządzeniu', 'success');
+      } catch (e) {
+        const msg = e && e.name === 'NotAllowedError' ? 'Przeglądarka nie pozwoliła włączyć powiadomień – zezwól tej stronie na powiadomienia (ikona kłódki przy adresie strony) i spróbuj ponownie.'
+          : e && e.name === 'AbortError' ? 'Usługa powiadomień przeglądarki nie odpowiada – spróbuj ponownie za chwilę.'
+          : (e && e.message) || String(e);
+        toast(msg, 'error', 9000);
+      }
+      finally { push.busy = false; pushRefreshState(); }
+    }
+    async function pushDisable() {
+      try {
+        const sub = await pushSubscription();
+        if (sub) { await srvApi('push_unsubscribe', { endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe(); }
+        toast('Powiadomienia wyłączone na tym urządzeniu', 'info');
+      } catch (e) { toast(e.message || String(e), 'error'); }
+      pushRefreshState();
+    }
+
     async function srvProfileSave() {
       if (!srvManager()) { closeProfile(); return; }
       const w = srvWs();
@@ -4704,6 +4778,11 @@ ZASADY
         const l = e.target.closest('[data-srv-limit]');
         if (l) srvAdminAction(() => srvApi('member_update', { userId: +l.dataset.srvLimit, dailyLimit: +l.value || 0 }), 'Zapisano limit');
       });
+      $('#profileModal').addEventListener('change', (e) => {
+        const c = e.target.closest('[data-push-pref]');
+        if (!c) return;
+        srvApi('notify_prefs', { [c.dataset.pushPref]: c.checked }).then(j => { if (srv.me) srv.me.prefs = j.prefs; toast('Zapisano', 'success', 1800); }).catch(err => toast(err.message, 'error', 9000));
+      });
       $('#profileModal').addEventListener('click', (e) => {
         const b = e.target.closest('[data-srvp]');
         if (!b) return;
@@ -4712,6 +4791,9 @@ ZASADY
         else if (a === 'key-set') { closeProfile(); openKeyWizard(); }
         else if (a === 'key-clear') { closeProfile(); clearOwnKey(); }
         else if (a === 'switch') { const id = +$('#srvWsSel').value; if (srvWs() && id !== srvWs().id) srvSwitchWorkspace(id); }
+        else if (a === 'push-on') pushEnable();
+        else if (a === 'push-off') pushDisable();
+        else if (a === 'push-test') srvApi('push_test', {}).then(j => toast(`Wysłano powiadomienie testowe (urządzenia: ${j.delivered})`, 'success')).catch(err => toast(err.message, 'error', 9000));
         else if (a === 'notify-save' || a === 'notify-test') {
           const prefs = { contracts: $('#srvNContracts').checked, newMail: $('#srvNMail').checked, digest: $('#srvNDigest').checked, digestHour: +$('#srvNHour').value, email: $('#srvNEmail').value.trim() };
           srvApi('notify_prefs', prefs).then(j => {

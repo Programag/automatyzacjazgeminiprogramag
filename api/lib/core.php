@@ -457,7 +457,9 @@ function require_admin(): array {
 /** Ustawienia powiadomień; przypomnienia o umowach domyślnie tylko dla właściciela i techników. */
 function user_prefs(array $user, ?string $role = null): array {
     $p = json_decode((string) ($user['prefs'] ?? ''), true) ?: [];
-    return array_merge(['newMail' => false, 'contracts' => in_array($role, ['owner', 'tech'], true), 'digest' => false, 'digestHour' => 7, 'email' => ''], $p);
+    return array_merge(['newMail' => false, 'contracts' => in_array($role, ['owner', 'tech'], true), 'digest' => false, 'digestHour' => 7, 'email' => '',
+        // powiadomienia na telefon (działają tylko na urządzeniach, na których je włączono)
+        'pushMail' => true, 'pushInbox' => true, 'pushInvoices' => true, 'pushContracts' => true], $p);
 }
 function ws_settings(array $ws): array { return json_decode((string) ($ws['settings'] ?? ''), true) ?: []; }
 function save_ws_settings(int $wsId, array $settings): void { q('UPDATE workspaces SET settings = ? WHERE id = ?', [json_encode($settings, JSON_UNESCAPED_UNICODE), $wsId]); }

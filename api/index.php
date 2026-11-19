@@ -8,6 +8,7 @@ declare(strict_types=1);
 require __DIR__ . '/lib/core.php';
 require __DIR__ . '/lib/google.php';
 require __DIR__ . '/lib/mailer.php';
+require __DIR__ . '/lib/webpush.php';
 
 header('X-Robots-Tag: noindex');
 
@@ -22,7 +23,11 @@ run_json(function () {
     $post = $method === 'POST';
 
     switch ($a) {
-        case 'health': json_out(health()); return;
+        case 'health':
+            json_out(health());
+            // harmonogram hostingu nie działa? zadania (powiadomienia, przypomnienia) uruchamiają się w tle po odpowiedzi
+            try { require_once __DIR__ . '/lib/jobs.php'; maybe_lazy_jobs(); } catch (Throwable $e) { /* bez zadań w tle */ }
+            return;
         case 'me': json_out(me_payload(require_user())); return;
         case 'login': if (!$post) break; rate_limit('login', client_ip(), 20, 600); json_out(action_login()); return;
         case 'logout': if (!$post) break; if (db_configured()) end_session(); json_out(['ok' => true]); return;
@@ -44,6 +49,10 @@ run_json(function () {
         case 'google_token': json_out(action_google_token()); return;
         case 'google_disconnect': if (!$post) break; json_out(action_google_disconnect()); return;
         case 'notify_prefs': if (!$post) break; json_out(action_notify_prefs()); return;
+        case 'push_key': require_user(); json_out(['key' => vapid_public_b64()]); return;
+        case 'push_subscribe': if (!$post) break; rate_limit('push', 'u' . require_user()['user']['id'], 30, 3600); json_out(action_push_subscribe()); return;
+        case 'push_unsubscribe': if (!$post) break; json_out(action_push_unsubscribe()); return;
+        case 'push_test': if (!$post) break; rate_limit('pushtest', 'u' . require_user()['user']['id'], 10, 3600); json_out(action_push_test()); return;
         case 'test_mail': if (!$post) break; rate_limit('mail', 'u' . require_user()['user']['id'], 5, 3600); json_out(action_test_mail()); return;
         case 'server': json_out(action_server_status()); return;
         case 'server_settings': if (!$post) break; json_out(action_server_settings()); return;
@@ -73,6 +82,7 @@ function features(): array {
         'gus' => $dbOk,
         'ksef' => $dbOk,
         'fetchUrl' => $dbOk && function_exists('curl_init'),
+        'push' => $dbOk && push_supported(),
     ];
 }
 function health(): array {
@@ -416,7 +426,7 @@ function action_notify_prefs(): array {
     $s = require_user();
     $b = body_json();
     $p = user_prefs($s['user'], $s['role']);
-    foreach (['newMail', 'contracts', 'digest'] as $k) if (array_key_exists($k, $b)) $p[$k] = (bool) $b[$k];
+    foreach (['newMail', 'contracts', 'digest', 'pushMail', 'pushInbox', 'pushInvoices', 'pushContracts'] as $k) if (array_key_exists($k, $b)) $p[$k] = (bool) $b[$k];
     if (array_key_exists('digestHour', $b)) $p['digestHour'] = max(5, min(12, (int) $b['digestHour']));
     if (array_key_exists('email', $b)) {
         $e = str_in($b, 'email', 190);
@@ -426,6 +436,35 @@ function action_notify_prefs(): array {
     q('UPDATE users SET prefs = ? WHERE id = ?', [json_encode($p, JSON_UNESCAPED_UNICODE), (int) $s['user']['id']]);
     return ['ok' => true, 'prefs' => $p];
 }
+/* ======================================================================== powiadomienia na telefon (Web Push) */
+function action_push_subscribe(): array {
+    $s = require_user();
+    $b = body_json();
+    $endpoint = str_in($b, 'endpoint', 1000);
+    $p256 = preg_replace('/[^A-Za-z0-9_\-]/', '', (string) ($b['keys']['p256dh'] ?? ''));
+    $auth = preg_replace('/[^A-Za-z0-9_\-]/', '', (string) ($b['keys']['auth'] ?? ''));
+    if (!push_endpoint_ok($endpoint)) fail(400, 'bad_endpoint', 'Ta przeglądarka używa nieobsługiwanej usługi powiadomień.');
+    if (strlen(b64u_dec($p256)) !== 65 || strlen(b64u_dec($auth)) !== 16) fail(400, 'bad_keys', 'Nieprawidłowe klucze subskrypcji powiadomień.');
+    $hash = hash('sha256', $endpoint);
+    q('DELETE FROM push_subs WHERE endpoint_hash = ?', [$hash]);
+    q('INSERT INTO push_subs (user_id, ws_id, endpoint_hash, endpoint, p256dh, auth, ua, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [(int) $s['user']['id'], (int) ($s['ws']['id'] ?? 0), $hash, $endpoint, $p256, $auth, mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 190), time()]);
+    $n = (int) (q1('SELECT COUNT(*) AS n FROM push_subs WHERE user_id = ?', [(int) $s['user']['id']])['n'] ?? 0);
+    return ['ok' => true, 'devices' => $n];
+}
+function action_push_unsubscribe(): array {
+    $s = require_user();
+    $endpoint = str_in(body_json(), 'endpoint', 1000);
+    q('DELETE FROM push_subs WHERE endpoint_hash = ? AND user_id = ?', [hash('sha256', $endpoint), (int) $s['user']['id']]);
+    return ['ok' => true, 'devices' => (int) (q1('SELECT COUNT(*) AS n FROM push_subs WHERE user_id = ?', [(int) $s['user']['id']])['n'] ?? 0)];
+}
+function action_push_test(): array {
+    $s = require_user();
+    $n = push_user((int) $s['user']['id'], ['title' => 'PaperlyAI – powiadomienia działają', 'body' => 'Tak będą wyglądać przypomnienia o nowej poczcie, gotowych odpowiedziach i terminach płatności.', 'url' => app_url(), 'tag' => 'test']);
+    if (!$n) fail(502, 'push_failed', 'Nie udało się dostarczyć powiadomienia – włącz powiadomienia na tym urządzeniu jeszcze raz.');
+    return ['ok' => true, 'delivered' => $n];
+}
+
 function action_test_mail(): array {
     $s = require_user();
     $to = user_prefs($s['user'])['email'] ?: $s['user']['email'];
