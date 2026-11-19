@@ -12,7 +12,7 @@ vals = {
     'SITE_HOST': host,
 }
 esc = lambda s: s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
-for name in ('prywatnosc.html', 'regulamin.html', 'o-aplikacji.html'):
+for name in ('prywatnosc.html', 'regulamin.html', 'o-aplikacji.html', 'o-aplikacji-bez-gradientow.html'):
     p = os.path.join(site, name)
     if not os.path.exists(p): continue
     s = open(p, encoding='utf-8').read()

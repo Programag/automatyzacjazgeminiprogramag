@@ -23,6 +23,7 @@ Wdróż `index.html` jako Static Site (np. na Render) albo otwórz go w przeglą
 - **Karty narzędzi** z abstrakcyjnymi grafikami w kolorach grup (generowanymi w przeglądarce), filtrem grup, przechyleniem 3D i światłem podążającym za kursorem.
 - **Kula AI i sieć cząsteczek** reagują na kursor i przyspieszają, gdy AI pracuje; liczniki: czeka w Skrzynce AI, umowy wymagające uwagi, zapytania dziś, dokumenty w bazie wiedzy.
 - **Ostatnie wyniki** – jedno kliknięcie przywraca wynik razem z danymi formularza.
+- **Dwa wyglądy do wyboru** – przycisk z paletą w nagłówku (i w Ctrl+K) przełącza między obecnym wyglądem a wersją bez gradientów (płaskie kolory). Wybór jest zapamiętany na urządzeniu. Wersja bez gradientów (`index-bez-gradientow.html`, `o-aplikacji-bez-gradientow.html`, `site-bez-gradientow.css`) powstaje przy każdym wgraniu skryptem `.github/scripts/flatten.py`, więc ma zawsze te same funkcje.
 - **Wyszukiwarka Ctrl+K** (⌘K na Macu) – z każdego miejsca: narzędzia i akcje (motyw, Panel technika, klucz Gemini), obsługa strzałkami i Enterem.
 
 ### Skrzynka AI (Gmail, Outlook, Microsoft 365)
