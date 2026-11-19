@@ -63,6 +63,13 @@ run_json(function () {
         case 'ksef_test': if (!$post) break; rate_limit('ksef', 'u' . require_user()['user']['id'], 30, 600); json_out(action_ksef_test()); return;
         case 'ksef_list': if (!$post) break; rate_limit('ksef', 'u' . require_user()['user']['id'], 30, 600); json_out(action_ksef_list()); return;
         case 'ksef_xml': json_out(action_ksef_xml()); return;
+        case 'inv_profile': json_out(action_inv_profile($post)); return;
+        case 'inv_preview': if (!$post) break; json_out(action_inv_preview()); return;
+        case 'inv_issue': if (!$post) break; rate_limit('ksef_issue', 'u' . require_user()['user']['id'], 60, 3600); json_out(action_inv_issue()); return;
+        case 'inv_status': if (!$post) break; rate_limit('ksef', 'u' . require_user()['user']['id'], 30, 600); json_out(action_inv_status()); return;
+        case 'inv_list': json_out(action_inv_list()); return;
+        case 'inv_xml': json_out(action_inv_xml()); return;
+        case 'inv_paid': if (!$post) break; json_out(action_inv_paid()); return;
         case 'ksef_sales': if (!$post) break; rate_limit('ksef', 'u' . require_user()['user']['id'], 30, 600); json_out(action_ksef_sales()); return;
         case 'fetch_url': if (!$post) break; rate_limit('fetch', 'u' . require_user()['user']['id'], 40, 3600); json_out(action_fetch_url()); return;
     }
@@ -560,7 +567,7 @@ function action_ksef_settings(): array {
     $set['ksefNip'] = $nip;
     $token = str_in($b, 'token', 600);
     if ($token !== '') $set['ksefToken'] = encrypt_str($token);
-    if (empty($set['ksefToken'])) fail(400, 'no_token', 'Wklej token KSeF (wygenerujesz go w Aplikacji Podatnika KSeF z uprawnieniem do odczytu faktur).');
+    if (empty($set['ksefToken'])) fail(400, 'no_token', 'Wklej token KSeF (wygenerujesz go w Aplikacji Podatnika KSeF z uprawnieniem do przeglądania faktur, a do wystawiania – także do wystawiania faktur).');
     unset($set['ksefSession']);
     save_ws_settings((int) $s['ws']['id'], $set);
     return ['ok' => true];
@@ -589,6 +596,94 @@ function action_ksef_sales(): array {
     try { return ['ok' => true] + ksef_sales($s['ws'], $from, $to); }
     catch (ApiError $e) { throw $e; }
     catch (Throwable $e) { fail(502, 'ksef', $e->getMessage()); }
+}
+
+/* ======================================================================== KSeF – wystawianie faktur */
+function require_invoicing(): array {
+    $s = require_company_ws(true);   // wystawia właściciel lub technik firmy
+    require_once __DIR__ . '/lib/ksef_issue.php';
+    return $s;
+}
+function inv_env_info(array $ws): array {
+    $set = ws_settings($ws);
+    $env = (string) ($set['ksefEnv'] ?? 'prod');
+    return ['env' => $env, 'envName' => KSEF_ENVS[$env] ?? $env, 'configured' => !empty($set['ksefToken']) && valid_nip((string) ($set['ksefNip'] ?? ''))];
+}
+function action_inv_profile(bool $post): array {
+    $s = require_invoicing();
+    $p = $post ? inv_profile_save($s['ws'], body_json()) : inv_profile($s['ws']);
+    return ['ok' => true, 'profile' => $p, 'nextNumber' => inv_next_number($s['ws'], str_in($_GET, 'date', 10) ?: null)] + inv_env_info($s['ws']);
+}
+function action_inv_preview(): array {
+    $s = require_invoicing();
+    $inv = inv_normalize($s['ws'], body_json());
+    return ['ok' => true, 'invoice' => $inv, 'xml' => inv_fa3_xml($inv)];
+}
+function inv_poll(array $ws, array $row, int $tries): array {
+    for ($i = 0; $i < $tries; $i++) {
+        try { $st = ksef_invoice_state($ws, (string) $row['session_ref'], (string) $row['invoice_ref']); }
+        catch (Throwable $e) { $st = ['state' => 'processing', 'ksefNumber' => '', 'message' => $e->getMessage()]; }
+        if ($st['state'] !== 'processing') {
+            q('UPDATE ksef_issued SET status = ?, ksef_number = ?, error = ?, updated_at = ? WHERE id = ?', [$st['state'], $st['ksefNumber'], $st['state'] === 'rejected' ? $st['message'] : null, time(), (int) $row['id']]);
+            break;
+        }
+        if ($i < $tries - 1) usleep(1500000);
+    }
+    return q1('SELECT * FROM ksef_issued WHERE id = ?', [(int) $row['id']]);
+}
+function action_inv_issue(): array {
+    $s = require_invoicing();
+    $b = body_json();
+    $info = inv_env_info($s['ws']);
+    if (!$info['configured']) fail(409, 'ksef_not_configured', 'Najpierw połącz KSeF w Panelu technika (NIP i token z uprawnieniem do wystawiania faktur).');
+    if (($b['confirmEnv'] ?? '') !== $info['env']) fail(409, 'env_changed', 'Środowisko KSeF zmieniło się w międzyczasie – sprawdź je i potwierdź ponownie.');
+    $inv = inv_normalize($s['ws'], $b);
+    $xml = inv_fa3_xml($inv);
+    $now = time();
+    q('INSERT INTO ksef_issued (ws_id, user_id, env, number, buyer, buyer_nip, buyer_email, issue_date, due_date, net, gross, currency, status, xml, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+        (int) $s['ws']['id'], (int) $s['user']['id'], $info['env'], $inv['number'], $inv['buyer']['name'], $inv['buyer']['nip'], $inv['buyer']['email'],
+        $inv['issueDate'], $inv['dueDate'], inv_money($inv['net']), inv_money($inv['gross']), $inv['currency'], 'sending', $xml, $now, $now,
+    ]);
+    $id = (int) db()->lastInsertId();
+    try {
+        [$env, $sessionRef, $invoiceRef] = ksef_send_invoice($s['ws'], $xml);
+    } catch (Throwable $e) {
+        q("UPDATE ksef_issued SET status = 'failed', error = ?, updated_at = ? WHERE id = ?", [mb_substr($e->getMessage(), 0, 1000), time(), $id]);
+        $msg = $e instanceof ApiError ? $e->getMessage() : $e->getMessage();
+        if (preg_match('/uprawnie|permission|403/i', $msg)) $msg .= ' – sprawdź, czy token KSeF ma uprawnienie do wystawiania faktur.';
+        fail(502, 'ksef', 'Faktura NIE została wystawiona: ' . $msg);
+    }
+    q("UPDATE ksef_issued SET status = 'processing', env = ?, session_ref = ?, invoice_ref = ?, updated_at = ? WHERE id = ?", [$env, $sessionRef, $invoiceRef, time(), $id]);
+    $row = inv_poll($s['ws'], q1('SELECT * FROM ksef_issued WHERE id = ?', [$id]), 6);
+    return ['ok' => true, 'invoice' => inv_row_public($row)];
+}
+function inv_row_for(array $s, int $id): array {
+    $row = q1('SELECT * FROM ksef_issued WHERE id = ? AND ws_id = ?', [$id, (int) $s['ws']['id']]);
+    if (!$row) fail(404, 'not_found', 'Nie znaleziono faktury.');
+    return $row;
+}
+function action_inv_status(): array {
+    $s = require_invoicing();
+    $row = inv_row_for($s, (int) (body_json()['id'] ?? 0));
+    if ($row['status'] === 'processing') $row = inv_poll($s['ws'], $row, 2);
+    return ['ok' => true, 'invoice' => inv_row_public($row)];
+}
+function action_inv_list(): array {
+    $s = require_invoicing();
+    $rows = qall('SELECT * FROM ksef_issued WHERE ws_id = ? ORDER BY id DESC LIMIT 100', [(int) $s['ws']['id']]);
+    return ['ok' => true, 'invoices' => array_map('inv_row_public', $rows)] + inv_env_info($s['ws']);
+}
+function action_inv_xml(): array {
+    $s = require_invoicing();
+    $row = inv_row_for($s, (int) ($_GET['id'] ?? 0));
+    return ['ok' => true, 'xml' => (string) $row['xml'], 'name' => preg_replace('/[^0-9A-Za-z\-]+/', '_', $row['number']) . '.xml'];
+}
+function action_inv_paid(): array {
+    $s = require_invoicing();
+    $b = body_json();
+    $row = inv_row_for($s, (int) ($b['id'] ?? 0));
+    q('UPDATE ksef_issued SET paid = ?, updated_at = ? WHERE id = ?', [!empty($b['paid']) ? 1 : 0, time(), (int) $row['id']]);
+    return ['ok' => true, 'invoice' => inv_row_public(q1('SELECT * FROM ksef_issued WHERE id = ?', [(int) $row['id']]))];
 }
 
 /* ======================================================================== plik z linku */
