@@ -14034,7 +14034,9 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     function getAccount() { const a = loadJson(ACCOUNT_KEY, null); return a && (a.type === 'company' || a.type === 'personal') ? a : null; }
     function saveAccount(a) { saveJson(ACCOUNT_KEY, a); }
     function isPersonal() { const a = getAccount(); return !!a && a.type === 'personal'; }
-    function toolAllowed(id) { return !isPersonal() || PERSONAL_TOOLS.has(id); }
+    // Narzędzia tylko do spraw osobistych – na koncie firmowym niepotrzebne (CV i list motywacyjny pisze kandydat, nie firma)
+    const COMPANY_HIDDEN_TOOLS = new Set(['cv']);
+    function toolAllowed(id) { return isPersonal() ? PERSONAL_TOOLS.has(id) : !COMPANY_HIDDEN_TOOLS.has(id); }
     function firstName(a) { return String((a && (a.givenName || a.name)) || '').trim().split(/\s+/)[0] || ''; }
     function initials(a) { const p = String((a && a.name) || '').trim().split(/\s+/).filter(Boolean); return ((p[0] || '?')[0] + (p[1] ? p[1][0] : '')).toUpperCase(); }
     function avatarHtml(a, cls = 'h-8 w-8') {
@@ -14070,7 +14072,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
           <div><label for="pfCompanyName" class="field-label">Nazwa firmy</label><input id="pfCompanyName" class="field-input" maxlength="120" value="${escapeHtml((a.company && a.company.name) || '')}" /></div>
           <div><label for="pfNip" class="field-label">NIP <span class="font-normal text-slate-500">(opcjonalnie)</span></label><input id="pfNip" class="field-input" maxlength="13" inputmode="numeric" value="${escapeHtml((a.company && a.company.nip) || '')}" /><p class="field-error mt-1 text-xs text-red-600"></p><button type="button" data-gus="pf" class="hidden text-xs font-medium text-indigo-600 hover:underline">Uzupełnij nazwę z rejestru (GUS)</button></div>
         </div>
-        <p class="mt-4 text-xs leading-relaxed text-slate-500">${a.type === 'personal' ? 'Konto prywatne pokazuje narzędzia do spraw osobistych: pisma, korektę, umowy, CV, symulator rozmowy, rozmowę z dokumentem i notatki.' : 'Konto firmowe ma wszystkie narzędzia, w tym windykację, faktury i KSeF, oferty dostawców, raporty dla zarządu i zapraszanie pracowników.'}</p>
+        <p class="mt-4 text-xs leading-relaxed text-slate-500">${a.type === 'personal' ? 'Konto prywatne pokazuje narzędzia do spraw osobistych: pisma, korektę, umowy, CV, symulator rozmowy, rozmowę z dokumentem i notatki.' : 'Konto firmowe ma narzędzia dla firmy, w tym windykację, faktury i KSeF, oferty dostawców, raporty dla zarządu, rekrutację i zapraszanie pracowników.'}</p>
         <div class="mt-6 flex flex-wrap items-center gap-2">
           <button type="button" data-pf="save" class="bg-primary inline-flex items-center px-4 py-2 text-sm font-semibold text-white">Zapisz</button>
           <button type="button" data-pf="close" class="btn-default px-4 py-2 text-sm font-medium">Anuluj</button>
@@ -14161,7 +14163,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       $('#onboard').classList.add('hidden');
       applyAccount();
       setActiveTool('home');
-      toast(d.type === 'personal' ? 'Konto prywatne gotowe – narzędzia dobrane do spraw osobistych' : 'Konto firmowe gotowe – masz dostęp do wszystkich narzędzi', 'success', 4500);
+      toast(d.type === 'personal' ? 'Konto prywatne gotowe – narzędzia dobrane do spraw osobistych' : 'Konto firmowe gotowe – masz dostęp do narzędzi dla firmy', 'success', 4500);
       if (!getApiKey() && isTech()) setTimeout(() => openSettings('Ostatni krok: wklej swój klucz API Google Gemini. Klucz zostanie zapisany wyłącznie w tej przeglądarce.'), 500);
     }
     // Istniejący użytkownicy (z kluczem lub z linku firmy) dostają konto firmowe bez zakładania – mogą je zmienić w profilu

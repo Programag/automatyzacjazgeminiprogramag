@@ -58,7 +58,7 @@ Czyta nieprzeczytane maile, pomija newslettery, powiadomienia i podejrzane wiado
 | Finanse | **Windykacja** | lista należności z Excela → przypomnienia, wezwania i przedsądowe wezwania z odsetkami i rekompensatą 40/70/100 EUR |
 | Finanse | **Raport dla zarządu** | z arkusza Excel/CSV: najważniejsze w 30 sekund, wskaźniki z porównaniem do poprzedniego okresu lub planu, przyczyny zmian, wykresy, decyzje do podjęcia |
 | Kadry i kariera | **Rekrutacja** | ocena dopasowania CV do ogłoszenia, pytania na rozmowę, zaproszenie lub odmowa dla kandydata |
-| Kadry i kariera | **CV i list motywacyjny** | CV i list dopasowane do ogłoszenia, słowa kluczowe ATS, klauzula RODO – bez wymyślania doświadczenia |
+| Kadry i kariera | **CV i list motywacyjny** | CV i list dopasowane do ogłoszenia, słowa kluczowe ATS, klauzula RODO – bez wymyślania doświadczenia (tylko konto prywatne) |
 | Kadry i kariera | **Symulator rozmowy** | próbna rozmowa kwalifikacyjna z AI-rekruterem pod ogłoszenie i CV, odpowiedzi pisemne lub głosowe, ocena każdej odpowiedzi i przykłady lepszych |
 | Automatyzacja | **Przetwarzanie listy** | to samo polecenie AI dla każdego wiersza Excela/CSV (maile, opisy produktów, kategorie, tłumaczenia), wynik w nowej kolumnie |
 
