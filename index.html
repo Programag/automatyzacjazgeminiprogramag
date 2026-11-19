@@ -11594,7 +11594,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
     }
     /* ---------- lista maili zapamiętana w przeglądarce (nie znika po odświeżeniu) ---------- */
     const INBOX_ITEMS_KEY = 'officeflow_inbox_items';
-    const INBOX_VOLATILE = new Set(['domId', 'state', 'analysis', 'draft', 'error', 'showOriginal', 'selected', 'pendingInstruction', 'meeting', 'sendTimer', 'sendAt', 'actionError', 'countdownTimer', 'attempts', 'forceNow', 'undoTimer']);
+    const INBOX_VOLATILE = new Set(['domId', 'state', 'analysis', 'draft', 'error', 'showOriginal', 'selected', 'pendingInstruction', 'livePreview', 'meeting', 'sendTimer', 'sendAt', 'actionError', 'countdownTimer', 'attempts', 'forceNow', 'undoTimer']);
     let inboxSaveTimer = 0;
     function saveInboxItems() {
       clearTimeout(inboxSaveTimer);
@@ -11705,6 +11705,32 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       if (list && !list.contains(document.activeElement)) renderInboxList(); else saveInboxItems();
       renderInboxToolbar();
       updateInboxBadge();
+    }
+    // Odpowiedź przychodzi jako JSON – pokazujemy pole „reply” na bieżąco, zanim całość będzie gotowa
+    function partialJsonString(txt, field) {
+      const m = new RegExp(`"${field}"\\s*:\\s*"`).exec(txt);
+      if (!m) return '';
+      let out = '', i = m.index + m[0].length;
+      for (; i < txt.length; i++) {
+        const c = txt[i];
+        if (c === '"') break;
+        if (c !== '\\') { out += c; continue; }
+        const n = txt[i + 1];
+        if (n === undefined) break;
+        if (n === 'u') { if (i + 5 >= txt.length) break; out += String.fromCharCode(parseInt(txt.slice(i + 2, i + 6), 16) || 32); i += 5; continue; }
+        out += n === 'n' ? '\n' : n === 't' ? '\t' : n === 'r' ? '' : n;
+        i++;
+      }
+      return out;
+    }
+    function inboxLivePreview(item, txt) {
+      const reply = partialJsonString(txt, 'reply') || '';
+      const summary = reply ? '' : partialJsonString(txt, 'summary');
+      const text = reply || summary;
+      if (!text || text === item.livePreview) return;
+      item.livePreview = text;
+      const el = document.querySelector(`#${item.domId} [data-live-preview]`);
+      if (el) { el.textContent = text; el.classList.remove('hidden'); const lbl = document.querySelector(`#${item.domId} [data-live-label]`); if (lbl) lbl.textContent = reply ? 'Gemini pisze odpowiedź…' : 'Gemini streszcza wiadomość…'; }
     }
     async function ensureMailBody(item) {
       if (!item.bodyMissing) return;
@@ -11860,8 +11886,10 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         temperature: 0.5,
         responseSchema: INBOX_SCHEMA,
         attachments: [...kbAtt, ...att.parts],
-        force
+        force,
+        onText: (txt) => inboxLivePreview(item, txt)
       });
+      item.livePreview = '';
       let a;
       try { a = parseJsonLoose(out.text); } catch (e) {
         throw new GeminiError({ title: 'Nieprawidłowa odpowiedź modelu', message: 'Gemini zwrócił dane w nieoczekiwanym formacie.', hints: ['Spróbuj ponownie.'], details: out.text.slice(0, 500) });
@@ -12308,7 +12336,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
         bodyHtml = `
           <div class="mt-4 flex items-center gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">
             ${st === 'analyzing'
-              ? `<span class="h-4 w-4 shrink-0 rounded-full border-2 border-indigo-200 border-t-indigo-600" style="animation: spin .8s linear infinite"></span>${isFollow ? 'Gemini przygotowuje przypomnienie…' : 'Gemini analizuje wiadomość' + ((item.attachmentRefs || []).length || item.hasAttachments ? ' z załącznikami' : '') + ' i przygotowuje odpowiedź…'}`
+              ? `<span class="h-4 w-4 shrink-0 rounded-full border-2 border-indigo-200 border-t-indigo-600" style="animation: spin .8s linear infinite"></span><span class="min-w-0 flex-1"><span data-live-label>${isFollow ? 'Gemini przygotowuje przypomnienie…' : 'Gemini analizuje wiadomość' + ((item.attachmentRefs || []).length || item.hasAttachments ? ' z załącznikami' : '') + ' i przygotowuje odpowiedź…'}</span><span data-live-preview class="${item.livePreview ? '' : 'hidden '}mt-2 block max-h-48 overflow-y-auto whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700">${escapeHtml(item.livePreview || '')}</span></span>`
               : inbox.pausedUntil > Date.now() && inbox.pauseError
                 ? `<span class="h-2 w-2 shrink-0 rounded-full bg-amber-500"></span><span class="min-w-0 flex-1">Wstrzymane: ${escapeHtml(inbox.pauseError.title || 'limit Gemini')}. Ponowię automatycznie ok. ${hhmm(new Date(inbox.pausedUntil))}${item.attempts ? ` (próba ${item.attempts + 1} z ${INBOX_MAX_ATTEMPTS})` : ''}.</span><button type="button" data-inbox-retry-now class="btn-default shrink-0 rounded-lg px-3 py-1 text-xs font-medium">Spróbuj teraz</button>`
                 : '<span class="h-2 w-2 shrink-0 rounded-full bg-slate-400 pulse-dot"></span>W kolejce do przygotowania odpowiedzi'}

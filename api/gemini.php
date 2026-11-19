@@ -106,7 +106,7 @@ try {
     ignore_user_abort(false);
     set_time_limit(600);
 
-    $statusSent = false; $collected = ''; $respHeaders = []; $lastOut = microtime(true);
+    $statusSent = false; $collected = ''; $respHeaders = []; $lastOut = microtime(true); $atBoundary = true;
     // Nagłówki odpowiedzi wysyłamy, gdy tylko Google je przyśle (a nie dopiero z pierwszym fragmentem tekstu)
     $sendHead = function ($ch) use (&$statusSent, &$respHeaders, $uid) {
         if ($statusSent) return;
@@ -123,34 +123,41 @@ try {
         }
     };
     $isSse = function () use (&$respHeaders) { return str_contains((string) ($respHeaders['content-type'] ?? ''), 'event-stream'); };
+    // Hosting (np. home.pl) trzyma do ~4 KB odpowiedzi w buforze i oddaje ją dopiero w całości. Komentarz SSE z 4 KB
+    // spacji po każdym fragmencie wypycha go od razu – tekst pojawia się na bieżąco, jak w aplikacji Gemini.
+    $push = function (string $data, bool $sse) use (&$lastOut) {
+        echo $data;
+        if ($sse) echo ':' . str_repeat(' ', 4096) . "\n\n";
+        @flush();
+        $lastOut = microtime(true);
+    };
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_CUSTOMREQUEST => $method, CURLOPT_HTTPHEADER => array_merge($headers, ['Expect:']), CURLOPT_TIMEOUT => 600, CURLOPT_CONNECTTIMEOUT => 15,
-        CURLOPT_HEADERFUNCTION => function ($ch, $line) use (&$respHeaders, &$lastOut, $sendHead, $isSse, $isGenerate) {
+        CURLOPT_HEADERFUNCTION => function ($ch, $line) use (&$respHeaders, $sendHead, $isSse, $isGenerate, $push) {
             if (preg_match('#^HTTP/\S+\s+\d#', $line)) $respHeaders = [];
             $q = strpos($line, ':');
             if ($q !== false) $respHeaders[strtolower(trim(substr($line, 0, $q)))] = trim(substr($line, $q + 1));
             elseif (trim($line) === '' && $isGenerate && $isSse()) {
                 // koniec nagłówków odpowiedzi strumieniowej: wysyłamy je od razu, żeby przeglądarka i hosting nie czekały w ciszy
                 $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-                if ($code >= 200) { $sendHead($ch); echo ": start\n\n"; @flush(); $lastOut = microtime(true); }
+                if ($code >= 200) { $sendHead($ch); $push(": start\n\n", true); }
             }
             return strlen($line);
         },
-        CURLOPT_WRITEFUNCTION => function ($ch, $chunk) use (&$collected, &$lastOut, $sendHead, $isGenerate) {
+        CURLOPT_WRITEFUNCTION => function ($ch, $chunk) use (&$collected, &$atBoundary, $sendHead, $isGenerate, $isSse, $push) {
             $sendHead($ch);
             if ($isGenerate && strlen($collected) < 4 * 1024 * 1024) $collected .= $chunk;
-            echo $chunk;
-            @flush();
-            $lastOut = microtime(true);
+            // dopełnienie tylko na granicy zdarzeń SSE (pusta linia) – nigdy w środku fragmentu odpowiedzi
+            $atBoundary = (bool) preg_match('/\r?\n\r?\n$/', $chunk);
+            $push($chunk, $isGenerate && $isSse() && $atBoundary);
             return connection_aborted() ? 0 : strlen($chunk);
         },
         // Gdy model „myśli” (nawet kilka minut), co 10 s wysyłamy komentarz SSE – połączenie nie jest zrywane jako bezczynne
         CURLOPT_NOPROGRESS => false,
-        CURLOPT_XFERINFOFUNCTION => function ($ch) use (&$statusSent, &$lastOut, $isSse) {
-            if ($statusSent && $isSse() && microtime(true) - $lastOut >= 10) {
-                echo ": ping\n\n"; @flush();
-                $lastOut = microtime(true);
+        CURLOPT_XFERINFOFUNCTION => function ($ch) use (&$statusSent, &$lastOut, &$atBoundary, $isSse, $push) {
+            if ($statusSent && $atBoundary && $isSse() && microtime(true) - $lastOut >= 10) {
+                $push(": ping\n\n", true);
                 if (connection_aborted()) return 1;
             }
             return 0;
