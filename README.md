@@ -1,6 +1,6 @@
 # PaperlyAI
 
-Jednoplikowa aplikacja webowa (SaaS, model **BYOK – Bring Your Own Key**) do automatyzacji pracy biurowej z wykorzystaniem Google Gemini API (domyślnie `gemini-3.8-flash`, z automatycznym przełączeniem na `gemini-3.6-flash` przy przeciążeniu; model można zmienić w Ustawieniach API).
+Jednoplikowa aplikacja webowa (SaaS, model **BYOK – Bring Your Own Key**) do automatyzacji pracy biurowej z wykorzystaniem Google Gemini API (domyślnie `gemini-3.6-flash` – w pomiarach na prawdziwym Gemini pierwsze słowo po 12–16 s, wobec 94 s dla `gemini-3.7-flash` i 139–179 s dla `gemini-3.8-flash`; przy przeciążeniu automatyczne przełączenie na `gemini-3.7-flash`, potem `gemini-3.8-flash`; model można zmienić w Ustawieniach API).
 
 Aplikacja działa w samej przeglądarce. Na hostingu z PHP i MySQL (np. home.pl) dochodzi opcjonalny **serwer PaperlyAI** (`api/`): konta firm z zespołem, wspólne dane na każdym komputerze, klucz AI firmy z dziennymi limitami, Gmail bez ponownego logowania, powiadomienia e-mail z własnej domeny, dane firm po NIP i faktury z KSeF – opis w sekcji [Serwer PaperlyAI](#serwer-paperlyai). Strony informacyjne: `o-aplikacji.html`, `prywatnosc.html`, `regulamin.html`.
 
@@ -157,7 +157,7 @@ Przed wysłaniem linku technik powinien:
 Darmowy plan Gemini ma niski limit (np. 20 zapytań dziennie i 5 na minutę na model), a każdy przeanalizowany mail, każde dyktowanie i każdy wiersz w Przetwarzaniu listy to jedno zapytanie. Do codziennej pracy – zwłaszcza kilku osób – włącz płatny plan (Billing) w Google AI Studio.
 
 **Oszczędzanie limitu** – aplikacja nie wysyła zapytań, które Google na pewno odrzuci:
-- Każdy model jest pytany najwyżej raz na jedno polecenie. Przy przeciążeniu (błąd 503) albo braku odpowiedzi aplikacja przechodzi na model zapasowy z osobnym limitem (`gemini-3.7-flash`, potem `gemini-3.6-flash`) i nie ponawia w kółko tego samego modelu.
+- Każdy model jest pytany najwyżej raz na jedno polecenie. Przy przeciążeniu (błąd 503) albo braku odpowiedzi aplikacja przechodzi na model zapasowy z osobnym limitem (od najszybszego: `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash`) i nie ponawia w kółko tego samego modelu.
 - Przeciążony model „odpoczywa” 2, 4, 8, 16, a potem 30 minut, a model z wyczerpanym limitem dziennym jest pomijany do jego odnowienia. Ten stan jest zapamiętany w przeglądarce, także po odświeżeniu strony.
 - Gdy wszystkie modele są przeciążone lub bez limitu, nic nie jest wysyłane. Pracownik widzi godzinę, o której warto spróbować, i przycisk „Spróbuj mimo to” (wysyła jedno zapytanie).
 - Skrzynka AI, Przetwarzanie listy i Windykacja przy przeciążeniu zatrzymują całą kolejkę, zamiast próbować każdego kolejnego maila czy wiersza.

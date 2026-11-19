@@ -2435,9 +2435,11 @@
     /* =====================================================================
        KONFIGURACJA
        ===================================================================== */
-    const DEFAULT_MODEL = 'gemini-3.8-flash';
+    // Domyślny model: najszybszy w pomiarach na prawdziwym Gemini (listopad 2026, ten sam mail):
+    // 3.6 Flash – pierwsze słowo po 12–16 s; 3.7 Flash – 94 s; 3.8 Flash – 139–179 s (kolejka po stronie Google)
+    const DEFAULT_MODEL = 'gemini-3.6-flash';
     const FALLBACK_MODEL = 'gemini-3.6-flash';
-    const MODEL_SUGGESTIONS = ['gemini-3.8-flash', 'gemini-3.7-flash', FALLBACK_MODEL];
+    const MODEL_SUGGESTIONS = [DEFAULT_MODEL, 'gemini-3.7-flash', 'gemini-3.8-flash'];
     const STORAGE_MODEL = 'officeflow_gemini_model';
     const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
     const STORAGE_KEY = 'officeflow_gemini_api_key';
@@ -4773,9 +4775,12 @@ ZASADY
     }
     function migrateThinkingSpeed() {
       try {
-        if (localStorage.getItem('officeflow_speed_migr') === '1') return;
-        localStorage.setItem('officeflow_speed_migr', '1');
-        if (storageGet(STORAGE_THINKING) === 'low') storageSet(STORAGE_THINKING, 'minimal');
+        const v = localStorage.getItem('officeflow_speed_migr') || '';
+        if (v === '2') return;
+        localStorage.setItem('officeflow_speed_migr', '2');
+        if (!v && storageGet(STORAGE_THINKING) === 'low') storageSet(STORAGE_THINKING, 'minimal');
+        // wcześniejszy domyślny model (3.8 Flash) i 3.7 Flash odpowiadają kilka razy wolniej – przejście na najszybszy
+        if (['gemini-3.8-flash', 'gemini-3.7-flash'].includes(storageGet(STORAGE_MODEL))) storageRemove(STORAGE_MODEL);
       } catch (e) {}
     }
     function getThinkingLevel() {
@@ -4789,9 +4794,9 @@ ZASADY
     }
     // Modele do wyboru przy generowaniu (nazwy przyjazne dla użytkownika)
     const MODEL_LABELS = {
-      'gemini-3.8-flash': 'Gemini 3.8 Flash – najnowszy',
-      'gemini-3.7-flash': 'Gemini 3.7 Flash',
-      'gemini-3.6-flash': 'Gemini 3.6 Flash – oszczędny'
+      'gemini-3.6-flash': 'Gemini 3.6 Flash – najszybszy',
+      'gemini-3.7-flash': 'Gemini 3.7 Flash – wolniejszy',
+      'gemini-3.8-flash': 'Gemini 3.8 Flash – najnowszy, najwolniejszy'
     };
     function renderModelPickers() {
       const cur = getModel();
@@ -4806,7 +4811,10 @@ ZASADY
       renderModelPickers();
       if (typeof renderAdminIfVisible === 'function') renderAdminIfVisible();
     }
+    // Potwierdzone na prawdziwym Gemini: te modele odrzucają poziom „minimalny” (błąd 400)
+    const KNOWN_NO_MINIMAL = ['gemini-3.7-flash', 'gemini-3.8-flash'];
     function noMinimal(model) {
+      if (KNOWN_NO_MINIMAL.includes(model)) return true;
       try { return (JSON.parse(localStorage.getItem(NO_MINIMAL_KEY) || '[]') || []).includes(model); } catch (e) { return false; }
     }
     function markNoMinimal(model) {
@@ -5222,7 +5230,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
        identycznych danych, dla których ma już wynik.
        ===================================================================== */
     const HEALTH_KEY = 'officeflow_model_health';
-    const EXTRA_FALLBACKS = ['gemini-3.7-flash'];   // osobne limity dzienne – większa szansa na odpowiedź
+    const EXTRA_FALLBACKS = ['gemini-3.7-flash', 'gemini-3.8-flash'];   // osobne limity dzienne – większa szansa na odpowiedź (od najszybszego)
     function healthAll() { const h = loadJson(HEALTH_KEY, {}); return h && typeof h === 'object' && !Array.isArray(h) ? h : {}; }
     function healthOf(m) { return healthAll()[m] || {}; }
     function setHealth(m, patch) { const all = healthAll(); all[m] = Object.assign({}, all[m], patch); saveJson(HEALTH_KEY, all); }
