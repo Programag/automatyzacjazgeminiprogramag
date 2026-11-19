@@ -7,7 +7,7 @@
 </FilesMatch>
 # Strumień odpowiedzi AI bez kompresji i buforowania (tekst pojawia się na bieżąco)
 <IfModule mod_setenvif.c>
-  SetEnvIf Request_URI "gemini\.php" no-gzip=1 dont-vary=1
+  SetEnvIf Request_URI "(gemini|streamtest)\.php" no-gzip=1 dont-vary=1
 </IfModule>
 <IfModule mod_headers.c>
   Header always set X-Content-Type-Options "nosniff"
