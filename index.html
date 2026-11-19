@@ -2239,11 +2239,12 @@
           <div>
             <label for="thinkingSelect" class="field-label">Poziom rozumowania (Gemini 3 i nowsze)</label>
             <select id="thinkingSelect" class="field-input">
-              <option value="low">Niski – najszybsze odpowiedzi (zalecany)</option>
+              <option value="minimal">Minimalny – najszybsze odpowiedzi (zalecany)</option>
+              <option value="low">Niski – szybkie, odrobinę staranniejsze</option>
               <option value="medium">Średni – domyślny poziom Google</option>
               <option value="high">Wysoki – najdokładniej, ale najwolniej</option>
             </select>
-            <p class="mt-1.5 text-xs text-slate-500">Do maili, notatek i ofert w zupełności wystarcza poziom niski. Wyższy poziom wydłuża czas odpowiedzi.</p>
+            <p class="mt-1.5 text-xs text-slate-500">Do maili, notatek i ofert w zupełności wystarcza poziom minimalny. Każdy wyższy poziom wydłuża czas odpowiedzi.</p>
           </div>
 
           <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs leading-relaxed text-slate-600 space-y-2">
@@ -2445,8 +2446,10 @@
     const HEADERS_TIMEOUT_LONG_MS = 150000; // obliczenia kodem i nagrania: model najpierw liczy / słucha, potem odpowiada
     const IDLE_TIMEOUT_MS = 120000;     // maks. przerwa między kolejnymi fragmentami odpowiedzi
     const STORAGE_THINKING = 'officeflow_thinking_level';
-    const DEFAULT_THINKING = 'low';
-    const THINKING_LEVELS = ['low', 'medium', 'high'];
+    const DEFAULT_THINKING = 'minimal';
+    const THINKING_LEVELS = ['minimal', 'low', 'medium', 'high'];
+    // Modele, które odrzuciły poziom „minimalny” – od razu dostają „niski” (bez straconego zapytania)
+    const NO_MINIMAL_KEY = 'officeflow_no_minimal';
 
     /* =====================================================================
        IKONY (Heroicons, outline)
@@ -4768,6 +4771,13 @@ ZASADY
       renderModelLabel();
       return model;
     }
+    function migrateThinkingSpeed() {
+      try {
+        if (localStorage.getItem('officeflow_speed_migr') === '1') return;
+        localStorage.setItem('officeflow_speed_migr', '1');
+        if (storageGet(STORAGE_THINKING) === 'low') storageSet(STORAGE_THINKING, 'minimal');
+      } catch (e) {}
+    }
     function getThinkingLevel() {
       const v = storageGet(STORAGE_THINKING) || state.memoryThinking || DEFAULT_THINKING;
       return THINKING_LEVELS.includes(v) ? v : DEFAULT_THINKING;
@@ -4795,6 +4805,12 @@ ZASADY
       if (el) el.textContent = getModel();
       renderModelPickers();
       if (typeof renderAdminIfVisible === 'function') renderAdminIfVisible();
+    }
+    function noMinimal(model) {
+      try { return (JSON.parse(localStorage.getItem(NO_MINIMAL_KEY) || '[]') || []).includes(model); } catch (e) { return false; }
+    }
+    function markNoMinimal(model) {
+      try { const l = JSON.parse(localStorage.getItem(NO_MINIMAL_KEY) || '[]') || []; if (!l.includes(model)) localStorage.setItem(NO_MINIMAL_KEY, JSON.stringify([...l, model].slice(-20))); } catch (e) {}
     }
     function isGemini3Plus(model) {
       const m = /^gemini-(\d+)/.exec(model);
@@ -5352,6 +5368,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
     async function callGeminiCore({ apiKey, model, systemInstruction, userText, turns, temperature, thinkingLevel, responseSchema, attachments, codeExecution, maxOutputTokens, mediaResolution, onText, onStatus, onProgress, signal, force }) {
       if (onProgress) { const os = onStatus; onStatus = (msg) => { onProgress({ ev: 'status', label: msg }); if (os) os(msg); }; }
       let useThinking = true;
+      const levelFor = (m) => thinkingLevel === 'minimal' && noMinimal(m) ? 'low' : thinkingLevel;
       let useSchema = !!responseSchema;
       let useCode = !!codeExecution;
       let useMediaRes = mediaResolution || null;
@@ -5377,7 +5394,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
           throw notSentError(chain);
         }
         const url = `${API_BASE}/${encodeURIComponent(current)}:streamGenerateContent?alt=sse`;
-        const payload = buildPayload({ model: current, systemInstruction, userText, turns, temperature, thinkingLevel: useThinking ? thinkingLevel : null, responseSchema: useSchema ? responseSchema : null, attachments, codeExecution: useCode, maxOutputTokens, mediaResolution: useMediaRes });
+        const payload = buildPayload({ model: current, systemInstruction, userText, turns, temperature, thinkingLevel: useThinking ? levelFor(current) : null, responseSchema: useSchema ? responseSchema : null, attachments, codeExecution: useCode, maxOutputTokens, mediaResolution: useMediaRes });
         try {
           // Obliczenia kodem i nagrania dźwięku/wideo potrzebują więcej czasu przed pierwszym fragmentem odpowiedzi
           const slow = !!payload.tools || (attachments || []).some(a => /^(audio|video)\//.test(a.mimeType || ''));
@@ -5393,7 +5410,11 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
           if (!(e instanceof GeminiError) || e.cancelled) throw e;
           if (e.paperly || e.hostError) throw e;   // limit firmy / sesja / błąd hostingu – bez zmiany modelu i bez oznaczania modeli jako przeciążonych
           // Model odrzucił parametr (rozumowanie, schemat JSON, obliczenia kodem, rozdzielczość wideo) – ten sam model bez niego
-          if (useThinking && payload.generationConfig.thinkingConfig && e.httpStatus === 400 && /thinking/i.test(e.details || '')) { useThinking = false; continue; }
+          if (useThinking && payload.generationConfig.thinkingConfig && e.httpStatus === 400 && /thinking/i.test(e.details || '')) {
+            // poziom „minimalny” nieobsługiwany przez ten model → ten sam model z „niskim”, zapamiętane na przyszłość
+            if (levelFor(current) === 'minimal') { markNoMinimal(current); continue; }
+            useThinking = false; continue;
+          }
           if (useSchema && e.httpStatus === 400 && /schema|mime/i.test(e.details || '')) { useSchema = false; continue; }
           if (useCode && e.httpStatus === 400 && /code.?execution|tool/i.test(e.details || '')) {
             useCode = false;
@@ -5687,9 +5708,10 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
        więc odsłaniamy ją znak po znaku – szybciej, gdy zaległość rośnie, wolniej, gdy jest mała. */
     const typer = { raf: 0, last: 0 };
     function typerSpeed(backlog, finishing) {
-      // znaków na sekundę: ~110 przy małej zaległości, rośnie z zaległością (opóźnienie nie przekracza kilku sekund)
-      const base = finishing ? 240 : 110;
-      return Math.max(base, backlog * (finishing ? 1.8 : 1.0));
+      // znaków na sekundę: ~400 przy małej zaległości, rośnie z zaległością (tekst nie zostaje w tyle więcej niż ~0,3 s);
+      // po zakończeniu generowania reszta pokazuje się praktycznie od razu
+      const base = finishing ? 4000 : 400;
+      return Math.max(base, backlog * (finishing ? 12 : 3));
     }
     function scheduleStreamRender() {
       if (typer.raf) return;
@@ -5722,7 +5744,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       r.twFinish = true;
       if (document.hidden || fxReduced()) return;
       const t0 = Date.now();
-      while (r.status === 'streaming' && (r.twShown || 0) < (r.markdown || '').length && Date.now() - t0 < 6000 && state.results[state.activeTool] === r) {
+      while (r.status === 'streaming' && (r.twShown || 0) < (r.markdown || '').length && Date.now() - t0 < 1000 && state.results[state.activeTool] === r) {
         if (!typer.raf) scheduleStreamRender();
         await new Promise(res => setTimeout(res, 40));
       }
@@ -7735,7 +7757,7 @@ STANDARD JĘZYKOWY (każda odpowiedź): w tekście po polsku zapisuj kwoty i lic
       try {
         const label = (document.querySelector(`label[for="${target.id}"]`) || {}).textContent || target.getAttribute('aria-label') || target.placeholder || '';
         const out = await callGemini({
-          apiKey: getApiKey(), model: getModel(), thinkingLevel: 'low', temperature: 0.1,
+          apiKey: getApiKey(), model: getModel(), thinkingLevel: 'minimal', temperature: 0.1,
           systemInstruction: SYSTEM_DICTATION,
           userText: `Pole, do którego trafi tekst: ${label.replace(/\s+/g, ' ').trim() || 'pole tekstowe'}.\nPrzepisz nagranie.`,
           attachments: [{ name: 'dyktowanie', mimeType: geminiAudioMime(blob.type || 'audio/webm'), data: await readAsBase64(blob), size: blob.size }]
@@ -7867,7 +7889,7 @@ ZASADY
           if (!getApiKey()) throw new Error('Brak klucza Gemini.');
           const now = new Date();
           const out = await callGemini({
-            apiKey: getApiKey(), model: getModel(), thinkingLevel: 'low', temperature: 0.1,
+            apiKey: getApiKey(), model: getModel(), thinkingLevel: 'minimal', temperature: 0.1,
             systemInstruction: SYSTEM_DEADLINES, responseSchema: DEADLINE_SCHEMA,
             userText: `### DZISIAJ\n${now.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} (${dayKey(now)})\n\n### TEKST\n"""\n${String(src.text || '').slice(0, 40000)}\n"""\n\nZwróć terminy jako JSON zgodny ze schematem.`
           });
@@ -9735,7 +9757,7 @@ ZASADY
         p.viaAi = false;
         if (!list.length) {
           if (!getApiKey()) throw new Error('Brak klucza Gemini.');
-          const out = await callGemini({ apiKey: getApiKey(), model: getModel(), thinkingLevel: 'low', temperature: 0.1, systemInstruction: SYSTEM_TASKS, responseSchema: TASK_SCHEMA,
+          const out = await callGemini({ apiKey: getApiKey(), model: getModel(), thinkingLevel: 'minimal', temperature: 0.1, systemInstruction: SYSTEM_TASKS, responseSchema: TASK_SCHEMA,
             userText: `### DZISIAJ\n${dayKey()}\n\n### TEKST\n"""\n${String(src.text || '').slice(0, 40000)}\n"""\n\nZwróć zadania jako JSON zgodny ze schematem.` });
           list = (parseJsonLoose(out.text) || {}).zadania || [];
           p.viaAi = true;
@@ -9927,7 +9949,7 @@ ZASADY
       renderInterview();
       try {
         const out = await callGemini({
-          apiKey: getApiKey(), model: getModel(), thinkingLevel: 'low', temperature: 0.7,
+          apiKey: getApiKey(), model: getModel(), thinkingLevel: 'minimal', temperature: 0.7,
           systemInstruction: SYSTEM_INTERVIEW_Q, responseSchema: IV_Q_SCHEMA, attachments, force: !!force, signal: iv.controller.signal,
           userText: [
             `### RODZAJ ROZMOWY\n${s.kind}`, `### POZIOM\n${s.level}`, `### JĘZYK ROZMOWY\n${s.lang}`, `### LICZBA PYTAŃ\n${s.count}`,
@@ -12017,8 +12039,14 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
       };
     }
 
-    async function processInboxQueue() {
-      if (inbox.working) return;
+    // Dwa maile przygotowywane równolegle – lista gotowa mniej więcej dwa razy szybciej (wciąż w granicach limitów Gemini)
+    const INBOX_PARALLEL = 2;
+    function processInboxQueue() {
+      const add = Math.min(INBOX_PARALLEL, inbox.queue.length) - (inbox.workers || 0);
+      for (let i = 0; i < add; i++) inboxWorker();
+    }
+    async function inboxWorker() {
+      inbox.workers = (inbox.workers || 0) + 1;
       inbox.working = true;
       try {
         while (inbox.queue.length) {
@@ -12083,8 +12111,9 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
           updateInboxBadge();
         }
       } finally {
-        inbox.working = false;
-        if (!inbox.queue.length) {
+        inbox.workers--;
+        inbox.working = inbox.workers > 0;
+        if (!inbox.working && !inbox.queue.length) {
           if (!$('#inboxList').contains(document.activeElement)) renderInboxList();
           flushReadyNotifications();
           maybeAutoDigest();
@@ -15032,6 +15061,7 @@ ZASADY: tylko na podstawie podanych danych, bez wstępów i zakończeń, zwięź
 
     function init() {
       readGoogleRedirect();
+      migrateThinkingSpeed();
       // Jednorazowo: znaczniki „przeciążony” zapisane przez stary pośrednik serwera (przerywał długie odpowiedzi) są nieaktualne
       if (storageGet('officeflow_health_reset') !== '2') {
         const all = healthAll();
