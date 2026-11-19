@@ -61,7 +61,7 @@ try {
             CURLOPT_HTTPHEADER => $headers, CURLOPT_INFILESIZE => $len,
             CURLOPT_READFUNCTION => fn($ch, $fd, $n) => (string) fread($in, $n),
         ]);
-        $out = curl_exec($ch);
+        $out = curl_exec_dns($ch, (string) $up['url']);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         curl_close($ch);
         if (preg_match('/"x-goog-upload-status"|"file"\s*:/', (string) $out) || $status >= 200 && $status < 300) q('DELETE FROM uploads WHERE id = ?', [$up['id']]);
@@ -164,10 +164,11 @@ try {
         },
     ]);
     if ($body !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-    $ok = curl_exec($ch);
+    $ok = curl_exec_dns($ch, $url);
     $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     $err = curl_error($ch);
     if (!$statusSent) {
+        if ($ok === false && curl_errno($ch) === CURLE_COULDNT_RESOLVE_HOST) gem_fail(502, 'PAPERLY_UPSTREAM', 'Serwer PaperlyAI chwilowo nie może odnaleźć adresu Google (awaria DNS na hostingu). Nic nie zostało wysłane – spróbuj ponownie za minutę.');
         if ($ok === false) gem_fail(502, 'PAPERLY_UPSTREAM', 'Serwer nie połączył się z Google Gemini: ' . $err);
         $sendHead($ch);
     } elseif ($ok === false && $err !== '' && !connection_aborted() && $isGenerate && $isSse()) {

@@ -270,6 +270,59 @@ function verify_signed(string $token): ?array {
     return is_array($d) ? $d : null;
 }
 
+/* ------------------------------------------------------------------ awaryjne odnajdywanie adresów (DNS hostingu chwilowo nie działa) */
+// Gdy serwer nazw hostingu nie odpowiada („Could not resolve host”), połączenie ponawiamy z adresem IP:
+// ostatnio działającym (zapamiętanym po udanym połączeniu), z systemowego resolvera albo z DNS-over-HTTPS
+// (Cloudflare 1.1.1.1, Google 8.8.8.8 – łączymy się z nimi po samym adresie IP, więc nie potrzebują DNS).
+const DNS_REMEMBER_SEC = 3600;
+
+function dns_ip_ok(string $ip): bool {
+    if (in_array($ip, array_filter(array_map('trim', explode(',', (string) cfg('DNS_TEST_ALLOW', '')))), true)) return true;   // tylko testy
+    return (bool) filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+}
+function dns_doh(string $host): array {
+    $ips = [];
+    foreach (['https://1.1.1.1/dns-query?name=%s&type=A', 'https://8.8.8.8/resolve?name=%s&type=A'] as $tpl) {
+        $ch = curl_init(sprintf($tpl, rawurlencode($host)));
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 6, CURLOPT_CONNECTTIMEOUT => 4, CURLOPT_HTTPHEADER => ['Accept: application/dns-json']]);
+        $j = json_decode((string) curl_exec($ch), true);
+        curl_close($ch);
+        foreach (($j['Answer'] ?? []) as $a) if ((int) ($a['type'] ?? 0) === 1 && dns_ip_ok((string) ($a['data'] ?? ''))) $ips[] = (string) $a['data'];
+        if ($ips) break;
+    }
+    return $ips;
+}
+function dns_fallback_ips(string $host): array {
+    $ips = [];
+    try { $m = json_decode((string) meta_get('dns:' . $host, ''), true); if (!empty($m['ip']) && dns_ip_ok($m['ip'])) $ips[] = $m['ip']; } catch (Throwable $e) {}
+    foreach ((@gethostbynamel($host) ?: []) as $ip) if (dns_ip_ok($ip)) $ips[] = $ip;
+    if (!$ips) $ips = dns_doh($host);
+    return array_values(array_unique($ips));
+}
+function dns_remember($ch, string $host): void {
+    $ip = (string) curl_getinfo($ch, CURLINFO_PRIMARY_IP);
+    if (!dns_ip_ok($ip) || filter_var($host, FILTER_VALIDATE_IP)) return;
+    try {
+        $m = json_decode((string) meta_get('dns:' . $host, ''), true);
+        if (($m['ip'] ?? '') !== $ip || (int) ($m['t'] ?? 0) < time() - DNS_REMEMBER_SEC) meta_set('dns:' . $host, json_encode(['ip' => $ip, 't' => time()]));
+    } catch (Throwable $e) {}
+}
+/** curl_exec z ponowieniem przy awarii DNS hostingu. Wywoływać tylko przed wysłaniem czegokolwiek do przeglądarki. */
+function curl_exec_dns($ch, string $url) {
+    $out = curl_exec($ch);
+    $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+    if ($out === false && curl_errno($ch) === CURLE_COULDNT_RESOLVE_HOST && $host !== '') {
+        $port = (int) (parse_url($url, PHP_URL_PORT) ?: (str_starts_with($url, 'http://') ? 80 : 443));
+        foreach (array_slice(dns_fallback_ips($host), 0, 3) as $ip) {
+            curl_setopt($ch, CURLOPT_RESOLVE, [$host . ':' . $port . ':' . $ip]);
+            $out = curl_exec($ch);
+            if ($out !== false || curl_errno($ch) !== CURLE_COULDNT_CONNECT && curl_errno($ch) !== CURLE_OPERATION_TIMEDOUT) break;
+        }
+    }
+    if ($out !== false) dns_remember($ch, $host);
+    return $out;
+}
+
 /* ------------------------------------------------------------------ HTTP do usług zewnętrznych */
 function http_request(string $method, string $url, array $headers = [], ?string $body = null, int $timeout = 30): array {
     $ch = curl_init($url);
@@ -288,7 +341,7 @@ function http_request(string $method, string $url, array $headers = [], ?string 
         },
     ]);
     if ($body !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-    $out = curl_exec($ch);
+    $out = curl_exec_dns($ch, $url);
     $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     $err = $out === false ? curl_error($ch) : '';
     curl_close($ch);
